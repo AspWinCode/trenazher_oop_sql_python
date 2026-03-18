@@ -19,6 +19,9 @@ body {
   .btn-danger {
     @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
   }
+  .btn-success {
+    @apply btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
+  }
   .btn-sm {
     @apply px-3 py-1.5 text-sm;
   }
