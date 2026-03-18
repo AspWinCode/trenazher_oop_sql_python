@@ -131,8 +131,8 @@ function TaskSolver({
   const lang = langMap[task.task_type] || 'python';
   const publicTests = task.tests?.filter((t) => t.test_type === 'public') ?? [];
 
-  const isCorrect = submission?.verdict === 'correct';
-  const completedCount = history.filter((s) => s.verdict === 'correct').length;
+  const isCorrect = submission?.verdict === 'AC';
+  const completedCount = history.filter((s) => s.verdict === 'AC').length;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
