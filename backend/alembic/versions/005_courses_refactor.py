@@ -16,182 +16,145 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # --- courses: убрать is_visible, если есть ---
-    try:
-        with op.batch_alter_table("courses") as batch_op:
-            batch_op.drop_column("is_visible")
-    except Exception:
-        # колонки может уже не быть – игнорируем
-        pass
+    # Use raw SQL with IF EXISTS / IF NOT EXISTS throughout to be
+    # idempotent regardless of which tables/indexes actually exist.
 
-    # --- course_nodes: привести к целевой модели статусов и индексов ---
-    try:
-        with op.batch_alter_table("course_nodes") as batch_op:
-            # дроп старого status, если есть
-            try:
-                batch_op.drop_column("status")
-            except Exception:
-                pass
+    # --- courses: remove is_visible if present ---
+    op.execute("ALTER TABLE courses DROP COLUMN IF EXISTS is_visible")
 
-            # coursestatus уже создавался в 001 как enum для courses.status
-            status_enum = sa.Enum(
-                "draft", "published", "archived", name="coursestatus", create_type=False
-            )
-            batch_op.add_column(
-                sa.Column("status", status_enum, nullable=False, server_default="draft")
-            )
-    except Exception:
-        # если таблицы нет / другая схема – не ломаем миграцию
-        pass
-
-    # Индексы для course_nodes
-    for name, cols in [
-        ("ix_course_nodes_course_id", ["course_id"]),
-        ("ix_course_nodes_parent_id", ["parent_id"]),
-        ("ix_course_nodes_course_parent_sort", ["course_id", "parent_id", "sort_order"]),
-    ]:
-        try:
-            op.create_index(name, "course_nodes", cols)
-        except Exception:
-            pass
-
-    # --- Удаляем старую step‑логику и старый прогресс ---
-    for idx, table in [
-        ("ix_user_step_progress_user_step", "user_step_progress"),
-        ("ix_user_node_progress_user_node", "user_node_progress"),
-        ("ix_user_course_progress_user_course", "user_course_progress"),
-    ]:
-        try:
-            op.drop_index(idx, table)
-        except Exception:
-            pass
-
-    for table in ["user_step_progress", "user_node_progress", "user_course_progress", "topic_steps"]:
-        try:
-            op.drop_table(table)
-        except Exception:
-            pass
-
-    # удалить enum'ы topic* и старый coursenodestatus, если ещё остались
-    for enum_name in ["topicstepstatus", "topicsteptype", "coursenodestatus"]:
-        op.execute(f"DROP TYPE IF EXISTS {enum_name}")
-
-    # --- Новые таблицы: course_node_tasks и прогресс ---
-
-    # Связь узла с задачами
-    op.create_table(
-        "course_node_tasks",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("node_id", sa.Integer(), sa.ForeignKey("course_nodes.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("task_id", sa.Integer(), sa.ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("sort_order", sa.Integer(), server_default="0", nullable=False),
-        sa.Column("is_required", sa.Boolean(), server_default="true", nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-    )
-    op.create_index(
-        "ix_course_node_tasks_node_sort",
-        "course_node_tasks",
-        ["node_id", "sort_order"],
-    )
-    op.create_unique_constraint(
-        "uq_course_node_tasks_node_task",
-        "course_node_tasks",
-        ["node_id", "task_id"],
-    )
-
-    # Прогресс по курсу
-    op.create_table(
-        "user_course_progress",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("course_id", sa.Integer(), sa.ForeignKey("courses.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("progress_percent", sa.Float(), server_default="0.0", nullable=False),
-        sa.Column("completed_tasks_count", sa.Integer(), server_default="0", nullable=False),
-        sa.Column("total_tasks_count", sa.Integer(), server_default="0", nullable=False),
-        sa.Column("current_node_id", sa.Integer(), sa.ForeignKey("course_nodes.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("last_task_id", sa.Integer(), sa.ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-    )
-    op.create_index(
-        "ix_user_course_progress_user_course",
-        "user_course_progress",
-        ["user_id", "course_id"],
-        unique=True,
-    )
-
-    # Прогресс по задаче узла
+    # --- course_nodes: replace enum status with coursestatus ---
+    # coursestatus ('draft','published','archived') was created in migration 001.
+    op.execute("ALTER TABLE course_nodes DROP COLUMN IF EXISTS status")
     op.execute(
-        "DO $$ BEGIN CREATE TYPE node_task_progress_status AS ENUM ('not_started', 'in_progress', 'completed'); "
-        "EXCEPTION WHEN duplicate_object THEN null; END $$"
-    )
-    status_enum = sa.Enum(
-        "not_started", "in_progress", "completed", name="node_task_progress_status", create_type=False
+        "ALTER TABLE course_nodes "
+        "ADD COLUMN IF NOT EXISTS status coursestatus NOT NULL DEFAULT 'draft'"
     )
 
-    op.create_table(
-        "user_course_node_task_progress",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("node_task_id", sa.Integer(), sa.ForeignKey("course_node_tasks.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("status", status_enum, server_default="not_started", nullable=False),
-        sa.Column("best_submission_id", sa.Integer(), sa.ForeignKey("submissions.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+    # --- Indexes on course_nodes ---
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_course_nodes_course_id "
+        "ON course_nodes(course_id)"
     )
-    op.create_index(
-        "ix_user_course_node_task_progress_user_node_task",
-        "user_course_node_task_progress",
-        ["user_id", "node_task_id"],
-        unique=True,
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_course_nodes_parent_id "
+        "ON course_nodes(parent_id)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_course_nodes_course_parent_sort "
+        "ON course_nodes(course_id, parent_id, sort_order)"
+    )
+
+    # --- Drop legacy step tables (004 created them, 005 replaces them) ---
+    op.execute("DROP TABLE IF EXISTS user_step_progress CASCADE")
+    op.execute("DROP TABLE IF EXISTS user_node_progress CASCADE")
+    op.execute("DROP TABLE IF EXISTS user_course_progress CASCADE")
+    op.execute("DROP TABLE IF EXISTS topic_steps CASCADE")
+
+    # --- Drop legacy enums ---
+    op.execute("DROP TYPE IF EXISTS topicstepstatus")
+    op.execute("DROP TYPE IF EXISTS topicsteptype")
+    op.execute("DROP TYPE IF EXISTS coursenodestatus")
+
+    # --- New table: course_node_tasks ---
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS course_node_tasks (
+            id          SERIAL PRIMARY KEY,
+            node_id     INTEGER NOT NULL REFERENCES course_nodes(id) ON DELETE CASCADE,
+            task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            sort_order  INTEGER NOT NULL DEFAULT 0,
+            is_required BOOLEAN NOT NULL DEFAULT true,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    """)
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_course_node_tasks_node_sort "
+        "ON course_node_tasks(node_id, sort_order)"
+    )
+    op.execute(
+        "DO $$ BEGIN "
+        "ALTER TABLE course_node_tasks "
+        "ADD CONSTRAINT uq_course_node_tasks_node_task UNIQUE (node_id, task_id); "
+        "EXCEPTION WHEN duplicate_object THEN null; "
+        "END $$"
+    )
+
+    # --- New table: user_course_progress (replacement, new schema) ---
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS user_course_progress (
+            id                    SERIAL PRIMARY KEY,
+            user_id               INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            course_id             INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+            progress_percent      FLOAT NOT NULL DEFAULT 0.0,
+            completed_tasks_count INTEGER NOT NULL DEFAULT 0,
+            total_tasks_count     INTEGER NOT NULL DEFAULT 0,
+            current_node_id       INTEGER REFERENCES course_nodes(id) ON DELETE SET NULL,
+            last_task_id          INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+            updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    """)
+    op.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_user_course_progress_user_course "
+        "ON user_course_progress(user_id, course_id)"
+    )
+
+    # --- Enum for node_task_progress_status ---
+    op.execute(
+        "DO $$ BEGIN "
+        "CREATE TYPE node_task_progress_status AS ENUM "
+        "('not_started', 'in_progress', 'completed'); "
+        "EXCEPTION WHEN duplicate_object THEN null; "
+        "END $$"
+    )
+
+    # --- New table: user_course_node_task_progress ---
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS user_course_node_task_progress (
+            id                  SERIAL PRIMARY KEY,
+            user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            node_task_id        INTEGER NOT NULL REFERENCES course_node_tasks(id) ON DELETE CASCADE,
+            status              node_task_progress_status NOT NULL DEFAULT 'not_started',
+            best_submission_id  INTEGER REFERENCES submissions(id) ON DELETE SET NULL,
+            completed_at        TIMESTAMPTZ,
+            updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    """)
+    op.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        "ix_user_course_node_task_progress_user_node_task "
+        "ON user_course_node_task_progress(user_id, node_task_id)"
     )
 
 
 def downgrade() -> None:
-    # Откат новых таблиц прогресса и связок
-    op.drop_index(
-        "ix_user_course_node_task_progress_user_node_task",
-        "user_course_node_task_progress",
+    op.execute(
+        "DROP INDEX IF EXISTS "
+        "ix_user_course_node_task_progress_user_node_task"
     )
-    op.drop_table("user_course_node_task_progress")
-
+    op.execute("DROP TABLE IF EXISTS user_course_node_task_progress")
     op.execute("DROP TYPE IF EXISTS node_task_progress_status")
 
-    op.drop_index("ix_user_course_progress_user_course", "user_course_progress")
-    op.drop_table("user_course_progress")
+    op.execute(
+        "DROP INDEX IF EXISTS ix_user_course_progress_user_course"
+    )
+    op.execute("DROP TABLE IF EXISTS user_course_progress")
 
-    op.drop_index("ix_course_node_tasks_node_sort", "course_node_tasks")
-    op.drop_constraint("uq_course_node_tasks_node_task", "course_node_tasks", type_="unique")
-    op.drop_table("course_node_tasks")
+    op.execute("DROP INDEX IF EXISTS ix_course_node_tasks_node_sort")
+    op.execute("DROP TABLE IF EXISTS course_node_tasks CASCADE")
 
-    # Индексы course_nodes
-    for idx in [
-        "ix_course_nodes_course_parent_sort",
-        "ix_course_nodes_parent_id",
-        "ix_course_nodes_course_id",
-    ]:
-        try:
-            op.drop_index(idx, "course_nodes")
-        except Exception:
-            pass
+    op.execute("DROP INDEX IF EXISTS ix_course_nodes_course_parent_sort")
+    op.execute("DROP INDEX IF EXISTS ix_course_nodes_parent_id")
+    op.execute("DROP INDEX IF EXISTS ix_course_nodes_course_id")
 
-    # Вернуть status узла как простой VARCHAR (минимальный даунгрейд)
-    try:
-        with op.batch_alter_table("course_nodes") as batch_op:
-            try:
-                batch_op.drop_column("status")
-            except Exception:
-                pass
-            batch_op.add_column(sa.Column("status", sa.String(length=16), nullable=True))
-    except Exception:
-        pass
+    # Restore status column on course_nodes (minimal downgrade)
+    op.execute("ALTER TABLE course_nodes DROP COLUMN IF EXISTS status")
+    op.execute(
+        "ALTER TABLE course_nodes "
+        "ADD COLUMN IF NOT EXISTS status VARCHAR(16)"
+    )
 
-    # Вернуть is_visible в courses (минимальный даунгрейд)
-    try:
-        with op.batch_alter_table("courses") as batch_op:
-            batch_op.add_column(
-                sa.Column("is_visible", sa.Boolean(), server_default="true", nullable=False)
-            )
-    except Exception:
-        pass
-
+    # Restore is_visible in courses (minimal downgrade)
+    op.execute(
+        "ALTER TABLE courses "
+        "ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true"
+    )
