@@ -29,8 +29,8 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    submissions = relationship("Submission", back_populates="user")
-    progress = relationship("StudentProgress", back_populates="user")
+    submissions = relationship("Submission", back_populates="user", passive_deletes=True)
+    progress = relationship("StudentProgress", back_populates="user", passive_deletes=True)
     course_progress = relationship(
         "UserCourseProgress",
         back_populates="user",
@@ -41,4 +41,4 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    personal_links = relationship("PersonalLink", back_populates="user")
+    personal_links = relationship("PersonalLink", back_populates="user", passive_deletes=True)

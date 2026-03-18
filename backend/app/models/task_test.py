@@ -25,4 +25,4 @@ class TaskTest(Base):
     order_index: Mapped[int] = mapped_column(Integer, default=0)
 
     task = relationship("Task", back_populates="tests")
-    submission_tests = relationship("SubmissionTest", back_populates="test")
+    submission_tests = relationship("SubmissionTest", back_populates="test", passive_deletes=True)
