@@ -53,9 +53,9 @@ class Task(Base):
     tests = relationship("TaskTest", back_populates="task", cascade="all, delete-orphan", order_by="TaskTest.order_index")
     hints = relationship("TaskHint", back_populates="task", cascade="all, delete-orphan")
     lectures = relationship("TaskLecture", back_populates="task", cascade="all, delete-orphan")
-    submissions = relationship("Submission", back_populates="task")
-    progress = relationship("StudentProgress", back_populates="task")
-    personal_links = relationship("PersonalLink", back_populates="task")
+    submissions = relationship("Submission", back_populates="task", passive_deletes=True)
+    progress = relationship("StudentProgress", back_populates="task", passive_deletes=True)
+    personal_links = relationship("PersonalLink", back_populates="task", passive_deletes=True)
     course_nodes = relationship(
         "CourseNodeTask",
         back_populates="task",
