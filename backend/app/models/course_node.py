@@ -33,11 +33,16 @@ class CourseNode(Base):
         ForeignKey("course_nodes.id", ondelete="CASCADE"),
         nullable=True,
     )
-    type: Mapped[CourseNodeType] = mapped_column(Enum(CourseNodeType))
+    type: Mapped[CourseNodeType] = mapped_column(
+        Enum(CourseNodeType, name="coursenodetype", create_type=False)
+    )
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[CourseNodeStatus] = mapped_column(Enum(CourseNodeStatus), default=CourseNodeStatus.draft)
+    status: Mapped[CourseNodeStatus] = mapped_column(
+        Enum(CourseNodeStatus, name="coursestatus", create_type=False),
+        default=CourseNodeStatus.draft,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
