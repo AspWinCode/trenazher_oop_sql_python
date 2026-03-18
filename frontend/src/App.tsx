@@ -1,0 +1,35 @@
+import { Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import TaskPage from './pages/TaskPage';
+import TasksPage from './pages/TasksPage';
+import ProgressPage from './pages/ProgressPage';
+import ProfilePage from './pages/ProfilePage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminCoursesPage from './pages/AdminCoursesPage';
+import AdminCourseEditorPage from './pages/AdminCourseEditorPage';
+import AdminTasksPage from './pages/AdminTasksPage';
+import AdminLinksPage from './pages/AdminLinksPage';
+import PersonalTaskPage from './pages/PersonalTaskPage';
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/shared/:token" element={<PersonalTaskPage />} />
+      <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+        <Route index element={<ProgressPage />} />
+        <Route path="tasks" element={<TasksPage />} />
+        <Route path="task/:taskId" element={<TaskPage />} />
+        <Route path="progress" element={<ProgressPage />} />
+        <Route path="profile/:userId" element={<ProfilePage />} />
+        <Route path="admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
+        <Route path="admin/courses" element={<ProtectedRoute requireAdmin><AdminCoursesPage /></ProtectedRoute>} />
+        <Route path="admin/courses/:courseId" element={<ProtectedRoute requireAdmin><AdminCourseEditorPage /></ProtectedRoute>} />
+        <Route path="admin/tasks" element={<ProtectedRoute requireAdmin><AdminTasksPage /></ProtectedRoute>} />
+        <Route path="admin/links" element={<ProtectedRoute requireAdmin><AdminLinksPage /></ProtectedRoute>} />
+      </Route>
+    </Routes>
+  );
+}

@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+import json
+from typing import List
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    DATABASE_URL: str = "postgresql+asyncpg://platform:platform@postgres:5432/platform"
+    SYNC_DATABASE_URL: str = "postgresql://platform:platform@postgres:5432/platform"
+    REDIS_URL: str = "redis://redis:6379/0"
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    ADMIN_LOGIN: str = "admin"
+    ADMIN_PASSWORD: str
+    JUDGER_INTERNAL_TOKEN: str
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    AUTO_CREATE_TABLES: bool = False
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def cors_origins(self) -> List[str]:
+        raw = (self.CORS_ORIGINS or "").strip()
+        if not raw:
+            return []
+        if raw.startswith("["):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                return []
+            if isinstance(parsed, list):
+                return [str(origin).strip() for origin in parsed if str(origin).strip()]
+            return []
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+settings = Settings()

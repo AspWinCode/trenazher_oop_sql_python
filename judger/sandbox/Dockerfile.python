@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+
+RUN pip install --no-cache-dir pytest numpy && \
+    rm -rf /root/.cache
+
+RUN useradd -m -s /bin/sh runner
+USER runner
+
+WORKDIR /workspace

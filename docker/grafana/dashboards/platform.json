@@ -1,0 +1,121 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "platform-overview",
+    "title": "Task Checker Platform",
+    "tags": ["platform"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": { "from": "now-1h", "to": "now" },
+    "panels": [
+      {
+        "id": 1,
+        "title": "HTTP Request Rate",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[1m])",
+            "legendFormat": "{{method}} {{handler}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "HTTP Request Duration (p95)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Submissions Total",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(submissions_total)",
+            "legendFormat": "Total"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Submissions by Verdict",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 6, "x": 6, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum by (verdict) (submissions_verdict_total)",
+            "legendFormat": "{{verdict}}"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Submission Processing Latency",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(submission_processing_seconds_bucket[5m]))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(submission_processing_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(submission_processing_seconds_bucket[5m]))",
+            "legendFormat": "p99"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "HTTP Error Rate",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m]))",
+            "legendFormat": "5xx errors/s"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"4..\"}[1m]))",
+            "legendFormat": "4xx errors/s"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Active Connections",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum(http_requests_in_progress)",
+            "legendFormat": "In Progress"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Redis Memory",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+        "targets": [
+          {
+            "expr": "redis_memory_used_bytes",
+            "legendFormat": "Used Memory"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend deps
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          SECRET_KEY: ci-secret-key
+          ADMIN_PASSWORD: ci-admin-password
+          JUDGER_INTERNAL_TOKEN: ci-judger-token
+          CORS_ORIGINS: http://localhost:3000
+        run: python -m pytest -q
+
+  frontend-tsc:
+    name: Frontend Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run TypeScript build check
+        working-directory: frontend
+        run: npx tsc -b
+
+  e2e-profile:
+    name: E2E Profile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [backend-tests, frontend-tsc]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare compose env
+        working-directory: docker
+        run: |
+          cat > .env <<'EOF'
+          SECRET_KEY=ci-secret-key
+          ADMIN_LOGIN=admin
+          ADMIN_PASSWORD=ci-admin-password
+          JUDGER_INTERNAL_TOKEN=ci-judger-token
+          CORS_ORIGINS=http://localhost:3000
+          E2E_HEALTH_TIMEOUT=180
+          EOF
+
+      - name: Build sandbox images
+        run: |
+          docker build -t platform-sandbox-python:latest -f judger/sandbox/Dockerfile.python judger/sandbox/
+          docker build -t platform-sandbox-sql:latest -f judger/sandbox/Dockerfile.sql judger/sandbox/
+          docker build -t platform-sandbox-cpp:latest -f judger/sandbox/Dockerfile.cpp judger/sandbox/
+          docker build -t platform-sandbox-js:latest -f judger/sandbox/Dockerfile.js judger/sandbox/
+
+      - name: Run e2e profile
+        run: docker compose --env-file docker/.env -f docker/docker-compose.yml --profile e2e up --build --abort-on-container-exit --exit-code-from e2e-check e2e-check
+
+      - name: Collect e2e diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p /tmp/e2e-debug
+          docker compose --env-file docker/.env -f docker/docker-compose.yml ps -a > /tmp/e2e-debug/compose-ps.txt
+          docker compose --env-file docker/.env -f docker/docker-compose.yml images > /tmp/e2e-debug/compose-images.txt
+          docker compose --env-file docker/.env -f docker/docker-compose.yml logs --no-color > /tmp/e2e-debug/compose-logs.txt
+
+      - name: Upload e2e diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-debug-logs
+          path: /tmp/e2e-debug
+          if-no-files-found: ignore
+
+      - name: Tear down compose
+        if: always()
+        run: docker compose --env-file docker/.env -f docker/docker-compose.yml down -v --remove-orphans

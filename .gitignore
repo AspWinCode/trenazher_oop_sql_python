@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.env/
+pip-wheel-metadata/
+
+# Secrets и env-файлы (НЕ коммитить реальные секреты)
+.env
+.env.local
+.env.*.local
+deploy/.env.prod
+
+# Test artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.db
+test.db
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+
+# Claude
+.claude/
+
+# Docker
+*.log
+
+# Alembic (temp)
+002_add_cpp_js_contests_ratings_achievements.py
