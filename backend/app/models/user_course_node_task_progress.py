@@ -23,7 +23,7 @@ class UserCourseNodeTaskProgress(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     node_task_id: Mapped[int] = mapped_column(ForeignKey("course_node_tasks.id", ondelete="CASCADE"))
     status: Mapped[NodeTaskProgressStatus] = mapped_column(
-        Enum(NodeTaskProgressStatus),
+        Enum(NodeTaskProgressStatus, name="node_task_progress_status", create_type=False),
         default=NodeTaskProgressStatus.not_started,
     )
     best_submission_id: Mapped[Optional[int]] = mapped_column(

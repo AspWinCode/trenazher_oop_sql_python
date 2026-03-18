@@ -116,23 +116,28 @@ function TaskSolver({
       {/* Основной контент */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-6 py-5 grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Левая: условие + примеры + подсказки + история */}
+
+          {/* ── Левая колонка: условие + примеры + подсказки + история ── */}
           <div className="space-y-4">
-            {task.description && <Markdown content={task.description} />}
+            {task.description && (
+              <div className="prose prose-sm max-w-none">
+                <Markdown content={task.description} />
+              </div>
+            )}
 
             {publicTests.length > 0 && (
               <div className="space-y-3">
                 {publicTests.map((t) => (
-                  <div key={t.id} className="rounded-lg border border-surface-100 overflow-hidden text-sm">
+                  <div key={t.id} className="rounded-xl border border-surface-100 overflow-hidden text-sm">
                     {t.input_data && (
-                      <div className="px-4 py-2 bg-surface-50 border-b border-surface-100">
-                        <div className="text-xs font-semibold text-surface-400 uppercase mb-1">Sample Input:</div>
+                      <div className="px-4 py-2.5 bg-surface-50 border-b border-surface-100">
+                        <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Input:</div>
                         <code className="text-dark-700 font-mono whitespace-pre-wrap">{t.input_data}</code>
                       </div>
                     )}
                     {t.expected_output && (
-                      <div className="px-4 py-2 bg-white">
-                        <div className="text-xs font-semibold text-surface-400 uppercase mb-1">Sample Output:</div>
+                      <div className="px-4 py-2.5 bg-white">
+                        <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Output:</div>
                         <code className="text-dark-700 font-mono whitespace-pre-wrap">{t.expected_output}</code>
                       </div>
                     )}
@@ -145,16 +150,16 @@ function TaskSolver({
               <div>
                 <button
                   onClick={() => setShowHints(!showHints)}
-                  className="text-sm text-primary-600 hover:underline font-medium"
+                  className="text-sm text-primary-500 hover:text-primary-600 font-medium"
                 >
                   {showHints ? 'Скрыть подсказки' : `💡 Подсказки (${hints.length})`}
                 </button>
                 {showHints && (
                   <div className="space-y-2 mt-2">
                     {hints.map((h) => (
-                      <div key={h.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
-                        <div className="font-medium text-yellow-800 mb-1">Подсказка {h.hint_level}</div>
-                        <div className="text-yellow-700">{h.content}</div>
+                      <div key={h.id} className="bg-warning-50 border border-warning-200 rounded-xl p-3 text-sm">
+                        <div className="font-semibold text-warning-800 mb-1">Подсказка {h.hint_level}</div>
+                        <div className="text-warning-700">{h.content}</div>
                       </div>
                     ))}
                   </div>
@@ -163,18 +168,16 @@ function TaskSolver({
             )}
 
             {history.length > 0 && (
-              <details className="group">
-                <summary className="text-sm text-surface-400 cursor-pointer hover:text-surface-600 select-none">
+              <details>
+                <summary className="text-sm text-surface-400 cursor-pointer hover:text-surface-500 select-none">
                   История отправок ({history.length})
                 </summary>
                 <div className="mt-2 space-y-1">
                   {history.slice(0, 10).map((s) => (
                     <div key={s.id} className="flex items-center justify-between text-sm py-1.5 border-b border-surface-100 last:border-0">
-                      <span className="text-surface-400">#{s.id}</span>
+                      <span className="text-surface-400 text-xs">#{s.id}</span>
                       <VerdictBadge verdict={s.verdict} />
-                      <span className="text-xs text-surface-400">
-                        {new Date(s.created_at).toLocaleString('ru')}
-                      </span>
+                      <span className="text-xs text-surface-400">{new Date(s.created_at).toLocaleString('ru')}</span>
                     </div>
                   ))}
                 </div>
@@ -182,38 +185,56 @@ function TaskSolver({
             )}
           </div>
 
-          {/* Правая: редактор + результат */}
-          <div className="space-y-4">
+          {/* ── Правая колонка: редактор с кнопкой + результат ── */}
+          <div className="space-y-3">
+            {/* Редактор */}
             <div className="rounded-xl border border-surface-200 overflow-hidden shadow-sm">
-              <div className="flex items-center justify-between px-4 py-3 bg-dark-800 text-white">
-                <span className="text-sm font-medium">Напишите программу</span>
+              <div className="px-4 py-2.5 bg-dark-900 text-white text-sm font-medium">
+                Напишите программу{lang !== 'python' ? ` (${lang})` : ''}
               </div>
-              <CodeEditor value={code} onChange={setCode} language={lang} height="340px" />
+              <CodeEditor value={code} onChange={setCode} language={lang} height="320px" />
+              {/* Кнопка отправки — внутри карточки редактора */}
+              <div className="px-4 py-3 bg-dark-800 border-t border-dark-700 flex items-center gap-3">
+                <button
+                  onClick={() => submitSolution(task.id, code)}
+                  disabled={submitting}
+                  className="btn-primary flex-1"
+                >
+                  {submitting
+                    ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Проверка...</>
+                    : '▶  Отправить решение'}
+                </button>
+                {isCorrect && taskNumber < totalTasks && (
+                  <button onClick={onNext} className="btn-success">
+                    Следующий шаг →
+                  </button>
+                )}
+              </div>
             </div>
 
+            {/* Результат проверки */}
             {submission && (
-              <div className={`rounded-xl border p-4 ${
-                isCorrect ? 'border-green-200 bg-green-50'
-                  : submission.status !== 'finished' ? 'border-primary-200 bg-primary-50'
+              <div className={`rounded-xl border p-4 text-sm ${
+                isCorrect
+                  ? 'border-accent-300 bg-accent-50'
+                  : submission.status !== 'finished'
+                  ? 'border-sky-200 bg-sky-50'
                   : 'border-red-200 bg-red-50'
               }`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     {submission.status !== 'finished' && (
-                      <svg className="w-4 h-4 animate-spin text-primary-600" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <svg className="w-4 h-4 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                       </svg>
                     )}
-                    {isCorrect && <span className="text-green-600 font-medium">Так точно! ✅</span>}
-                    {!isCorrect && submission.status === 'finished' && (
-                      <span className="text-red-600 font-medium">Неверно ❌</span>
-                    )}
-                    {submission.status !== 'finished' && (
-                      <span className="text-primary-600 text-sm">
-                        {submission.status === 'queued' ? 'В очереди...' : 'Выполняется...'}
-                      </span>
-                    )}
+                    <span className={`font-semibold ${isCorrect ? 'text-accent-700' : submission.status !== 'finished' ? 'text-primary-600' : 'text-red-600'}`}>
+                      {isCorrect ? 'Верно! ✅'
+                        : submission.status !== 'finished'
+                        ? (submission.status === 'queued' ? 'В очереди...' : 'Выполняется...')
+                        : 'Неверно ❌'}
+                    </span>
                   </div>
                   <VerdictBadge verdict={submission.verdict} />
                 </div>
@@ -221,15 +242,15 @@ function TaskSolver({
                   <div className="text-xs text-surface-400 mb-2">Время: {submission.runtime.toFixed(3)}с</div>
                 )}
                 {submission.error_output && (
-                  <pre className="bg-white border border-red-100 text-red-800 text-xs p-3 rounded overflow-auto max-h-36 mt-2">
+                  <pre className="bg-white border border-red-100 text-red-800 text-xs p-3 rounded-lg overflow-auto max-h-36 mt-2 font-mono">
                     {submission.error_output}
                   </pre>
                 )}
                 {submission.test_results && submission.test_results.length > 0 && (
                   <div className="space-y-1 mt-2">
                     {submission.test_results.map((tr, i) => (
-                      <div key={tr.id} className="flex items-center gap-3 text-sm bg-white rounded px-3 py-1.5">
-                        <span className="text-surface-400 w-14 text-xs">Тест {i + 1}</span>
+                      <div key={tr.id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-1.5">
+                        <span className="text-surface-400 w-14 text-xs shrink-0">Тест {i + 1}</span>
                         <VerdictBadge verdict={tr.verdict} />
                         {tr.runtime != null && (
                           <span className="text-xs text-surface-400 ml-auto">{tr.runtime.toFixed(3)}с</span>
@@ -241,28 +262,18 @@ function TaskSolver({
               </div>
             )}
           </div>
+
         </div>
       </div>
 
-      {/* Нижняя панель */}
-      <div className="shrink-0 px-6 py-4 border-t border-surface-100 bg-white flex items-center gap-3">
-        <button
-          onClick={() => submitSolution(task.id, code)}
-          disabled={submitting}
-          className="btn-primary"
-        >
-          {submitting ? 'Проверка...' : '▶ Отправить решение'}
-        </button>
-        {isCorrect && taskNumber < totalTasks && (
-          <button onClick={onNext} className="btn-success">
-            Следующий шаг →
-          </button>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          <button onClick={onPrev} disabled={taskNumber <= 1} className="btn-secondary text-sm disabled:opacity-40">
+      {/* Нижняя панель — только навигация */}
+      <div className="shrink-0 px-6 py-3 border-t border-surface-100 bg-white flex items-center justify-between">
+        <span className="text-xs text-surface-400">Задача {taskNumber} из {totalTasks}</span>
+        <div className="flex items-center gap-2">
+          <button onClick={onPrev} disabled={taskNumber <= 1} className="btn-secondary btn-sm disabled:opacity-40">
             ← Назад
           </button>
-          <button onClick={onNext} disabled={taskNumber >= totalTasks} className="btn-secondary text-sm disabled:opacity-40">
+          <button onClick={onNext} disabled={taskNumber >= totalTasks} className="btn-secondary btn-sm disabled:opacity-40">
             Вперёд →
           </button>
         </div>
