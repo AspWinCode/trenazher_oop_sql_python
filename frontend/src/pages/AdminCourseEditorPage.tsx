@@ -176,6 +176,7 @@ export default function AdminCourseEditorPage() {
         parent_id: createForm.parentId ?? undefined,
         type: createForm.type,
         title: createTitle.trim(),
+        status: 'published',
       });
       setCreateForm(null);
       setCreateTitle('');
