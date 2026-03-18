@@ -14,6 +14,7 @@ import AdminTaskEditPage from './pages/AdminTaskEditPage';
 import AdminLinksPage from './pages/AdminLinksPage';
 import PersonalTaskPage from './pages/PersonalTaskPage';
 import CourseLearnPage from './pages/CourseLearnPage';
+import CoursesPage from './pages/CoursesPage';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/shared/:token" element={<PersonalTaskPage />} />
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<ProgressPage />} />
+        <Route path="courses" element={<CoursesPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="task/:taskId" element={<TaskPage />} />
         <Route path="course/:courseId" element={<CourseLearnPage />} />
