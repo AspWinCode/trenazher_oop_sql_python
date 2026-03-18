@@ -1,45 +1,39 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { courseStudentApi, coursesApi, type CourseNodeTree, type NodeTaskProgress } from '../api';
-import type { Course } from '../types';
+import {
+  courseStudentApi,
+  coursesApi,
+  type CourseNodeTree,
+  type NodeTaskProgress,
+} from '../api';
 import CodeEditor from '../components/CodeEditor';
 import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
+import { useCourseLearnStore, type CourseSidebarItem } from '../store/courseLearn';
 
-// ── Типы для плоского списка боковой панели ───────────────────────────────────
-interface SidebarSection {
-  kind: 'section';
-  nodeId: number;
-  number: string;
-  label: string;
-  depth: number;
-}
-interface SidebarTask {
-  kind: 'task';
-  nodeId: number;
-  taskId: number;
-  nodeTaskId: number;
-  number: string;
-  label: string;
-  status: 'not_started' | 'in_progress' | 'completed';
-  depth: number;
-}
-type SidebarItem = SidebarSection | SidebarTask;
+// ── Утилиты ───────────────────────────────────────────────────────────────────
 
-// ── Рекурсивное сплющивание дерева в плоский список ──────────────────────────
+function collectNodeIds(nodes: CourseNodeTree[]): number[] {
+  const ids: number[] = [];
+  nodes.forEach((n) => {
+    ids.push(n.id);
+    if (n.children.length > 0) ids.push(...collectNodeIds(n.children));
+  });
+  return ids;
+}
+
 function flattenTree(
   nodes: CourseNodeTree[],
   nodeTasks: Record<number, NodeTaskProgress[]>,
   prefix = '',
   depth = 0,
-): SidebarItem[] {
-  const items: SidebarItem[] = [];
+): CourseSidebarItem[] {
+  const items: CourseSidebarItem[] = [];
   nodes.forEach((node, idx) => {
     const num = prefix ? `${prefix}.${idx + 1}` : `${idx + 1}`;
     items.push({ kind: 'section', nodeId: node.id, number: num, label: node.title, depth });
-    // Задачи этого узла
     const tasks = nodeTasks[node.id] ?? [];
     tasks.forEach((t, ti) => {
       items.push({
@@ -53,41 +47,11 @@ function flattenTree(
         depth: depth + 1,
       });
     });
-    // Рекурсия в дочерние узлы
     if (node.children.length > 0) {
       items.push(...flattenTree(node.children, nodeTasks, num, depth + 1));
     }
   });
   return items;
-}
-
-// Собрать все id узлов из дерева
-function collectNodeIds(nodes: CourseNodeTree[]): number[] {
-  const ids: number[] = [];
-  nodes.forEach((n) => {
-    ids.push(n.id);
-    if (n.children.length > 0) ids.push(...collectNodeIds(n.children));
-  });
-  return ids;
-}
-
-// ── Иконки статуса задачи ─────────────────────────────────────────────────────
-function StatusDot({ status }: { status: 'not_started' | 'in_progress' | 'completed' }) {
-  if (status === 'completed')
-    return (
-      <span className="w-5 h-5 shrink-0 rounded-full bg-green-500 flex items-center justify-center">
-        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-      </span>
-    );
-  if (status === 'in_progress')
-    return (
-      <span className="w-5 h-5 shrink-0 rounded-full border-2 border-primary-500 bg-primary-100 flex items-center justify-center">
-        <span className="w-2 h-2 rounded-full bg-primary-500" />
-      </span>
-    );
-  return <span className="w-5 h-5 shrink-0 rounded-full border-2 border-surface-300 bg-white" />;
 }
 
 // ── Решатель задачи ───────────────────────────────────────────────────────────
@@ -130,13 +94,12 @@ function TaskSolver({
   const langMap: Record<string, string> = { sql_query: 'sql', cpp_io: 'cpp', js_io: 'javascript' };
   const lang = langMap[task.task_type] || 'python';
   const publicTests = task.tests?.filter((t) => t.test_type === 'public') ?? [];
-
   const isCorrect = submission?.verdict === 'AC';
   const completedCount = history.filter((s) => s.verdict === 'AC').length;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Топбар с прогрессом */}
+      {/* Топбар */}
       <div className="shrink-0 px-6 py-3 border-b border-surface-100 bg-white flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-sm font-semibold text-dark-700 truncate">{task.title}</span>
@@ -150,20 +113,16 @@ function TaskSolver({
         </div>
       </div>
 
-      {/* Основной контент — скроллируемый */}
+      {/* Основной контент */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-6 py-5 grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Левая колонка: условие + примеры + подсказки + история */}
+          {/* Левая: условие + примеры + подсказки + история */}
           <div className="space-y-4">
-            {task.description && (
-              <div>
-                <Markdown content={task.description} />
-              </div>
-            )}
+            {task.description && <Markdown content={task.description} />}
 
             {publicTests.length > 0 && (
               <div className="space-y-3">
-                {publicTests.map((t, i) => (
+                {publicTests.map((t) => (
                   <div key={t.id} className="rounded-lg border border-surface-100 overflow-hidden text-sm">
                     {t.input_data && (
                       <div className="px-4 py-2 bg-surface-50 border-b border-surface-100">
@@ -223,24 +182,19 @@ function TaskSolver({
             )}
           </div>
 
-          {/* Правая колонка: редактор + результат */}
+          {/* Правая: редактор + результат */}
           <div className="space-y-4">
             <div className="rounded-xl border border-surface-200 overflow-hidden shadow-sm">
               <div className="flex items-center justify-between px-4 py-3 bg-dark-800 text-white">
-                <span className="text-sm font-medium">
-                  Напишите программу{lang !== 'python' ? ` (${lang})` : ''}
-                </span>
+                <span className="text-sm font-medium">Напишите программу</span>
               </div>
               <CodeEditor value={code} onChange={setCode} language={lang} height="340px" />
             </div>
 
-            {/* Результат проверки */}
             {submission && (
               <div className={`rounded-xl border p-4 ${
-                isCorrect
-                  ? 'border-green-200 bg-green-50'
-                  : submission.status !== 'finished'
-                  ? 'border-primary-200 bg-primary-50'
+                isCorrect ? 'border-green-200 bg-green-50'
+                  : submission.status !== 'finished' ? 'border-primary-200 bg-primary-50'
                   : 'border-red-200 bg-red-50'
               }`}>
                 <div className="flex items-center justify-between mb-2">
@@ -290,7 +244,7 @@ function TaskSolver({
         </div>
       </div>
 
-      {/* Нижняя панель с кнопками навигации */}
+      {/* Нижняя панель */}
       <div className="shrink-0 px-6 py-4 border-t border-surface-100 bg-white flex items-center gap-3">
         <button
           onClick={() => submitSolution(task.id, code)}
@@ -304,24 +258,11 @@ function TaskSolver({
             Следующий шаг →
           </button>
         )}
-        {!isCorrect && history.length > 0 && (
-          <button onClick={() => setCode(code)} className="btn-secondary text-sm">
-            Решить снова
-          </button>
-        )}
         <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={onPrev}
-            disabled={taskNumber <= 1}
-            className="btn-secondary text-sm disabled:opacity-40"
-          >
+          <button onClick={onPrev} disabled={taskNumber <= 1} className="btn-secondary text-sm disabled:opacity-40">
             ← Назад
           </button>
-          <button
-            onClick={onNext}
-            disabled={taskNumber >= totalTasks}
-            className="btn-secondary text-sm disabled:opacity-40"
-          >
+          <button onClick={onNext} disabled={taskNumber >= totalTasks} className="btn-secondary text-sm disabled:opacity-40">
             Вперёд →
           </button>
         </div>
@@ -335,212 +276,104 @@ export default function CourseLearnPage() {
   const { courseId } = useParams<{ courseId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [course, setCourse] = useState<Course | null>(null);
-  const [tree, setTree] = useState<CourseNodeTree[]>([]);
-  const [nodeTasks, setNodeTasks] = useState<Record<number, NodeTaskProgress[]>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tasksLoaded, setTasksLoaded] = useState(false);
-
+  const { setCourseData, setSelectedTaskId, clear } = useCourseLearnStore();
   const selectedTaskId = searchParams.get('task') ? Number(searchParams.get('task')) : null;
 
-  // Загрузка курса и дерева
+  // Загрузка курса + дерева + задач всех узлов
   useEffect(() => {
     if (!courseId) return;
     const id = Number(courseId);
+
     Promise.all([coursesApi.get(id), courseStudentApi.getTree(id)])
-      .then(([cRes, tRes]) => {
-        setCourse(cRes.data);
-        setTree(tRes.data);
+      .then(async ([cRes, tRes]) => {
+        const course = cRes.data;
+        const tree: CourseNodeTree[] = tRes.data;
+        const allNodeIds = collectNodeIds(tree);
+
+        // Параллельно грузим задачи всех узлов
+        const results = await Promise.allSettled(
+          allNodeIds.map((nid) =>
+            courseStudentApi.getNodeTasks(nid).then((r) => ({ nid, tasks: r.data })),
+          ),
+        );
+        const nodeTasks: Record<number, NodeTaskProgress[]> = {};
+        results.forEach((r) => {
+          if (r.status === 'fulfilled') nodeTasks[r.value.nid] = r.value.tasks;
+        });
+
+        const items = flattenTree(tree, nodeTasks);
+        const taskItems = items.filter((i) => i.kind === 'task');
+        const completed = taskItems.filter((i) => i.status === 'completed').length;
+
+        setCourseData(id, course.title, items, completed, taskItems.length);
+
+        // Авто-выбор первой задачи
+        if (!searchParams.get('task') && taskItems.length > 0 && taskItems[0].taskId) {
+          setSearchParams({ task: String(taskItems[0].taskId) }, { replace: true });
+        }
       })
-      .catch((e) => setError(e.response?.data?.detail || 'Курс не найден'))
-      .finally(() => setLoading(false));
+      .catch(console.error);
+
+    return () => { clear(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
-  // После загрузки дерева — параллельно грузим задачи всех узлов
+  // Синхронизируем выбранную задачу со store
   useEffect(() => {
-    if (tree.length === 0) return;
-    const allNodeIds = collectNodeIds(tree);
-    Promise.allSettled(
-      allNodeIds.map((nid) =>
-        courseStudentApi.getNodeTasks(nid).then((r) => ({ nid, tasks: r.data })),
-      ),
-    ).then((results) => {
-      const map: Record<number, NodeTaskProgress[]> = {};
-      results.forEach((r) => {
-        if (r.status === 'fulfilled') map[r.value.nid] = r.value.tasks;
-      });
-      setNodeTasks(map);
-      setTasksLoaded(true);
-    });
-  }, [tree]);
+    setSelectedTaskId(selectedTaskId);
+  }, [selectedTaskId, setSelectedTaskId]);
 
-  // Плоский список для боковой панели
-  const sidebarItems = useMemo(
-    () => flattenTree(tree, nodeTasks),
-    [tree, nodeTasks],
-  );
-
-  // Только задачи (для навигации вперёд/назад)
+  // Список задач для навигации
+  const { sidebarItems } = useCourseLearnStore();
   const taskItems = useMemo(
-    () => sidebarItems.filter((i): i is SidebarTask => i.kind === 'task'),
+    () => sidebarItems.filter((i) => i.kind === 'task'),
     [sidebarItems],
   );
-
-  const currentTaskIndex = taskItems.findIndex((t) => t.taskId === selectedTaskId);
+  const currentIndex = taskItems.findIndex((t) => t.taskId === selectedTaskId);
 
   const selectTask = useCallback(
     (taskId: number) => {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('task', String(taskId));
-        return next;
-      });
+      setSearchParams({ task: String(taskId) });
     },
     [setSearchParams],
   );
 
   const goNext = useCallback(() => {
-    if (currentTaskIndex < taskItems.length - 1)
-      selectTask(taskItems[currentTaskIndex + 1].taskId);
-  }, [currentTaskIndex, taskItems, selectTask]);
+    if (currentIndex < taskItems.length - 1 && taskItems[currentIndex + 1].taskId)
+      selectTask(taskItems[currentIndex + 1].taskId!);
+  }, [currentIndex, taskItems, selectTask]);
 
   const goPrev = useCallback(() => {
-    if (currentTaskIndex > 0) selectTask(taskItems[currentTaskIndex - 1].taskId);
-  }, [currentTaskIndex, taskItems, selectTask]);
+    if (currentIndex > 0 && taskItems[currentIndex - 1].taskId)
+      selectTask(taskItems[currentIndex - 1].taskId!);
+  }, [currentIndex, taskItems, selectTask]);
 
-  // Авто-выбор первой задачи
-  useEffect(() => {
-    if (!selectedTaskId && taskItems.length > 0) {
-      selectTask(taskItems[0].taskId);
-    }
-  }, [taskItems, selectedTaskId, selectTask]);
-
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-screen text-surface-400 gap-2">
-        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-        Загрузка курса...
-      </div>
-    );
-
-  if (error || !course)
+  if (!courseId)
     return (
       <div className="p-8 text-center">
-        <div className="text-red-600 mb-4">{error ?? 'Курс не найден'}</div>
         <Link to="/courses" className="btn-secondary">← К курсам</Link>
       </div>
     );
 
-  const completedTasks = taskItems.filter((t) => t.status === 'completed').length;
-
   return (
-    <div className="-mx-6 -my-6 lg:-mx-8 lg:-my-8 flex overflow-hidden" style={{ height: '100vh' }}>
-      {/* ── Левый сайдбар (Stepik-стиль) ── */}
-      <aside className="w-72 shrink-0 bg-white border-r border-surface-200 flex flex-col overflow-hidden">
-        {/* Шапка курса */}
-        <div className="px-4 py-4 border-b border-surface-200 bg-dark-900 text-white">
-          <Link to="/courses" className="text-xs text-surface-400 hover:text-white transition-colors">
-            ← Все курсы
-          </Link>
-          <h1 className="font-bold text-sm mt-1 leading-snug line-clamp-2">{course.title}</h1>
-          {tasksLoaded && taskItems.length > 0 && (
-            <div className="mt-2">
-              <div className="flex items-center justify-between text-xs text-surface-400 mb-1">
-                <span>Прогресс по курсу</span>
-                <span className="text-white font-medium">{completedTasks}/{taskItems.length}</span>
-              </div>
-              <div className="w-full bg-dark-700 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-primary-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${taskItems.length ? (completedTasks / taskItems.length) * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-          )}
+    <div className="-mx-6 -my-6 lg:-mx-8 lg:-my-8 overflow-hidden bg-surface-50" style={{ height: 'calc(100vh - 0px)' }}>
+      {selectedTaskId ? (
+        <TaskSolver
+          key={selectedTaskId}
+          taskId={String(selectedTaskId)}
+          taskNumber={currentIndex + 1}
+          totalTasks={taskItems.length}
+          onNext={goNext}
+          onPrev={goPrev}
+        />
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-surface-400">
+          <span className="text-5xl">📚</span>
+          <p className="font-medium text-surface-500">
+            {taskItems.length === 0 ? 'В курсе пока нет задач' : 'Выберите задачу в списке слева'}
+          </p>
         </div>
-
-        {/* Список */}
-        <div className="flex-1 overflow-y-auto">
-          {sidebarItems.length === 0 && !tasksLoaded ? (
-            <div className="text-xs text-surface-400 text-center py-8">Загрузка...</div>
-          ) : sidebarItems.length === 0 ? (
-            <div className="text-xs text-surface-400 text-center py-8">Модули курса ещё не добавлены</div>
-          ) : (
-            <div className="py-2">
-              {sidebarItems.map((item) => {
-                if (item.kind === 'section') {
-                  // Заголовок раздела
-                  return (
-                    <div
-                      key={`section-${item.nodeId}`}
-                      className="px-4 pt-4 pb-1"
-                      style={{ paddingLeft: `${16 + item.depth * 8}px` }}
-                    >
-                      <div className="text-xs font-bold text-dark-700 uppercase tracking-wide truncate">
-                        <span className="text-surface-400 mr-1">{item.number}</span>
-                        {item.label}
-                      </div>
-                    </div>
-                  );
-                }
-                // Задача
-                const isActive = item.taskId === selectedTaskId;
-                return (
-                  <button
-                    key={`task-${item.nodeTaskId}`}
-                    type="button"
-                    onClick={() => selectTask(item.taskId)}
-                    className={`w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm transition-colors ${
-                      isActive
-                        ? 'bg-dark-800 text-white'
-                        : 'text-surface-600 hover:bg-surface-50'
-                    }`}
-                    style={{ paddingLeft: `${16 + item.depth * 8}px` }}
-                  >
-                    <StatusDot status={item.status} />
-                    <span className="truncate flex-1">
-                      <span className={`mr-1.5 ${isActive ? 'text-surface-400' : 'text-surface-300'}`}>
-                        {item.number}
-                      </span>
-                      {item.label}
-                    </span>
-                    {isActive && (
-                      <span className="shrink-0 text-surface-400">◀</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* ── Правая панель ── */}
-      <main className="flex-1 overflow-hidden bg-surface-50">
-        {selectedTaskId ? (
-          <TaskSolver
-            key={selectedTaskId}
-            taskId={String(selectedTaskId)}
-            taskNumber={currentTaskIndex + 1}
-            totalTasks={taskItems.length}
-            onNext={goNext}
-            onPrev={goPrev}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-surface-400">
-            <span className="text-5xl">📚</span>
-            <p className="font-medium text-surface-500">
-              {tasksLoaded && taskItems.length === 0
-                ? 'В этом курсе пока нет задач'
-                : 'Выберите задачу в списке слева'}
-            </p>
-          </div>
-        )}
-      </main>
+      )}
     </div>
   );
 }
