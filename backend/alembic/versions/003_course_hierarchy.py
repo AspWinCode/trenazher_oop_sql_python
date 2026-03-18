@@ -1,7 +1,7 @@
 """Course hierarchy: CourseNode, TopicStep, user progress
 
 Revision ID: 003
-Revises: 002
+Revises: 001
 Create Date: 2026-03-15
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = "003"
-down_revision: Union[str, None] = "002"
+down_revision: Union[str, None] = "001"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
