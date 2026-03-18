@@ -24,16 +24,17 @@ const NODE_ICONS: Record<CourseNodeType, string> = {
   subtopic: '📃',
 };
 
-const CHILD_TYPE: Record<CourseNodeType, CourseNodeType | null> = {
-  module: 'submodule',
-  submodule: 'topic',
-  topic: 'subtopic',
-  subtopic: null,
+// Все допустимые дочерние типы для каждого родителя (гибкая иерархия)
+const ALLOWED_CHILD_TYPES: Record<CourseNodeType, CourseNodeType[]> = {
+  module:    ['submodule', 'topic', 'subtopic'],
+  submodule: ['topic', 'subtopic'],
+  topic:     ['subtopic'],
+  subtopic:  [],
 };
 
 interface CreateNodeForm {
   parentId: number | null;
-  parentType: CourseNodeType | null; // for label
+  parentType: CourseNodeType | null;
   type: CourseNodeType;
   title: string;
 }
@@ -157,9 +158,11 @@ export default function AdminCourseEditorPage() {
 
   // ── Открыть форму создания ──────────────────────────────────────────────────
   const openCreateForm = (parentId: number | null, parentType: CourseNodeType | null) => {
-    const childType: CourseNodeType =
-      parentType === null ? 'module' : (CHILD_TYPE[parentType] ?? 'subtopic');
-    setCreateForm({ parentId, parentType, type: childType, title: '' });
+    const allowedTypes = parentType === null
+      ? (['module', 'submodule', 'topic', 'subtopic'] as CourseNodeType[])
+      : ALLOWED_CHILD_TYPES[parentType];
+    const defaultType = allowedTypes[0] ?? 'module';
+    setCreateForm({ parentId, parentType, type: defaultType, title: '' });
     setCreateTitle('');
   };
 
@@ -227,7 +230,8 @@ export default function AdminCourseEditorPage() {
   const renderTree = (nodes: CourseNodeTree[], depth = 0) => (
     <div className={depth > 0 ? 'ml-3 border-l border-surface-200 pl-3' : ''}>
       {nodes.map((node) => {
-        const childType = CHILD_TYPE[node.type];
+        const allowedChildren = ALLOWED_CHILD_TYPES[node.type];
+        const canAddChild = allowedChildren.length > 0;
         return (
           <div key={node.id} className="mb-1">
             <div className="flex items-center gap-1 group">
@@ -244,23 +248,19 @@ export default function AdminCourseEditorPage() {
                 <span className="shrink-0">{NODE_ICONS[node.type]}</span>
                 <span className="truncate">{node.title}</span>
                 <span className="text-xs text-surface-400 ml-auto shrink-0 pl-1">
-                  {node.task_count > 0
-                    ? `${node.task_count} зад.`
-                    : node.has_children
-                    ? ''
-                    : ''}
+                  {node.task_count > 0 ? `${node.task_count} зад.` : ''}
                 </span>
               </button>
 
               {/* Кнопка «+ дочерний» */}
-              {childType && (
+              {canAddChild && (
                 <button
                   type="button"
-                  title={`Добавить ${NODE_TYPE_LABELS[childType].toLowerCase()}`}
+                  title="Добавить вложенный узел"
                   onClick={() => openCreateForm(node.id, node.type)}
                   className="shrink-0 text-xs px-1.5 py-0.5 rounded text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  +{NODE_TYPE_LABELS[childType].slice(0, 3)}
+                  +
                 </button>
               )}
 
@@ -280,12 +280,22 @@ export default function AdminCourseEditorPage() {
             {createForm && createForm.parentId === node.id && (
               <div className="ml-3 mt-1 mb-2 border-l-2 border-primary-200 pl-3">
                 <form onSubmit={handleCreateNode} className="flex gap-2 items-center flex-wrap">
-                  <span className="text-xs text-primary-700 font-medium shrink-0">
-                    {NODE_ICONS[createForm.type]} Новый {NODE_TYPE_LABELS[createForm.type].toLowerCase()}:
-                  </span>
+                  <select
+                    className="input text-sm py-0.5"
+                    value={createForm.type}
+                    onChange={(e) =>
+                      setCreateForm({ ...createForm, type: e.target.value as CourseNodeType })
+                    }
+                  >
+                    {ALLOWED_CHILD_TYPES[node.type].map((t) => (
+                      <option key={t} value={t}>
+                        {NODE_ICONS[t]} {NODE_TYPE_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     autoFocus
-                    className="input text-sm flex-1 min-w-[160px] py-0.5"
+                    className="input text-sm flex-1 min-w-[140px] py-0.5"
                     placeholder="Название"
                     value={createTitle}
                     onChange={(e) => setCreateTitle(e.target.value)}
@@ -353,19 +363,31 @@ export default function AdminCourseEditorPage() {
               className="btn-primary btn-sm"
               onClick={() => openCreateForm(null, null)}
             >
-              + Модуль
+              + Добавить
             </button>
           </div>
 
-          {/* Форма создания модуля верхнего уровня */}
+          {/* Форма создания узла верхнего уровня */}
           {createForm && createForm.parentId === null && (
             <div className="mb-3 border border-primary-200 rounded p-2 bg-primary-50">
               <form onSubmit={handleCreateNode} className="flex gap-2 items-center flex-wrap">
-                <span className="text-xs text-primary-700 font-medium shrink-0">📁 Новый модуль:</span>
+                <select
+                  className="input text-sm py-0.5"
+                  value={createForm.type}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, type: e.target.value as CourseNodeType })
+                  }
+                >
+                  {(['module', 'submodule', 'topic', 'subtopic'] as CourseNodeType[]).map((t) => (
+                    <option key={t} value={t}>
+                      {NODE_ICONS[t]} {NODE_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
                 <input
                   autoFocus
-                  className="input text-sm flex-1 min-w-[160px] py-0.5"
-                  placeholder="Название модуля"
+                  className="input text-sm flex-1 min-w-[140px] py-0.5"
+                  placeholder="Название"
                   value={createTitle}
                   onChange={(e) => setCreateTitle(e.target.value)}
                   required
@@ -386,7 +408,7 @@ export default function AdminCourseEditorPage() {
 
           {tree.length === 0 && !createForm ? (
             <div className="text-sm text-surface-400">
-              Нет узлов. Нажмите «+ Модуль», чтобы начать.
+              Нет узлов. Нажмите «+ Добавить», чтобы начать.
             </div>
           ) : (
             renderTree(tree)
@@ -486,14 +508,14 @@ export default function AdminCourseEditorPage() {
               </form>
 
               {/* Добавить дочерний узел из панели */}
-              {CHILD_TYPE[selectedNode.type] && (
+              {ALLOWED_CHILD_TYPES[selectedNode.type].length > 0 && (
                 <div className="pt-3 border-t border-surface-200">
                   <button
                     type="button"
                     className="btn-secondary btn-sm w-full"
                     onClick={() => openCreateForm(selectedNode.id, selectedNode.type)}
                   >
-                    + Добавить {NODE_TYPE_LABELS[CHILD_TYPE[selectedNode.type]!].toLowerCase()}
+                    + Добавить вложенный узел
                   </button>
                 </div>
               )}

@@ -27,21 +27,13 @@ def is_leaf_node(node: CourseNode) -> bool:
 
 
 def can_create_child(node: CourseNode) -> bool:
-    """Можно ли добавить ребёнка к узлу."""
-    if node.status == CourseNodeStatus.archived:
-        return False
-    if node.node_tasks:
-        return False
-    return True
+    """Можно ли добавить дочерний узел. Единственное ограничение — архив."""
+    return node.status != CourseNodeStatus.archived
 
 
 def can_attach_task(node: CourseNode) -> bool:
-    """Можно ли прикрепить задачу к узлу."""
-    if node.status == CourseNodeStatus.archived:
-        return False
-    if node.children:
-        return False
-    return True
+    """Можно ли прикрепить задачу. Единственное ограничение — архив."""
+    return node.status != CourseNodeStatus.archived
 
 
 async def validate_move(
