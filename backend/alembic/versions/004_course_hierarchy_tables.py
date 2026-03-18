@@ -17,117 +17,95 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # --- Enums: только сырой SQL, без создания типов при create_table ---
-    op.execute(
-        "DO $$ BEGIN CREATE TYPE coursenodetype AS ENUM ('module', 'submodule', 'topic', 'subtopic'); "
-        "EXCEPTION WHEN duplicate_object THEN null; END $$"
-    )
-    op.execute(
-        "DO $$ BEGIN CREATE TYPE coursenodestatus AS ENUM ('active', 'archived'); "
-        "EXCEPTION WHEN duplicate_object THEN null; END $$"
-    )
-    op.execute(
-        "DO $$ BEGIN CREATE TYPE topicsteptype AS ENUM ('theory', 'task', 'text', 'video', 'quiz'); "
-        "EXCEPTION WHEN duplicate_object THEN null; END $$"
-    )
-    op.execute(
-        "DO $$ BEGIN CREATE TYPE topicstepstatus AS ENUM ('active', 'archived'); "
-        "EXCEPTION WHEN duplicate_object THEN null; END $$"
-    )
+    # Enums are already created by migration 003 via DO EXCEPTION blocks.
+    # We use raw SQL for table creation to avoid SQLAlchemy auto-emitting
+    # CREATE TYPE even when create_type=False (SQLAlchemy 2.0 behaviour).
 
-    node_type = sa.Enum("module", "submodule", "topic", "subtopic", name="coursenodetype", create_type=False)
-    node_status = sa.Enum("active", "archived", name="coursenodestatus", create_type=False)
-    step_type = sa.Enum("theory", "task", "text", "video", "quiz", name="topicsteptype", create_type=False)
-    step_status = sa.Enum("active", "archived", name="topicstepstatus", create_type=False)
+    op.execute("""
+        CREATE TABLE course_nodes (
+            id          SERIAL PRIMARY KEY,
+            course_id   INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+            parent_id   INTEGER REFERENCES course_nodes(id) ON DELETE CASCADE,
+            type        coursenodetype NOT NULL,
+            title       VARCHAR(255) NOT NULL,
+            description TEXT,
+            content     TEXT,
+            sort_order  INTEGER NOT NULL DEFAULT 0,
+            status      coursenodestatus NOT NULL DEFAULT 'active',
+            is_published BOOLEAN NOT NULL DEFAULT false,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+            archived_at TIMESTAMPTZ
+        )
+    """)
 
-    # --- course_nodes ---
-    op.create_table(
-        "course_nodes",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("course_id", sa.Integer(), sa.ForeignKey("courses.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("parent_id", sa.Integer(), sa.ForeignKey("course_nodes.id", ondelete="CASCADE"), nullable=True),
-        sa.Column("type", node_type, nullable=False),
-        sa.Column("title", sa.String(255), nullable=False),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("content", sa.Text(), nullable=True),
-        sa.Column("sort_order", sa.Integer(), server_default="0"),
-        sa.Column("status", node_status, server_default="active"),
-        sa.Column("is_published", sa.Boolean(), server_default="false"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
-    )
+    op.execute("""
+        CREATE TABLE topic_steps (
+            id          SERIAL PRIMARY KEY,
+            node_id     INTEGER NOT NULL REFERENCES course_nodes(id) ON DELETE CASCADE,
+            type        topicsteptype NOT NULL,
+            title       VARCHAR(255) NOT NULL,
+            content     TEXT,
+            task_id     INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+            sort_order  INTEGER NOT NULL DEFAULT 0,
+            status      topicstepstatus NOT NULL DEFAULT 'active',
+            is_published BOOLEAN NOT NULL DEFAULT false,
+            is_required  BOOLEAN NOT NULL DEFAULT true,
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    """)
 
-    # --- topic_steps ---
-    op.create_table(
-        "topic_steps",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("node_id", sa.Integer(), sa.ForeignKey("course_nodes.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("type", step_type, nullable=False),
-        sa.Column("title", sa.String(255), nullable=False),
-        sa.Column("content", sa.Text(), nullable=True),
-        sa.Column("task_id", sa.Integer(), sa.ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("sort_order", sa.Integer(), server_default="0"),
-        sa.Column("status", step_status, server_default="active"),
-        sa.Column("is_published", sa.Boolean(), server_default="false"),
-        sa.Column("is_required", sa.Boolean(), server_default="true"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-    )
+    op.execute("""
+        CREATE TABLE user_course_progress (
+            id                  SERIAL PRIMARY KEY,
+            user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            course_id           INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+            completed_steps     INTEGER NOT NULL DEFAULT 0,
+            total_steps         INTEGER NOT NULL DEFAULT 0,
+            completed_tasks     INTEGER NOT NULL DEFAULT 0,
+            total_tasks         INTEGER NOT NULL DEFAULT 0,
+            progress_percent    FLOAT   NOT NULL DEFAULT 0.0,
+            last_opened_node_id INTEGER REFERENCES course_nodes(id) ON DELETE SET NULL,
+            last_opened_step_id INTEGER REFERENCES topic_steps(id) ON DELETE SET NULL,
+            updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT ix_user_course_progress_user_course UNIQUE (user_id, course_id)
+        )
+    """)
 
-    # --- user_course_progress ---
-    op.create_table(
-        "user_course_progress",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("course_id", sa.Integer(), sa.ForeignKey("courses.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("completed_steps", sa.Integer(), server_default="0"),
-        sa.Column("total_steps", sa.Integer(), server_default="0"),
-        sa.Column("completed_tasks", sa.Integer(), server_default="0"),
-        sa.Column("total_tasks", sa.Integer(), server_default="0"),
-        sa.Column("progress_percent", sa.Float(), server_default="0.0"),
-        sa.Column("last_opened_node_id", sa.Integer(), sa.ForeignKey("course_nodes.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("last_opened_step_id", sa.Integer(), sa.ForeignKey("topic_steps.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-    )
-    op.create_index("ix_user_course_progress_user_course", "user_course_progress", ["user_id", "course_id"], unique=True)
+    op.execute("""
+        CREATE TABLE user_node_progress (
+            id                      SERIAL PRIMARY KEY,
+            user_id                 INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            node_id                 INTEGER NOT NULL REFERENCES course_nodes(id) ON DELETE CASCADE,
+            completed_steps         INTEGER NOT NULL DEFAULT 0,
+            total_steps             INTEGER NOT NULL DEFAULT 0,
+            completed_required_tasks INTEGER NOT NULL DEFAULT 0,
+            total_required_tasks    INTEGER NOT NULL DEFAULT 0,
+            progress_percent        FLOAT   NOT NULL DEFAULT 0.0,
+            is_completed            BOOLEAN NOT NULL DEFAULT false,
+            updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT ix_user_node_progress_user_node UNIQUE (user_id, node_id)
+        )
+    """)
 
-    # --- user_node_progress ---
-    op.create_table(
-        "user_node_progress",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("node_id", sa.Integer(), sa.ForeignKey("course_nodes.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("completed_steps", sa.Integer(), server_default="0"),
-        sa.Column("total_steps", sa.Integer(), server_default="0"),
-        sa.Column("completed_required_tasks", sa.Integer(), server_default="0"),
-        sa.Column("total_required_tasks", sa.Integer(), server_default="0"),
-        sa.Column("progress_percent", sa.Float(), server_default="0.0"),
-        sa.Column("is_completed", sa.Boolean(), server_default="false"),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-    )
-    op.create_index("ix_user_node_progress_user_node", "user_node_progress", ["user_id", "node_id"], unique=True)
-
-    # --- user_step_progress ---
-    op.create_table(
-        "user_step_progress",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("step_id", sa.Integer(), sa.ForeignKey("topic_steps.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("completed_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-    )
-    op.create_index("ix_user_step_progress_user_step", "user_step_progress", ["user_id", "step_id"], unique=True)
+    op.execute("""
+        CREATE TABLE user_step_progress (
+            id           SERIAL PRIMARY KEY,
+            user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            step_id      INTEGER NOT NULL REFERENCES topic_steps(id) ON DELETE CASCADE,
+            completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT ix_user_step_progress_user_step UNIQUE (user_id, step_id)
+        )
+    """)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_user_step_progress_user_step", "user_step_progress")
-    op.drop_table("user_step_progress")
-    op.drop_index("ix_user_node_progress_user_node", "user_node_progress")
-    op.drop_table("user_node_progress")
-    op.drop_index("ix_user_course_progress_user_course", "user_course_progress")
-    op.drop_table("user_course_progress")
-    op.drop_table("topic_steps")
-    op.drop_table("course_nodes")
+    op.execute("DROP TABLE IF EXISTS user_step_progress")
+    op.execute("DROP TABLE IF EXISTS user_node_progress")
+    op.execute("DROP TABLE IF EXISTS user_course_progress")
+    op.execute("DROP TABLE IF EXISTS topic_steps")
+    op.execute("DROP TABLE IF EXISTS course_nodes")
     op.execute("DROP TYPE IF EXISTS topicstepstatus")
     op.execute("DROP TYPE IF EXISTS topicsteptype")
     op.execute("DROP TYPE IF EXISTS coursenodestatus")
