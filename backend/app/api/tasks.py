@@ -130,40 +130,48 @@ async def delete_task(task_id: int, db: AsyncSession = Depends(get_db), _=Depend
 
 @router.post("/{task_id}/tests", response_model=TaskTestOut, status_code=status.HTTP_201_CREATED)
 async def add_test(task_id: int, body: TaskTestCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    from app.services.cache_service import cache_delete
     test = TaskTest(task_id=task_id, **body.model_dump())
     db.add(test)
     await db.flush()
     await db.refresh(test)
+    cache_delete("task:{}".format(task_id))
     return TaskTestOut.model_validate(test)
 
 
 @router.delete("/tests/{test_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_test(test_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    from app.services.cache_service import cache_delete
     result = await db.execute(select(TaskTest).where(TaskTest.id == test_id))
     test = result.scalar_one_or_none()
     if test is None:
         raise HTTPException(status_code=404, detail="Test not found")
     await db.delete(test)
+    cache_delete("task:{}".format(test.task_id))
 
 
 # --- Task Hints ---
 
 @router.post("/{task_id}/hints", response_model=TaskHintOut, status_code=status.HTTP_201_CREATED)
 async def add_hint(task_id: int, body: TaskHintCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    from app.services.cache_service import cache_delete
     hint = TaskHint(task_id=task_id, **body.model_dump())
     db.add(hint)
     await db.flush()
     await db.refresh(hint)
+    cache_delete("task:{}".format(task_id))
     return TaskHintOut.model_validate(hint)
 
 
 @router.delete("/hints/{hint_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_hint(hint_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    from app.services.cache_service import cache_delete
     result = await db.execute(select(TaskHint).where(TaskHint.id == hint_id))
     hint = result.scalar_one_or_none()
     if hint is None:
         raise HTTPException(status_code=404, detail="Hint not found")
     await db.delete(hint)
+    cache_delete("task:{}".format(hint.task_id))
 
 
 # --- Task Lectures ---
