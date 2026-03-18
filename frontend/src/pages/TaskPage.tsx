@@ -63,13 +63,20 @@ export default function TaskPage() {
             <div className="card">
               <h2 className="text-sm font-semibold text-dark-700 mb-3">Примеры</h2>
               <div className="space-y-3">
-                {publicTests.map((t, i) => (
-                  <div key={t.id} className="bg-surface-50 rounded-lg p-3 text-sm">
-                    <div className="font-medium text-dark-700 mb-1">Тест {i + 1}</div>
-                    {t.input_data && <div><span className="text-surface-300">Вход:</span> <code className="bg-surface-200 px-1 rounded">{t.input_data}</code></div>}
-                    {t.expected_output && <div className="mt-1"><span className="text-surface-300">Ожидаемый выход:</span> <code className="bg-surface-200 px-1 rounded">{t.expected_output}</code></div>}
-                  </div>
-                ))}
+                {publicTests.map((t, i) => {
+                  // For pytest/SQL tasks the expected_output is internal code — hide from students
+                  const isCodeTest = task.task_type === 'python_oop'
+                    || task.task_type === 'python_numpy'
+                    || task.task_type === 'sql_query';
+                  if (isCodeTest) return null;
+                  return (
+                    <div key={t.id} className="bg-surface-50 rounded-lg p-3 text-sm">
+                      <div className="font-medium text-dark-700 mb-1">Тест {i + 1}</div>
+                      {t.input_data && <div><span className="text-surface-300">Вход:</span> <code className="bg-surface-200 px-1 rounded">{t.input_data}</code></div>}
+                      {t.expected_output && <div className="mt-1"><span className="text-surface-300">Ожидаемый выход:</span> <code className="bg-surface-200 px-1 rounded">{t.expected_output}</code></div>}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -127,22 +127,29 @@ function TaskSolver({
 
             {publicTests.length > 0 && (
               <div className="space-y-3">
-                {publicTests.map((t) => (
-                  <div key={t.id} className="rounded-xl border border-surface-100 overflow-hidden text-sm">
-                    {t.input_data && (
-                      <div className="px-4 py-2.5 bg-surface-50 border-b border-surface-100">
-                        <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Input:</div>
-                        <code className="text-dark-700 font-mono whitespace-pre-wrap">{t.input_data}</code>
-                      </div>
-                    )}
-                    {t.expected_output && (
-                      <div className="px-4 py-2.5 bg-white">
-                        <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Output:</div>
-                        <code className="text-dark-700 font-mono whitespace-pre-wrap">{t.expected_output}</code>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {publicTests.map((t) => {
+                  // For pytest/SQL tasks the expected_output is code — don't show it to students
+                  const isCodeTest = task.task_type === 'python_oop'
+                    || task.task_type === 'python_numpy'
+                    || task.task_type === 'sql_query';
+                  if (isCodeTest) return null;
+                  return (
+                    <div key={t.id} className="rounded-xl border border-surface-100 overflow-hidden text-sm">
+                      {t.input_data && (
+                        <div className="px-4 py-2.5 bg-surface-50 border-b border-surface-100">
+                          <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Input:</div>
+                          <code className="text-dark-700 font-mono whitespace-pre-wrap">{t.input_data}</code>
+                        </div>
+                      )}
+                      {t.expected_output && (
+                        <div className="px-4 py-2.5 bg-white">
+                          <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Output:</div>
+                          <code className="text-dark-700 font-mono whitespace-pre-wrap">{t.expected_output}</code>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
