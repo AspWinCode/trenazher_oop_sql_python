@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   adminCoursesApi,
   type AdminCourse,
@@ -198,13 +198,17 @@ export default function AdminCourseEditorPage() {
     if (!title) return;
     setSaving(true);
     try {
-      await adminCoursesApi.attachTaskToNode(selectedNode.id, {
+      const res = await adminCoursesApi.attachTaskToNode(selectedNode.id, {
         create_new_task: true,
         task_title: title,
       });
       form.reset();
       await loadNode(selectedNode.id);
       await loadCourse();
+      // Открываем редактор новой задачи чтобы заполнить тесты, описание, тип
+      const taskId = res.data.task_id;
+      const backUrl = `/admin/courses/${courseId}`;
+      navigate(`/admin/tasks/${taskId}?back=${encodeURIComponent(backUrl)}`);
     } catch (e: any) {
       setError(e.response?.data?.detail || e.message || 'Ошибка добавления задачи');
     } finally {
@@ -543,14 +547,22 @@ export default function AdminCourseEditorPage() {
                           <span className="text-surface-400 mr-1">#{t.sort_order}</span>
                           {t.task_title}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => handleDetachTask(t.id)}
-                          className="text-xs text-red-600 hover:underline shrink-0"
-                          disabled={saving}
-                        >
-                          Удалить
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Link
+                            to={`/admin/tasks/${t.task_id}?back=${encodeURIComponent(`/admin/courses/${courseId}`)}`}
+                            className="text-xs text-primary-600 hover:underline"
+                          >
+                            ✏️ Редактировать
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDetachTask(t.id)}
+                            className="text-xs text-red-600 hover:underline"
+                            disabled={saving}
+                          >
+                            Удалить
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>

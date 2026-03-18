@@ -10,6 +10,7 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import AdminCoursesPage from './pages/AdminCoursesPage';
 import AdminCourseEditorPage from './pages/AdminCourseEditorPage';
 import AdminTasksPage from './pages/AdminTasksPage';
+import AdminTaskEditPage from './pages/AdminTaskEditPage';
 import AdminLinksPage from './pages/AdminLinksPage';
 import PersonalTaskPage from './pages/PersonalTaskPage';
 
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="admin/courses" element={<ProtectedRoute requireAdmin><AdminCoursesPage /></ProtectedRoute>} />
         <Route path="admin/courses/:courseId" element={<ProtectedRoute requireAdmin><AdminCourseEditorPage /></ProtectedRoute>} />
         <Route path="admin/tasks" element={<ProtectedRoute requireAdmin><AdminTasksPage /></ProtectedRoute>} />
+        <Route path="admin/tasks/:taskId" element={<ProtectedRoute requireAdmin><AdminTaskEditPage /></ProtectedRoute>} />
         <Route path="admin/links" element={<ProtectedRoute requireAdmin><AdminLinksPage /></ProtectedRoute>} />
       </Route>
     </Routes>
