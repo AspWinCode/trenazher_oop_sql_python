@@ -171,6 +171,7 @@ class UserCourseProgressOut(BaseModel):
 class UserNodeTaskProgressOut(BaseModel):
     node_task_id: int
     task_id: int
+    task_title: str = ""
     status: str
     completed_at: Optional[datetime] = None
 

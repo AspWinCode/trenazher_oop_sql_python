@@ -132,6 +132,19 @@ export const tasksApi = {
   deleteLecture: (lectureId: number) => api.delete(`/tasks/lectures/${lectureId}`),
 };
 
+export interface NodeTaskProgress {
+  node_task_id: number;
+  task_id: number;
+  task_title: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  completed_at: string | null;
+}
+
+export const courseStudentApi = {
+  getTree: (courseId: number) => api.get<CourseNodeTree[]>(`/courses/${courseId}/tree`),
+  getNodeTasks: (nodeId: number) => api.get<NodeTaskProgress[]>(`/nodes/${nodeId}/tasks`),
+};
+
 export const submissionsApi = {
   submit: (task_id: number, code: string) => api.post<Submission>('/submissions', { task_id, code }),
   get: (id: number) => api.get<Submission>(`/submissions/${id}`),
