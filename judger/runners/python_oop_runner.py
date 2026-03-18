@@ -6,6 +6,9 @@ from judger.sandbox.docker_manager import run_pytest_sandbox
 
 class PythonOOPRunner(BaseRunner):
     def run(self, code: str, tests: list[dict], **kwargs) -> RunResult:
+        if not tests:
+            return RunResult(verdict="WA", error_output="Нет тестов для проверки. Добавьте тесты к задаче.")
+
         all_results = []
         overall_verdict = "AC"
         total_runtime = 0.0

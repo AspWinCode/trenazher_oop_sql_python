@@ -9,6 +9,9 @@ class SQLRunner(BaseRunner):
         sql_schema = kwargs.get("sql_schema", "")
         sql_seed = kwargs.get("sql_seed", "")
 
+        if not tests:
+            return RunResult(verdict="WA", error_output="Нет тестов для проверки. Добавьте тесты к задаче.")
+
         all_results = []
         overall_verdict = "AC"
         total_runtime = 0.0

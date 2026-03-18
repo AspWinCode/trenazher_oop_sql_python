@@ -8,6 +8,9 @@ class PythonNumPyRunner(BaseRunner):
     """Runs pytest-based tests that can use np.array_equal, np.allclose, shape/dtype checks."""
 
     def run(self, code: str, tests: list[dict], **kwargs) -> RunResult:
+        if not tests:
+            return RunResult(verdict="WA", error_output="Нет тестов для проверки. Добавьте тесты к задаче.")
+
         all_results = []
         overall_verdict = "AC"
         total_runtime = 0.0

@@ -297,10 +297,24 @@ export default function AdminTaskEditPage() {
         </div>
 
         {addingTest && (
-          <form onSubmit={handleAddTest} className="border border-primary-200 rounded p-3 bg-primary-50 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-medium mb-1">Тип</label>
+          <form onSubmit={handleAddTest} className="border border-primary-200 rounded-xl p-4 bg-sky-50 space-y-3">
+            {/* Подсказка по типу задачи */}
+            {(taskType === 'python_oop' || taskType === 'python_numpy') && (
+              <div className="text-xs bg-warning-100 border border-warning-200 rounded-lg p-2 text-warning-800">
+                <strong>OOP / NumPy:</strong> в поле «Pytest-код теста» пишите pytest-функцию, которая импортирует solution.py и проверяет результат.<br/>
+                Пример: <code className="font-mono">from solution import solve\ndef test_1():\n    assert solve(2) == 4</code>
+              </div>
+            )}
+            {taskType === 'sql_query' && (
+              <div className="text-xs bg-warning-100 border border-warning-200 rounded-lg p-2 text-warning-800">
+                <strong>SQL:</strong> в поле «Эталонный SQL запрос» напишите правильный SQL, результат которого будет сравниваться с ответом студента строка-в-строку.
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3">
+              {/* Тип теста */}
+              <div className="w-48">
+                <label className="block text-xs font-semibold mb-1">Тип теста</label>
                 <select
                   className="input w-full text-sm"
                   value={newTest.test_type}
@@ -310,31 +324,50 @@ export default function AdminTaskEditPage() {
                   <option value="hidden">Hidden (скрытый)</option>
                 </select>
               </div>
+
+              {/* Input — только для IO-задач */}
+              {taskType !== 'python_oop' && taskType !== 'python_numpy' && taskType !== 'sql_query' && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Input (stdin)</label>
+                  <textarea
+                    className="input w-full font-mono text-sm"
+                    rows={3}
+                    value={newTest.input_data}
+                    onChange={(e) => setNewTest({ ...newTest, input_data: e.target.value })}
+                    placeholder={'5 3'}
+                  />
+                </div>
+              )}
+
+              {/* Expected output / pytest код / эталонный SQL */}
               <div>
-                <label className="block text-xs font-medium mb-1">
-                  {taskType === 'python_oop' || taskType === 'python_numpy' ? 'Код теста (pytest)' : 'Input'}
+                <label className="block text-xs font-semibold mb-1">
+                  {taskType === 'python_oop' || taskType === 'python_numpy'
+                    ? 'Pytest-код теста'
+                    : taskType === 'sql_query'
+                    ? 'Эталонный SQL запрос'
+                    : 'Expected output'}
                 </label>
                 <textarea
                   className="input w-full font-mono text-sm"
-                  rows={3}
-                  value={newTest.input_data}
-                  onChange={(e) => setNewTest({ ...newTest, input_data: e.target.value })}
-                  placeholder={taskType === 'python_oop' || taskType === 'python_numpy' ? 'def test_foo():\n    assert ...' : '5 3'}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Expected output</label>
-                <textarea
-                  className="input w-full font-mono text-sm"
-                  rows={3}
+                  rows={taskType === 'python_oop' || taskType === 'python_numpy' ? 6 : 3}
                   value={newTest.expected_output}
                   onChange={(e) => setNewTest({ ...newTest, expected_output: e.target.value })}
-                  placeholder="8"
+                  placeholder={
+                    taskType === 'python_oop'
+                      ? 'from solution import MyClass\ndef test_method():\n    obj = MyClass()\n    assert obj.greet() == "Hello"'
+                      : taskType === 'python_numpy'
+                      ? 'import numpy as np\nfrom solution import solve\ndef test_shape():\n    result = solve()\n    assert result.shape == (3, 3)'
+                      : taskType === 'sql_query'
+                      ? 'SELECT customer_name, COUNT(*) AS order_count\nFROM orders\nGROUP BY customer_name\nHAVING COUNT(*) > 1\nORDER BY order_count DESC'
+                      : '8'
+                  }
                 />
               </div>
             </div>
+
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>
-              Добавить
+              ✓ Добавить тест
             </button>
           </form>
         )}
@@ -348,8 +381,16 @@ export default function AdminTaskEditPage() {
                 <tr className="bg-surface-50 text-left">
                   <th className="px-3 py-2 font-medium w-8">#</th>
                   <th className="px-3 py-2 font-medium w-24">Тип</th>
-                  <th className="px-3 py-2 font-medium">Input</th>
-                  <th className="px-3 py-2 font-medium">Expected output</th>
+                  <th className="px-3 py-2 font-medium">
+                    {taskType === 'python_oop' || taskType === 'python_numpy' ? '—' : 'Input'}
+                  </th>
+                  <th className="px-3 py-2 font-medium">
+                    {taskType === 'python_oop' || taskType === 'python_numpy'
+                      ? 'Pytest-код'
+                      : taskType === 'sql_query'
+                      ? 'Эталонный SQL'
+                      : 'Expected output'}
+                  </th>
                   <th className="px-3 py-2 font-medium w-16"></th>
                 </tr>
               </thead>
