@@ -192,7 +192,8 @@ export default function AdminCourseEditorPage() {
   const handleAttachTask = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedNode) return;
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget; // сохраняем до await, иначе после него currentTarget = null
+    const formData = new FormData(form);
     const title = String(formData.get('title') || '').trim();
     if (!title) return;
     setSaving(true);
@@ -201,7 +202,7 @@ export default function AdminCourseEditorPage() {
         create_new_task: true,
         task_title: title,
       });
-      e.currentTarget.reset();
+      form.reset();
       await loadNode(selectedNode.id);
       await loadCourse();
     } catch (e: any) {
