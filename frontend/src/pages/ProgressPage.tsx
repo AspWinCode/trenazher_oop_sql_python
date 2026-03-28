@@ -22,6 +22,7 @@ export default function ProgressPage() {
 
   const solved = progress.filter((p) => p.best_verdict === 'AC').length;
   const attempted = progress.length;
+  const totalAttempts = progress.reduce((sum, p) => sum + p.attempts, 0);
 
   return (
     <div>
@@ -36,7 +37,7 @@ export default function ProgressPage() {
           <div className="text-sm text-surface-300 mt-1">В процессе</div>
         </div>
         <div className="card text-center">
-          <div className="text-3xl font-bold text-dark-700">{attempted}</div>
+          <div className="text-3xl font-bold text-dark-700">{totalAttempts}</div>
           <div className="text-sm text-surface-300 mt-1">Всего попыток</div>
         </div>
       </div>

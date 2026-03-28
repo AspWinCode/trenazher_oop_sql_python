@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { tasksApi } from '../api';
+import type { TaskCourseContext } from '../api';
 import CodeEditor from '../components/CodeEditor';
 import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
@@ -7,6 +10,14 @@ import { useTaskData } from '../features/task/hooks/useTaskData';
 
 export default function TaskPage() {
   const { taskId } = useParams<{ taskId: string }>();
+  const [courseContext, setCourseContext] = useState<TaskCourseContext[]>([]);
+
+  useEffect(() => {
+    if (!taskId) return;
+    tasksApi.getCourseContext(Number(taskId))
+      .then(({ data }) => setCourseContext(data))
+      .catch(() => {});
+  }, [taskId]);
 
   const {
     task,
@@ -40,7 +51,20 @@ export default function TaskPage() {
 
   return (
     <div>
-      <Link to="/" className="text-sm text-primary-600 hover:underline">&larr; Назад</Link>
+      <div className="flex items-center gap-3 flex-wrap mb-1">
+        <Link to="/tasks" className="text-sm text-primary-600 hover:underline">&larr; К задачам</Link>
+        {courseContext.map((ctx) => (
+          <Link
+            key={ctx.course_id}
+            to={`/course/${ctx.course_id}`}
+            className="text-sm text-surface-400 hover:text-primary-600 flex items-center gap-1"
+          >
+            <span>📚</span>
+            <span>{ctx.course_title}</span>
+            {ctx.node_title && <span className="text-surface-300">› {ctx.node_title}</span>}
+          </Link>
+        ))}
+      </div>
       <div className="mt-3 flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold">{task.title}</h1>

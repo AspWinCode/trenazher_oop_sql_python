@@ -51,6 +51,9 @@ export default function LoginPage() {
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? 'Вход...' : 'Войти'}
           </button>
+          <p className="text-center text-xs text-surface-300 pt-1">
+            Забыли пароль? Обратитесь к администратору для сброса.
+          </p>
         </form>
       </div>
     </div>

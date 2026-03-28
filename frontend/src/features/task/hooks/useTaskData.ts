@@ -12,6 +12,10 @@ function resolveInitialCode(taskType: string): string {
   return DEFAULT_PLACEHOLDERS[taskType] || '# Ваше решение\n';
 }
 
+function storageKey(taskId: number) {
+  return `code_task_${taskId}`;
+}
+
 export function useTaskData(taskId?: string) {
   const [task, setTask] = useState<Task | null>(null);
   const [code, setCode] = useState('');
@@ -27,6 +31,13 @@ export function useTaskData(taskId?: string) {
   const refreshHints = useCallback((tid: number) => {
     progressApi.getHints(tid).then(({ data }) => setHints(data)).catch(() => {});
   }, []);
+
+  const handleSetCode = useCallback((newCode: string) => {
+    setCode(newCode);
+    if (taskId) {
+      try { localStorage.setItem(storageKey(Number(taskId)), newCode); } catch {}
+    }
+  }, [taskId]);
 
   useEffect(() => {
     if (!taskId) {
@@ -45,7 +56,12 @@ export function useTaskData(taskId?: string) {
     tasksApi.get(id)
       .then(({ data }) => {
         setTask(data);
-        setCode(resolveInitialCode(data.task_type));
+        try {
+          const saved = localStorage.getItem(storageKey(id));
+          setCode(saved ?? resolveInitialCode(data.task_type));
+        } catch {
+          setCode(resolveInitialCode(data.task_type));
+        }
       })
       .finally(() => setLoading(false));
 
@@ -56,7 +72,7 @@ export function useTaskData(taskId?: string) {
   return {
     task,
     code,
-    setCode,
+    setCode: handleSetCode,
     history,
     hints,
     loading,

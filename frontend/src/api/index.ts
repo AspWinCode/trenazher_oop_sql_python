@@ -8,12 +8,20 @@ export const authApi = {
     api.post<{ token: string; refresh_token: string }>('/auth/refresh', { refresh_token }),
 };
 
+export interface CourseEnrollment {
+  course_id: number;
+  course_title: string;
+}
+
 export const usersApi = {
   list: () => api.get<User[]>('/users'),
   get: (id: number) => api.get<User>(`/users/${id}`),
   create: (data: { login: string; password: string; role?: string }) => api.post<User>('/users', data),
   update: (id: number, data: Partial<User>) => api.put<User>(`/users/${id}`, data),
   resetPassword: (id: number, new_password: string) => api.post<User>(`/users/${id}/reset-password`, { new_password }),
+  getEnrollments: (id: number) => api.get<CourseEnrollment[]>(`/users/${id}/enrollments`),
+  enroll: (userId: number, courseId: number) => api.post(`/users/${userId}/enrollments/${courseId}`),
+  unenroll: (userId: number, courseId: number) => api.delete(`/users/${userId}/enrollments/${courseId}`),
 };
 
 export const coursesApi = {
@@ -118,9 +126,16 @@ export const adminCoursesApi = {
     api.post(`/admin/courses/nodes/${nodeId}/tasks/reorder`, items),
 };
 
+export interface TaskCourseContext {
+  course_id: number;
+  course_title: string;
+  node_title: string;
+}
+
 export const tasksApi = {
   list: (params?: { submodule_id?: number; task_type?: string }) => api.get<Task[]>('/tasks', { params }),
   get: (id: number) => api.get<Task>(`/tasks/${id}`),
+  getCourseContext: (id: number) => api.get<TaskCourseContext[]>(`/tasks/${id}/context`),
   create: (data: any) => api.post<Task>('/tasks', data),
   update: (id: number, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
   delete: (id: number) => api.delete(`/tasks/${id}`),
@@ -140,9 +155,17 @@ export interface NodeTaskProgress {
   completed_at: string | null;
 }
 
+export interface CourseProgressStats {
+  course_id: number;
+  progress_percent: number;
+  completed_tasks_count: number;
+  total_tasks_count: number;
+}
+
 export const courseStudentApi = {
   getTree: (courseId: number) => api.get<CourseNodeTree[]>(`/courses/${courseId}/tree`),
   getNodeTasks: (nodeId: number) => api.get<NodeTaskProgress[]>(`/nodes/${nodeId}/tasks`),
+  getProgress: (courseId: number) => api.get<CourseProgressStats>(`/courses/${courseId}/progress`),
 };
 
 export const submissionsApi = {

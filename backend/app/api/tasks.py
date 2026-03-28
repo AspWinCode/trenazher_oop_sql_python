@@ -1,18 +1,23 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.middleware.auth_middleware import get_current_user, require_admin
-from app.models.task import Task, TaskType
+from app.models.course import Course, CourseStatus
+from app.models.course_node import CourseNode
+from app.models.course_node_task import CourseNodeTask
+from app.models.task import Task, TaskStatus, TaskType
 from app.models.task_hint import TaskHint
 from app.models.task_lecture import TaskLecture
 from app.models.task_test import TaskTest
+from app.models.user import User
 from app.schemas.task import (
     TaskCreate,
     TaskDetailOut,
@@ -29,6 +34,12 @@ from app.schemas.task import (
 router = APIRouter()
 
 
+class TaskCourseContextOut(BaseModel):
+    course_id: int
+    course_title: str
+    node_title: str
+
+
 @router.get("", response_model=List[TaskOut])
 async def list_tasks(
     submodule_id: Optional[int] = Query(None),
@@ -36,7 +47,7 @@ async def list_tasks(
     offset: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     limit = min(limit, 200)
     q = select(Task).order_by(Task.id)
@@ -44,9 +55,39 @@ async def list_tasks(
         q = q.where(Task.submodule_id == submodule_id)
     if task_type is not None:
         q = q.where(Task.task_type == task_type)
+    # Студенты видят только опубликованные задачи
+    if user.role != "admin":
+        q = q.where(Task.status == TaskStatus.published)
     q = q.offset(offset).limit(limit)
     result = await db.execute(q)
     return [TaskOut.model_validate(t) for t in result.scalars().all()]
+
+
+@router.get("/{task_id}/context", response_model=List[TaskCourseContextOut])
+async def get_task_context(
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Возвращает курсы и разделы, в которых находится данная задача."""
+    q = (
+        select(CourseNodeTask, CourseNode, Course)
+        .join(CourseNode, CourseNode.id == CourseNodeTask.node_id)
+        .join(Course, Course.id == CourseNode.course_id)
+        .where(CourseNodeTask.task_id == task_id)
+    )
+    if user.role != "admin":
+        q = q.where(Course.status == CourseStatus.published)
+    result = await db.execute(q)
+    rows = result.all()
+    return [
+        TaskCourseContextOut(
+            course_id=row.Course.id,
+            course_title=row.Course.title,
+            node_title=row.CourseNode.title,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/{task_id}", response_model=TaskDetailOut)

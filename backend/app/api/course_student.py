@@ -21,6 +21,7 @@ from app.schemas.course_hierarchy import (
     UserCourseProgressOut,
     UserNodeTaskProgressOut,
 )
+from app.services.course_progress_service import recalculate_course_progress
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -110,16 +111,23 @@ async def student_get_course_progress(
         )
     )
     p = r.scalar_one_or_none()
+    # Пересчитываем если записи нет или total = 0 (первый визит)
+    if not p or p.total_tasks_count == 0:
+        await recalculate_course_progress(db, user_id=user.id, course_id=course_id)
+        r2 = await db.execute(
+            select(UserCourseProgress).where(
+                UserCourseProgress.user_id == user.id,
+                UserCourseProgress.course_id == course_id,
+            )
+        )
+        p = r2.scalar_one_or_none()
     if not p:
-        p = UserCourseProgress(
-            user_id=user.id,
+        return UserCourseProgressOut(
             course_id=course_id,
             progress_percent=0.0,
             completed_tasks_count=0,
             total_tasks_count=0,
         )
-        db.add(p)
-        await db.flush()
     return UserCourseProgressOut.model_validate(p)
 
 

@@ -16,6 +16,7 @@ from app.models.task_lecture import TaskLecture
 from app.models.task_test import TaskTest, TestType
 from app.models.user import User, UserRole, UserStatus
 from app.models.user_course_progress import UserCourseProgress
+from app.models.user_course_enrollment import UserCourseEnrollment
 from app.models.user_course_node_task_progress import (
     NodeTaskProgressStatus,
     UserCourseNodeTaskProgress,
@@ -32,6 +33,7 @@ __all__ = [
     "CourseNodeStatus",
     "CourseNodeTask",
     "UserCourseProgress",
+    "UserCourseEnrollment",
     "UserCourseNodeTaskProgress",
     "NodeTaskProgressStatus",
     "Module",

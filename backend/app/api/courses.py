@@ -14,6 +14,7 @@ from app.models.course_node import CourseNode, CourseNodeStatus
 from app.models.module import Module
 from app.models.submodule import Submodule
 from app.models.user import User
+from app.models.user_course_enrollment import UserCourseEnrollment
 from app.schemas.course import (
     CourseCreate,
     CourseDetailOut,
@@ -62,6 +63,16 @@ async def list_courses(
     q = select(Course).order_by(Course.sort_order, Course.id)
     if user.role == "student":
         q = q.where(Course.status == CourseStatus.published)
+        # Если у пользователя есть хоть одно зачисление, показываем только записанные курсы.
+        # Если зачислений нет — показываем все published (обратная совместимость).
+        enrollment_r = await db.execute(
+            select(UserCourseEnrollment.course_id).where(
+                UserCourseEnrollment.user_id == user.id
+            )
+        )
+        enrolled_ids = [row[0] for row in enrollment_r.fetchall()]
+        if enrolled_ids:
+            q = q.where(Course.id.in_(enrolled_ids))
     result = await db.execute(q)
     return [CourseOut.model_validate(c) for c in result.scalars().all()]
 

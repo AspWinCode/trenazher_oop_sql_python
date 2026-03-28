@@ -49,7 +49,11 @@ export default function Sidebar() {
 
   const isCourseMode = !!courseId;
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => {
+    if (!window.confirm('Вы точно хотите выйти?')) return;
+    logout();
+    navigate('/login');
+  };
 
   const handleSelectTask = (taskId: number) => {
     navigate(`/course/${courseId}?task=${taskId}`);
