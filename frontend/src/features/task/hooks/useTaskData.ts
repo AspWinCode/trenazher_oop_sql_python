@@ -23,6 +23,7 @@ export function useTaskData(taskId?: string) {
   const [hints, setHints] = useState<TaskHint[]>([]);
   const [loading, setLoading] = useState(true);
   const [showHints, setShowHints] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(null);
 
   const refreshHistory = useCallback((tid: number) => {
     submissionsApi.list(tid).then(({ data }) => setHistory(data));
@@ -35,8 +36,24 @@ export function useTaskData(taskId?: string) {
   const handleSetCode = useCallback((newCode: string) => {
     setCode(newCode);
     if (taskId) {
-      try { localStorage.setItem(storageKey(Number(taskId)), newCode); } catch {}
+      try {
+        localStorage.setItem(storageKey(Number(taskId)), newCode);
+        setDraftSavedAt(new Date());
+      } catch {}
     }
+  }, [taskId]);
+
+  const clearDraft = useCallback(() => {
+    if (taskId) {
+      try { localStorage.removeItem(storageKey(Number(taskId))); } catch {}
+      if (task) setCode(resolveInitialCode(task.task_type));
+      setDraftSavedAt(null);
+    }
+  }, [taskId, task]);
+
+  const hasDraft = useCallback(() => {
+    if (!taskId) return false;
+    try { return localStorage.getItem(storageKey(Number(taskId))) !== null; } catch { return false; }
   }, [taskId]);
 
   useEffect(() => {
@@ -80,5 +97,8 @@ export function useTaskData(taskId?: string) {
     setShowHints,
     refreshHistory,
     refreshHints,
+    draftSavedAt,
+    clearDraft,
+    hasDraft,
   };
 }

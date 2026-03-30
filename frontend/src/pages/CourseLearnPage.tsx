@@ -71,6 +71,7 @@ function TaskSolver({
   const {
     task, code, setCode, history, hints, loading,
     showHints, setShowHints, refreshHistory, refreshHints,
+    draftSavedAt, clearDraft,
   } = useTaskData(taskId);
 
   const { submission, submitting, submitSolution } = useSubmissionWatcher({
@@ -196,8 +197,28 @@ function TaskSolver({
           <div className="space-y-3">
             {/* Редактор */}
             <div className="rounded-xl border border-surface-200 overflow-hidden shadow-sm">
-              <div className="px-4 py-2.5 bg-dark-900 text-white text-sm font-medium">
-                Напишите программу{lang !== 'python' ? ` (${lang})` : ''}
+              <div className="px-4 py-2.5 bg-dark-900 text-white text-sm font-medium flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span>Напишите программу{lang !== 'python' ? ` (${lang})` : ''}</span>
+                  {draftSavedAt && (
+                    <span className="text-xs text-green-400 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Черновик сохранён
+                    </span>
+                  )}
+                </div>
+                {draftSavedAt && (
+                  <button
+                    type="button"
+                    onClick={clearDraft}
+                    className="text-xs text-surface-400 hover:text-white transition-colors"
+                    title="Сбросить код к начальному шаблону"
+                  >
+                    Сбросить
+                  </button>
+                )}
               </div>
               <CodeEditor value={code} onChange={setCode} language={lang} height="320px" />
               {/* Кнопка отправки — внутри карточки редактора */}

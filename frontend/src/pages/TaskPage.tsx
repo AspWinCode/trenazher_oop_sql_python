@@ -30,6 +30,8 @@ export default function TaskPage() {
     setShowHints,
     refreshHistory,
     refreshHints,
+    draftSavedAt,
+    clearDraft,
   } = useTaskData(taskId);
 
   const { submission, submitting, submitSolution } = useSubmissionWatcher({
@@ -134,10 +136,32 @@ export default function TaskPage() {
         <div className="space-y-6">
           <div className="card p-0 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-dark-800 text-white">
-              <span className="text-sm font-medium">Решение</span>
-              <button onClick={handleSubmit} disabled={submitting} className="btn-primary btn-sm">
-                {submitting ? 'Проверка...' : 'Отправить'}
-              </button>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">Решение</span>
+                {draftSavedAt && (
+                  <span className="text-xs text-green-400 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Черновик сохранён
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {draftSavedAt && (
+                  <button
+                    type="button"
+                    onClick={clearDraft}
+                    className="text-xs text-surface-400 hover:text-white transition-colors"
+                    title="Сбросить код к начальному шаблону"
+                  >
+                    Сбросить
+                  </button>
+                )}
+                <button onClick={handleSubmit} disabled={submitting} className="btn-primary btn-sm">
+                  {submitting ? 'Проверка...' : 'Отправить'}
+                </button>
+              </div>
             </div>
             <CodeEditor value={code} onChange={setCode} language={lang} height="350px" />
           </div>
