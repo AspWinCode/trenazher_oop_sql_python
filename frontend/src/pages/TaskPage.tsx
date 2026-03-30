@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { tasksApi } from '../api';
 import type { TaskCourseContext } from '../api';
@@ -39,10 +39,18 @@ export default function TaskPage() {
     refreshHints,
   });
 
+  const [saveFlash, setSaveFlash] = useState(false);
+
   const handleSubmit = async () => {
     if (!task) return;
     await submitSolution(task.id, code);
   };
+
+  const handleSave = useCallback(() => {
+    setCode(code); // triggers localStorage save
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 2000);
+  }, [code, setCode]);
 
   if (loading) return <div className="text-center py-20 text-surface-300">Загрузка...</div>;
   if (!task) return <div className="text-center py-20 text-red-500">Задача не найдена</div>;
@@ -158,6 +166,17 @@ export default function TaskPage() {
                     Сбросить
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className={`btn-sm border transition-all ${
+                    saveFlash
+                      ? 'border-green-400 text-green-400'
+                      : 'border-surface-500 text-surface-300 hover:text-white hover:border-white'
+                  }`}
+                >
+                  {saveFlash ? '✓ Сохранено' : 'Сохранить'}
+                </button>
                 <button onClick={handleSubmit} disabled={submitting} className="btn-primary btn-sm">
                   {submitting ? 'Проверка...' : 'Отправить'}
                 </button>

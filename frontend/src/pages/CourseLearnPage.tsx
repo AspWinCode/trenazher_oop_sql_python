@@ -81,6 +81,13 @@ function TaskSolver({
     refreshHints,
   });
 
+  const [saveFlash, setSaveFlash] = useState(false);
+  const handleSave = useCallback(() => {
+    setCode(code);
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 2000);
+  }, [code, setCode]);
+
   // При успешном решении (AC) обновляем сайдбар курса
   useEffect(() => {
     if (submission?.status === 'finished' && submission?.verdict === 'AC' && onSolved) {
@@ -230,8 +237,19 @@ function TaskSolver({
                 )}
               </div>
               <CodeEditor value={code} onChange={setCode} language={lang} height="320px" />
-              {/* Кнопка отправки — внутри карточки редактора */}
+              {/* Кнопки сохранения и отправки */}
               <div className="px-4 py-3 bg-dark-800 border-t border-dark-700 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className={`btn-sm border transition-all ${
+                    saveFlash
+                      ? 'border-green-400 text-green-400'
+                      : 'border-surface-500 text-surface-300 hover:text-white hover:border-white'
+                  }`}
+                >
+                  {saveFlash ? '✓ Сохранено' : 'Сохранить'}
+                </button>
                 <button
                   onClick={() => submitSolution(task.id, code)}
                   disabled={submitting}
