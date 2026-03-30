@@ -177,7 +177,15 @@ export default function Sidebar() {
       )}
 
       {/* Футер */}
-      <div className="p-4 border-t border-dark-700">
+      <div className="p-4 border-t border-dark-700 space-y-2">
+        <NavLink
+          to={`/profile/${user?.id}`}
+          className={({ isActive }) =>
+            `block text-sm transition-colors ${isActive ? 'text-white' : 'text-surface-300 hover:text-white'}`
+          }
+        >
+          Мой профиль
+        </NavLink>
         <button onClick={handleLogout} className="w-full text-left text-sm text-surface-300 hover:text-white transition-colors">
           Выйти
         </button>

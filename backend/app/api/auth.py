@@ -5,10 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.middleware.auth_middleware import get_current_user
 from app.models.user import User, UserStatus
 from app.schemas.auth import LoginRequest, RefreshRequest, RefreshResponse, TokenResponse
-from app.schemas.user import UserOut
-from app.services.auth_service import create_token_pair, decode_refresh_token, verify_password
+from app.schemas.user import ChangePassword, UserOut
+from app.services.auth_service import create_token_pair, decode_refresh_token, hash_password, verify_password
 
 router = APIRouter()
 
@@ -39,3 +40,16 @@ async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or blocked")
     access, refresh = create_token_pair(user.id, user.role.value)
     return RefreshResponse(token=access, refresh_token=refresh)
+
+
+@router.post("/change-password")
+async def change_password(
+    body: ChangePassword,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not verify_password(body.old_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Неверный текущий пароль")
+    user.password_hash = hash_password(body.new_password)
+    await db.flush()
+    return {"detail": "Пароль успешно изменён"}

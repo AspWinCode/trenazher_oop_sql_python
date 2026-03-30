@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { achievementsApi } from '../api';
+import { achievementsApi, authApi } from '../api';
+import { useAuthStore } from '../store/auth';
 
 const iconMap: Record<string, string> = {
   trophy: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
@@ -17,8 +18,35 @@ const iconMap: Record<string, string> = {
 
 export default function ProfilePage() {
   const { userId } = useParams<{ userId: string }>();
+  const { user } = useAuthStore();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Смена пароля
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdMsg, setPwdMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [pwdSaving, setPwdSaving] = useState(false);
+
+  const isOwnProfile = user?.id === Number(userId);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdMsg(null);
+    if (newPwd.length < 4) { setPwdMsg({ type: 'err', text: 'Минимум 4 символа' }); return; }
+    if (newPwd !== confirmPwd) { setPwdMsg({ type: 'err', text: 'Пароли не совпадают' }); return; }
+    setPwdSaving(true);
+    try {
+      await authApi.changePassword(oldPwd, newPwd);
+      setPwdMsg({ type: 'ok', text: 'Пароль успешно изменён' });
+      setOldPwd(''); setNewPwd(''); setConfirmPwd('');
+    } catch (err: any) {
+      setPwdMsg({ type: 'err', text: err.response?.data?.detail || 'Ошибка смены пароля' });
+    } finally {
+      setPwdSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -73,6 +101,55 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Смена пароля — только для своего профиля */}
+      {isOwnProfile && (
+        <div className="card mt-6">
+          <h2 className="text-lg font-semibold mb-4">Сменить пароль</h2>
+          <form onSubmit={handleChangePassword} className="space-y-3 max-w-sm">
+            <div>
+              <label className="block text-sm font-medium mb-1">Текущий пароль</label>
+              <input
+                type="password"
+                className="input w-full"
+                value={oldPwd}
+                onChange={(e) => setOldPwd(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Новый пароль</label>
+              <input
+                type="password"
+                className="input w-full"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                required
+                minLength={4}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Подтвердите пароль</label>
+              <input
+                type="password"
+                className="input w-full"
+                value={confirmPwd}
+                onChange={(e) => setConfirmPwd(e.target.value)}
+                required
+                minLength={4}
+              />
+            </div>
+            {pwdMsg && (
+              <div className={`text-sm p-2 rounded ${pwdMsg.type === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                {pwdMsg.text}
+              </div>
+            )}
+            <button type="submit" className="btn-primary" disabled={pwdSaving}>
+              {pwdSaving ? 'Сохранение...' : 'Изменить пароль'}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

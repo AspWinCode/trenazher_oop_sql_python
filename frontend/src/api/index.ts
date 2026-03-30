@@ -6,6 +6,8 @@ export const authApi = {
     api.post<{ token: string; refresh_token: string; user: User }>('/auth/login', { login, password }),
   refresh: (refresh_token: string) =>
     api.post<{ token: string; refresh_token: string }>('/auth/refresh', { refresh_token }),
+  changePassword: (old_password: string, new_password: string) =>
+    api.post('/auth/change-password', { old_password, new_password }),
 };
 
 export interface CourseEnrollment {

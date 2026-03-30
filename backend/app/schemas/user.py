@@ -33,3 +33,8 @@ class UserOut(BaseModel):
 
 class ResetPassword(BaseModel):
     new_password: str = Field(..., min_length=4, max_length=128)
+
+
+class ChangePassword(BaseModel):
+    old_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=4, max_length=128)
