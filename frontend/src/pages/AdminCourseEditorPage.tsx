@@ -232,15 +232,63 @@ export default function AdminCourseEditorPage() {
     }
   };
 
+  // ── Переместить узел вверх/вниз ─────────────────────────────────────────────
+  const handleMoveNode = async (siblings: CourseNodeTree[], index: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= siblings.length) return;
+    const nodeA = siblings[index];
+    const nodeB = siblings[targetIdx];
+    setSaving(true);
+    try {
+      // Меняем sort_order местами
+      const orderA = nodeA.sort_order;
+      const orderB = nodeB.sort_order;
+      // Если sort_order одинаковые, используем индексы
+      const newOrderA = orderA === orderB ? targetIdx : orderB;
+      const newOrderB = orderA === orderB ? index : orderA;
+      await Promise.all([
+        adminCoursesApi.updateNode(nodeA.id, { sort_order: newOrderA }),
+        adminCoursesApi.updateNode(nodeB.id, { sort_order: newOrderB }),
+      ]);
+      await loadCourse();
+    } catch (e: any) {
+      setError(e.response?.data?.detail || e.message || 'Ошибка перемещения');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ── Дерево ──────────────────────────────────────────────────────────────────
   const renderTree = (nodes: CourseNodeTree[], depth = 0) => (
     <div className={depth > 0 ? 'ml-3 border-l border-surface-200 pl-3' : ''}>
-      {nodes.map((node) => {
+      {nodes.map((node, idx) => {
         const allowedChildren = ALLOWED_CHILD_TYPES[node.type];
         const canAddChild = allowedChildren.length > 0;
         return (
           <div key={node.id} className="mb-1">
             <div className="flex items-center gap-1 group">
+              {/* Кнопки перемещения вверх/вниз */}
+              <div className="flex flex-col shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  type="button"
+                  title="Переместить вверх"
+                  onClick={() => handleMoveNode(nodes, idx, 'up')}
+                  disabled={saving || idx === 0}
+                  className="text-[10px] leading-none px-0.5 text-surface-400 hover:text-primary-600 disabled:opacity-20 disabled:cursor-default"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  title="Переместить вниз"
+                  onClick={() => handleMoveNode(nodes, idx, 'down')}
+                  disabled={saving || idx === nodes.length - 1}
+                  className="text-[10px] leading-none px-0.5 text-surface-400 hover:text-primary-600 disabled:opacity-20 disabled:cursor-default"
+                >
+                  ▼
+                </button>
+              </div>
+
               {/* Кнопка выбора узла */}
               <button
                 type="button"
