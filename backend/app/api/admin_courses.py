@@ -79,7 +79,7 @@ def _build_node_tree(node: CourseNode) -> CourseNodeTreeOut:
 
 # --- Admin: Courses ---
 
-@router.get("/", response_model=List[CourseAdminOut])
+@router.get("", response_model=List[CourseAdminOut])
 async def admin_list_courses(db: AsyncSession = Depends(get_db)):
     try:
         r = await db.execute(select(Course).order_by(Course.sort_order, Course.id))
@@ -88,7 +88,7 @@ async def admin_list_courses(db: AsyncSession = Depends(get_db)):
         return []
 
 
-@router.post("/", response_model=CourseAdminOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CourseAdminOut, status_code=status.HTTP_201_CREATED)
 async def admin_create_course(body: CourseAdminCreate, db: AsyncSession = Depends(get_db)):
     # Проверка уникальности slug при создании
     if body.slug:
