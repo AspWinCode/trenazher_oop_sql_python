@@ -434,7 +434,7 @@ async def admin_attach_task_to_node(
             description=None,
             task_type=TaskType.python_io,
             runner_type=RunnerType.stdin_runner,
-            status=TaskStatus.draft,
+            status=TaskStatus.published,
         )
         db.add(task)
         await db.flush()
