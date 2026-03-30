@@ -6,7 +6,7 @@ from typing import List
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -43,6 +43,17 @@ from app.services.course_progress_service import recalculate_course_progress
 from app.schemas.task import TaskCreate, TaskOut
 
 router = APIRouter(prefix="/admin/courses", dependencies=[Depends(require_admin)])
+
+
+async def _get_course_task_ids(db: AsyncSession, course_id: int) -> list[int]:
+    """Получить все task_id, привязанные к курсу через узлы."""
+    r = await db.execute(
+        select(CourseNodeTask.task_id)
+        .join(CourseNode)
+        .where(CourseNode.course_id == course_id)
+        .distinct()
+    )
+    return [row[0] for row in r.fetchall()]
 
 
 def _compute_node_flags(node: CourseNode) -> dict:
@@ -155,6 +166,14 @@ async def admin_archive_course(course_id: int, db: AsyncSession = Depends(get_db
         raise HTTPException(status_code=404, detail="Course not found")
     course.status = CourseStatus.archived
     course.archived_at = datetime.now(timezone.utc)
+    # Скрываем все задачи этого курса (archived)
+    task_ids = await _get_course_task_ids(db, course_id)
+    if task_ids:
+        await db.execute(
+            update(Task)
+            .where(Task.id.in_(task_ids))
+            .values(status=TaskStatus.archived)
+        )
     await db.flush()
     return None
 
@@ -165,9 +184,16 @@ async def admin_unarchive_course(course_id: int, db: AsyncSession = Depends(get_
     course = r.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    # Разархивирование → published (а не draft), курс сразу видимый после разархивирования
+    # Разархивирование → published, возвращаем задачи тоже
     course.status = CourseStatus.published
     course.archived_at = None
+    task_ids = await _get_course_task_ids(db, course_id)
+    if task_ids:
+        await db.execute(
+            update(Task)
+            .where(Task.id.in_(task_ids), Task.status == TaskStatus.archived)
+            .values(status=TaskStatus.published)
+        )
     await db.flush()
     return None
 
@@ -178,6 +204,23 @@ async def admin_delete_course(course_id: int, db: AsyncSession = Depends(get_db)
     course = r.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    # Удаляем задачи, которые принадлежат ТОЛЬКО этому курсу
+    task_ids = await _get_course_task_ids(db, course_id)
+    if task_ids:
+        # Находим задачи, которые НЕ используются в других курсах
+        for tid in task_ids:
+            r_other = await db.execute(
+                select(CourseNodeTask.id).join(CourseNode).where(
+                    CourseNodeTask.task_id == tid,
+                    CourseNode.course_id != course_id,
+                )
+            )
+            if not r_other.first():
+                # Задача только в этом курсе — удаляем
+                r_task = await db.execute(select(Task).where(Task.id == tid))
+                task_obj = r_task.scalar_one_or_none()
+                if task_obj:
+                    await db.delete(task_obj)
     await db.delete(course)
     return None
 
