@@ -104,6 +104,8 @@ async def student_get_course_progress(
     if not course or course.status != CourseStatus.published:
         raise HTTPException(status_code=404, detail="Course not found")
 
+    # Всегда пересчитываем прогресс (задачи могли быть добавлены/удалены)
+    await recalculate_course_progress(db, user_id=user.id, course_id=course_id)
     r = await db.execute(
         select(UserCourseProgress).where(
             UserCourseProgress.user_id == user.id,
@@ -111,16 +113,6 @@ async def student_get_course_progress(
         )
     )
     p = r.scalar_one_or_none()
-    # Пересчитываем если записи нет или total = 0 (первый визит)
-    if not p or p.total_tasks_count == 0:
-        await recalculate_course_progress(db, user_id=user.id, course_id=course_id)
-        r2 = await db.execute(
-            select(UserCourseProgress).where(
-                UserCourseProgress.user_id == user.id,
-                UserCourseProgress.course_id == course_id,
-            )
-        )
-        p = r2.scalar_one_or_none()
     if not p:
         return UserCourseProgressOut(
             course_id=course_id,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   courseStudentApi,
@@ -61,12 +61,14 @@ function TaskSolver({
   totalTasks,
   onNext,
   onPrev,
+  onSolved,
 }: {
   taskId: string;
   taskNumber: number;
   totalTasks: number;
   onNext: () => void;
   onPrev: () => void;
+  onSolved?: () => void;
 }) {
   const {
     task, code, setCode, history, hints, loading,
@@ -78,6 +80,13 @@ function TaskSolver({
     refreshHistory,
     refreshHints,
   });
+
+  // При успешном решении (AC) обновляем сайдбар курса
+  useEffect(() => {
+    if (submission?.status === 'finished' && submission?.verdict === 'AC' && onSolved) {
+      onSolved();
+    }
+  }, [submission?.status, submission?.verdict, onSolved]);
 
   if (loading)
     return (
@@ -314,9 +323,14 @@ function TaskSolver({
 export default function CourseLearnPage() {
   const { courseId } = useParams<{ courseId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   const { setCourseData, setSelectedTaskId, clear } = useCourseLearnStore();
   const selectedTaskId = searchParams.get('task') ? Number(searchParams.get('task')) : null;
+
+  const reloadCourseData = useCallback(() => {
+    setReloadTrigger((n) => n + 1);
+  }, []);
 
   // Загрузка курса + дерева + задач всех узлов
   useEffect(() => {
@@ -346,16 +360,16 @@ export default function CourseLearnPage() {
 
         setCourseData(id, course.title, items, completed, taskItems.length);
 
-        // Авто-выбор первой задачи
-        if (!searchParams.get('task') && taskItems.length > 0 && taskItems[0].taskId) {
+        // Авто-выбор первой задачи (только при первой загрузке)
+        if (reloadTrigger === 0 && !searchParams.get('task') && taskItems.length > 0 && taskItems[0].taskId) {
           setSearchParams({ task: String(taskItems[0].taskId) }, { replace: true });
         }
       })
       .catch(console.error);
 
-    return () => { clear(); };
+    return () => { if (reloadTrigger === 0) clear(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]);
+  }, [courseId, reloadTrigger]);
 
   // Синхронизируем выбранную задачу со store
   useEffect(() => {
@@ -404,6 +418,7 @@ export default function CourseLearnPage() {
           totalTasks={taskItems.length}
           onNext={goNext}
           onPrev={goPrev}
+          onSolved={reloadCourseData}
         />
       ) : (
         <div className="flex flex-col items-center justify-center h-full gap-3 text-surface-400">
