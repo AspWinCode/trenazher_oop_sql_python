@@ -61,10 +61,13 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-dark-900 text-white min-h-screen flex flex-col">
-      {/* Шапка */}
-      <div className="p-5 border-b border-dark-700">
-        <h1 className="text-lg font-bold tracking-tight">Task Checker</h1>
-        <p className="text-sm text-surface-300 mt-1">{user?.login} ({user?.role})</p>
+      {/* Логотип */}
+      <div className="p-4 border-b border-dark-700 flex items-center justify-center">
+        <img
+          src="/logo.png"
+          alt="Logo"
+          className="max-h-12 object-contain"
+        />
       </div>
 
       {isCourseMode ? (
