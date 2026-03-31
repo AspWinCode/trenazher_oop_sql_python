@@ -202,6 +202,18 @@ export const ratingsApi = {
   history: (userId: number) => api.get<any[]>(`/ratings/history/${userId}`),
 };
 
+export const platformSettingsApi = {
+  getLogo: () => api.get<{ url: string | null }>('/settings/logo'),
+  uploadLogo: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post<{ url: string }>('/settings/logo', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  deleteLogo: () => api.delete<{ url: null }>('/settings/logo'),
+};
+
 export const achievementsApi = {
   list: () => api.get<any[]>('/achievements'),
   my: () => api.get<any[]>('/achievements/my'),

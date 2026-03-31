@@ -5,6 +5,7 @@ from app.models.course_node import CourseNode, CourseNodeStatus, CourseNodeType
 from app.models.course_node_task import CourseNodeTask
 from app.models.module import Module
 from app.models.personal_link import PersonalLink
+from app.models.platform_settings import PlatformSetting
 from app.models.rating import RatingHistory, UserRating
 from app.models.student_progress import StudentProgress
 from app.models.submission import Submission, SubmissionStatus, Verdict
@@ -60,4 +61,5 @@ __all__ = [
     "RatingHistory",
     "Achievement",
     "UserAchievement",
+    "PlatformSetting",
 ]

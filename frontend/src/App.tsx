@@ -12,6 +12,7 @@ import AdminCourseEditorPage from './pages/AdminCourseEditorPage';
 import AdminTasksPage from './pages/AdminTasksPage';
 import AdminTaskEditPage from './pages/AdminTaskEditPage';
 import AdminLinksPage from './pages/AdminLinksPage';
+import AdminSettingsPage from './pages/AdminSettingsPage';
 import PersonalTaskPage from './pages/PersonalTaskPage';
 import CourseLearnPage from './pages/CourseLearnPage';
 import CoursesPage from './pages/CoursesPage';
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="admin/tasks" element={<ProtectedRoute requireAdmin><AdminTasksPage /></ProtectedRoute>} />
         <Route path="admin/tasks/:taskId" element={<ProtectedRoute requireAdmin><AdminTaskEditPage /></ProtectedRoute>} />
         <Route path="admin/links" element={<ProtectedRoute requireAdmin><AdminLinksPage /></ProtectedRoute>} />
+        <Route path="admin/settings" element={<ProtectedRoute requireAdmin><AdminSettingsPage /></ProtectedRoute>} />
       </Route>
     </Routes>
   );
