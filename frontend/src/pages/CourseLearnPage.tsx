@@ -142,6 +142,23 @@ function TaskSolver({
               </div>
             )}
 
+            {task.task_type === 'sql_query' && (task.sql_schema || task.sql_seed) && (
+              <div className="card">
+                <h2 className="text-sm font-semibold text-dark-700 mb-3">Структура базы данных</h2>
+                {task.sql_schema && (
+                  <div className="mb-3">
+                    <div className="text-xs text-surface-400 mb-1 font-medium">Схема таблиц:</div>
+                    <pre className="bg-dark-900 text-green-400 rounded-lg p-3 text-xs font-mono overflow-auto whitespace-pre-wrap">{task.sql_schema}</pre>
+                  </div>
+                )}
+                {task.sql_seed && (
+                  <div>
+                    <div className="text-xs text-surface-400 mb-1 font-medium">Начальные данные:</div>
+                    <pre className="bg-dark-900 text-blue-300 rounded-lg p-3 text-xs font-mono overflow-auto whitespace-pre-wrap">{task.sql_seed}</pre>
+                  </div>
+                )}
+              </div>
+            )}
             {publicTests.length > 0 && (
               <div className="space-y-3">
                 {publicTests.map((t) => {
