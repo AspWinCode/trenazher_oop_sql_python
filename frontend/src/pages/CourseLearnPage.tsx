@@ -367,6 +367,11 @@ export default function CourseLearnPage() {
     setReloadTrigger((n) => n + 1);
   }, []);
 
+  // Очистка стора при уходе со страницы курса
+  useEffect(() => {
+    return () => { clear(); };
+  }, []);
+
   // Загрузка курса + дерева + задач всех узлов
   useEffect(() => {
     if (!courseId) return;

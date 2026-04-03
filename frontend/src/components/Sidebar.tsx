@@ -53,6 +53,7 @@ export default function Sidebar() {
     selectedTaskId,
     completedCount,
     totalCount,
+    clear: clearCourse,
   } = useCourseLearnStore();
 
   const isCourseMode = !!courseId;
@@ -84,7 +85,7 @@ export default function Sidebar() {
           {/* Кнопка "Все курсы" + название */}
           <div className="px-4 pt-3 pb-2 border-b border-dark-700">
             <button
-              onClick={() => navigate('/courses')}
+              onClick={() => { clearCourse(); navigate('/courses'); }}
               className="text-xs text-surface-400 hover:text-white transition-colors mb-2 flex items-center gap-1"
             >
               ← Все курсы
