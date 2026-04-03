@@ -159,13 +159,15 @@ def run_sql_sandbox(student_sql, schema_sql, seed_sql, expected_sql, timeout=Non
 
         script = """#!/bin/sh
 set -e
-pg_isready -U postgres || (pg_ctlcluster 16 main start && sleep 1)
-createdb -U postgres sandbox_test 2>/dev/null || true
-psql -U postgres -d sandbox_test -f /workspace/schema.sql
-psql -U postgres -d sandbox_test -f /workspace/seed.sql
-STUDENT=$(psql -U postgres -d sandbox_test -t -A -f /workspace/student.sql 2>&1)
-EXPECTED=$(psql -U postgres -d sandbox_test -t -A -f /workspace/expected.sql 2>&1)
-dropdb -U postgres sandbox_test 2>/dev/null || true
+mkdir -p /var/lib/postgresql/data /run/postgresql
+chown -R postgres:postgres /var/lib/postgresql /run/postgresql
+su-exec postgres pg_ctl initdb -D /var/lib/postgresql/data -o "--auth=trust --username=postgres" -s
+su-exec postgres pg_ctl start -D /var/lib/postgresql/data -l /tmp/pg.log -w -s
+su-exec postgres createdb sandbox_test
+su-exec postgres psql -d sandbox_test -q -f /workspace/schema.sql
+su-exec postgres psql -d sandbox_test -q -f /workspace/seed.sql
+STUDENT=$(su-exec postgres psql -d sandbox_test -t -A -f /workspace/student.sql 2>&1)
+EXPECTED=$(su-exec postgres psql -d sandbox_test -t -A -f /workspace/expected.sql 2>&1)
 if [ "$STUDENT" = "$EXPECTED" ]; then
     echo "MATCH"
     exit 0
@@ -180,7 +182,7 @@ fi
 
         container = client.containers.run(
             SANDBOX_IMAGE_SQL,
-            command=["sh", "/workspace/run.sh"],
+            command=["/workspace/run.sh"],
             volumes={work_dir: {"bind": "/workspace", "mode": "ro"}},
             mem_limit=SANDBOX_MEMORY_LIMIT,
             cpu_period=SANDBOX_CPU_PERIOD,
