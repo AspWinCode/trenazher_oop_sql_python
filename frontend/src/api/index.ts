@@ -142,6 +142,7 @@ export const tasksApi = {
   update: (id: number, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
   delete: (id: number) => api.delete(`/tasks/${id}`),
   addTest: (taskId: number, data: any) => api.post(`/tasks/${taskId}/tests`, data),
+  updateTest: (testId: number, data: any) => api.patch(`/tasks/tests/${testId}`, data),
   deleteTest: (testId: number) => api.delete(`/tasks/tests/${testId}`),
   addHint: (taskId: number, data: any) => api.post(`/tasks/${taskId}/hints`, data),
   deleteHint: (hintId: number) => api.delete(`/tasks/hints/${hintId}`),

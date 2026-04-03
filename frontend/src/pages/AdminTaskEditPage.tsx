@@ -51,6 +51,10 @@ export default function AdminTaskEditPage() {
   const [newTest, setNewTest] = useState({ test_type: 'public', input_data: '', expected_output: '' });
   const [addingTest, setAddingTest] = useState(false);
 
+  // редактирование теста
+  const [editingTestId, setEditingTestId] = useState<number | null>(null);
+  const [editingTestData, setEditingTestData] = useState({ test_type: 'public', input_data: '', expected_output: '' });
+
   // новая подсказка (форма)
   const [newHint, setNewHint] = useState({ hint_level: 1, unlock_attempts: 3, content: '' });
   const [addingHint, setAddingHint] = useState(false);
@@ -118,6 +122,25 @@ export default function AdminTaskEditPage() {
       await loadTask();
     } catch (e: any) {
       setError(e.response?.data?.detail || e.message || 'Ошибка добавления теста');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditTest = (t: TaskTest) => {
+    setEditingTestId(t.id);
+    setEditingTestData({ test_type: t.test_type, input_data: t.input_data || '', expected_output: t.expected_output || '' });
+  };
+
+  const handleSaveTest = async () => {
+    if (!editingTestId) return;
+    setSaving(true);
+    try {
+      await tasksApi.updateTest(editingTestId, editingTestData);
+      setEditingTestId(null);
+      await loadTask();
+    } catch (e: any) {
+      setError(e.response?.data?.detail || 'Ошибка сохранения теста');
     } finally {
       setSaving(false);
     }
@@ -399,29 +422,41 @@ export default function AdminTaskEditPage() {
                   <tr key={t.id} className="border-t border-surface-100">
                     <td className="px-3 py-2 text-surface-400">{i + 1}</td>
                     <td className="px-3 py-2">
-                      <span className={t.test_type === 'public' ? 'badge-green' : 'badge-yellow'}>
-                        {t.test_type}
-                      </span>
+                      {editingTestId === t.id ? (
+                        <select className="input text-xs py-1" value={editingTestData.test_type} onChange={e => setEditingTestData({ ...editingTestData, test_type: e.target.value })}>
+                          <option value="public">public</option>
+                          <option value="hidden">hidden</option>
+                        </select>
+                      ) : (
+                        <span className={t.test_type === 'public' ? 'badge-green' : 'badge-yellow'}>{t.test_type}</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">
-                        {t.input_data || '—'}
-                      </pre>
+                      {editingTestId === t.id ? (
+                        <textarea className="input w-full font-mono text-xs" rows={3} value={editingTestData.input_data} onChange={e => setEditingTestData({ ...editingTestData, input_data: e.target.value })} />
+                      ) : (
+                        <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">{t.input_data || '—'}</pre>
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">
-                        {t.expected_output || '—'}
-                      </pre>
+                      {editingTestId === t.id ? (
+                        <textarea className="input w-full font-mono text-xs" rows={4} value={editingTestData.expected_output} onChange={e => setEditingTestData({ ...editingTestData, expected_output: e.target.value })} />
+                      ) : (
+                        <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">{t.expected_output || '—'}</pre>
+                      )}
                     </td>
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTest(t.id)}
-                        className="text-xs text-red-600 hover:underline"
-                        disabled={saving}
-                      >
-                        Удалить
-                      </button>
+                    <td className="px-3 py-2 space-y-1">
+                      {editingTestId === t.id ? (
+                        <>
+                          <button type="button" onClick={handleSaveTest} className="text-xs text-green-600 hover:underline block" disabled={saving}>Сохранить</button>
+                          <button type="button" onClick={() => setEditingTestId(null)} className="text-xs text-surface-400 hover:underline block">Отмена</button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" onClick={() => handleEditTest(t)} className="text-xs text-blue-600 hover:underline block" disabled={saving}>Изменить</button>
+                          <button type="button" onClick={() => handleDeleteTest(t.id)} className="text-xs text-red-600 hover:underline block" disabled={saving}>Удалить</button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

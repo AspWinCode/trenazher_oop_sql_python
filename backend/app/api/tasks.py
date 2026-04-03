@@ -180,6 +180,21 @@ async def add_test(task_id: int, body: TaskTestCreate, db: AsyncSession = Depend
     return TaskTestOut.model_validate(test)
 
 
+@router.patch("/tests/{test_id}", response_model=TaskTestOut)
+async def update_test(test_id: int, body: TaskTestCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    from app.services.cache_service import cache_delete
+    result = await db.execute(select(TaskTest).where(TaskTest.id == test_id))
+    test = result.scalar_one_or_none()
+    if test is None:
+        raise HTTPException(status_code=404, detail="Test not found")
+    for key, val in body.model_dump(exclude_unset=True).items():
+        setattr(test, key, val)
+    await db.flush()
+    await db.refresh(test)
+    cache_delete("task:{}".format(test.task_id))
+    return TaskTestOut.model_validate(test)
+
+
 @router.delete("/tests/{test_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_test(test_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
     from app.services.cache_service import cache_delete
