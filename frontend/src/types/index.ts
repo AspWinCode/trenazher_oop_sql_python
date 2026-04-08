@@ -3,6 +3,8 @@ export interface User {
   login: string;
   role: 'admin' | 'student';
   status: 'active' | 'blocked' | 'archived';
+  email: string | null;
+  full_name: string | null;
   created_at: string;
   updated_at: string;
 }

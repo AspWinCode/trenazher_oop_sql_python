@@ -18,12 +18,14 @@ export interface CourseEnrollment {
 export const usersApi = {
   list: () => api.get<User[]>('/users'),
   get: (id: number) => api.get<User>(`/users/${id}`),
-  create: (data: { login: string; password: string; role?: string }) => api.post<User>('/users', data),
+  create: (data: { login: string; password: string; role?: string; email?: string; full_name?: string }) => api.post<User>('/users', data),
   update: (id: number, data: Partial<User>) => api.put<User>(`/users/${id}`, data),
   resetPassword: (id: number, new_password: string) => api.post<User>(`/users/${id}/reset-password`, { new_password }),
   getEnrollments: (id: number) => api.get<CourseEnrollment[]>(`/users/${id}/enrollments`),
   enroll: (userId: number, courseId: number) => api.post(`/users/${userId}/enrollments/${courseId}`),
   unenroll: (userId: number, courseId: number) => api.delete(`/users/${userId}/enrollments/${courseId}`),
+  forgotPassword: (email: string) => api.post('/users/forgot-password', { email }),
+  resetPasswordByToken: (token: string, new_password: string) => api.post('/users/reset-password-by-token', { token, new_password }),
 };
 
 export const coursesApi = {

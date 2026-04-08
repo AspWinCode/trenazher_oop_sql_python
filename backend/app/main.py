@@ -11,6 +11,7 @@ from app.database import Base, get_engine, get_session_factory
 from app.logging_config import setup_logging
 
 setup_logging()
+from app.models.password_reset_token import PasswordResetToken  # noqa: F401 — register model
 from app.models.user import User, UserRole, UserStatus
 from app.services.auth_service import hash_password
 

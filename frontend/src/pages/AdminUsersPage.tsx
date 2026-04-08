@@ -8,7 +8,7 @@ export default function AdminUsersPage() {
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ login: '', password: '', role: 'student' });
+  const [form, setForm] = useState({ login: '', password: '', role: 'student', email: '', full_name: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [createdCredentials, setCreatedCredentials] = useState<{ login: string; password: string } | null>(null);
@@ -34,9 +34,9 @@ export default function AdminUsersPage() {
     e.preventDefault();
     setError('');
     try {
-      await usersApi.create(form);
+      await usersApi.create({ ...form, email: form.email || undefined, full_name: form.full_name || undefined });
       setCreatedCredentials({ login: form.login, password: form.password });
-      setForm({ login: '', password: '', role: 'student' });
+      setForm({ login: '', password: '', role: 'student', email: '', full_name: '' });
       setShowCreate(false);
       load();
     } catch (err: any) {
@@ -90,8 +90,11 @@ export default function AdminUsersPage() {
     setEnrollments(data);
   };
 
+  const q = search.toLowerCase();
   const filteredUsers = users.filter((u) =>
-    u.login.toLowerCase().includes(search.toLowerCase())
+    u.login.toLowerCase().includes(q) ||
+    (u.full_name || '').toLowerCase().includes(q) ||
+    (u.email || '').toLowerCase().includes(q)
   );
 
   const enrolledIds = new Set(enrollments.map((e) => e.course_id));
@@ -125,6 +128,14 @@ export default function AdminUsersPage() {
                 <option value="admin">Администратор</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Полное имя</label>
+              <input className="input" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Иванов Иван Иванович" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Email <span className="text-surface-400 font-normal">(для отправки пароля)</span></label>
+              <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="student@example.com" />
+            </div>
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <div className="flex gap-2">
@@ -153,8 +164,8 @@ export default function AdminUsersPage() {
       {/* Поиск */}
       <div className="mb-4">
         <input
-          className="input max-w-xs"
-          placeholder="Поиск по логину..."
+          className="input max-w-sm"
+          placeholder="Поиск по логину, имени или email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -166,7 +177,8 @@ export default function AdminUsersPage() {
           <thead>
             <tr className="bg-surface-50 text-left">
               <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">Логин</th>
+              <th className="px-4 py-3 font-medium">Логин / Имя</th>
+              <th className="px-4 py-3 font-medium">Email</th>
               <th className="px-4 py-3 font-medium">Роль</th>
               <th className="px-4 py-3 font-medium">Статус</th>
               <th className="px-4 py-3 font-medium">Действия</th>
@@ -175,14 +187,18 @@ export default function AdminUsersPage() {
           <tbody>
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-surface-300">
+                <td colSpan={6} className="px-4 py-8 text-center text-surface-300">
                   {search ? 'Пользователи не найдены' : 'Нет пользователей'}
                 </td>
               </tr>
             ) : filteredUsers.map((u) => (
               <tr key={u.id} className="border-t border-surface-100">
                 <td className="px-4 py-3 text-surface-400">{u.id}</td>
-                <td className="px-4 py-3 font-medium">{u.login}</td>
+                <td className="px-4 py-3">
+                  <div className="font-medium">{u.login}</div>
+                  {u.full_name && <div className="text-xs text-surface-400">{u.full_name}</div>}
+                </td>
+                <td className="px-4 py-3 text-sm text-surface-400">{u.email || '—'}</td>
                 <td className="px-4 py-3"><span className={u.role === 'admin' ? 'badge-blue' : 'badge-gray'}>{u.role}</span></td>
                 <td className="px-4 py-3"><span className={u.status === 'active' ? 'badge-green' : 'badge-red'}>{u.status}</span></td>
                 <td className="px-4 py-3">

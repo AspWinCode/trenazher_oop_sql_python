@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     JUDGER_INTERNAL_TOKEN: str
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
     AUTO_CREATE_TABLES: bool = False
+    # Email / SMTP settings (optional — leave blank to disable email)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+    SMTP_TLS: bool = True
+    FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -13,6 +13,8 @@ import AdminTasksPage from './pages/AdminTasksPage';
 import AdminTaskEditPage from './pages/AdminTaskEditPage';
 import AdminLinksPage from './pages/AdminLinksPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import PersonalTaskPage from './pages/PersonalTaskPage';
 import CourseLearnPage from './pages/CourseLearnPage';
 import CoursesPage from './pages/CoursesPage';
@@ -21,6 +23,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/shared/:token" element={<PersonalTaskPage />} />
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<ProgressPage />} />

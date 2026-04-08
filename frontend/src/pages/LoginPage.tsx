@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api';
 import { useAuthStore } from '../store/auth';
 
@@ -52,7 +52,7 @@ export default function LoginPage() {
             {loading ? 'Вход...' : 'Войти'}
           </button>
           <p className="text-center text-xs text-surface-300 pt-1">
-            Забыли пароль? Обратитесь к администратору для сброса.
+            <Link to="/forgot-password" className="text-primary-600 hover:underline">Забыли пароль?</Link>
           </p>
         </form>
       </div>
