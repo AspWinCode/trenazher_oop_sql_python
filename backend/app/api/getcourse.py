@@ -1,25 +1,24 @@
 """
 GetCourse webhook integration.
 
-Когда в GetCourse открывают доступ к курсу пользователю,
-GetCourse отправляет POST-запрос на этот эндпоинт.
-Если пользователь (по email) ещё не существует — создаётся автоматически.
-Если email уже есть — ничего не делается (дублей нет).
+GetCourse шлёт GET-запрос с параметрами в URL когда создаётся сделка.
+Мы берём email, имя, фамилию — создаём пользователя и отправляем письмо через Enkod.
 
-Настройка в GetCourse:
-  Настройки → Интеграции → Уведомления (Webhooks) → добавить URL:
-  https://<ваш-домен>/api/getcourse/webhook?secret=<GETCOURSE_WEBHOOK_SECRET>
+URL для настройки в GetCourse (Настройки → Автоматизация → Правила → Действие «Открыть HTTP-запрос»):
 
-GetCourse шлёт POST (application/x-www-form-urlencoded или JSON) с полями:
-  user[email], user[name] (или email, name в плоском JSON)
+  https://itpractikum.sflearning.ru/api/getcourse/webhook?access_token=<GETCOURSE_WEBHOOK_SECRET>&firstName={object.user.first_name}&lastName={object.user.last_name}&email={object.user.email}&status={object.status}
+
+Статусы сделки GetCourse: new, paid, partially_paid, canceled, refunded — создаём только на paid.
 """
 from __future__ import annotations
 
 import logging
+import re
 import secrets as _secrets
 import string
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,88 +32,91 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Алфавит для авто-генерации пароля (читаемый, без I/l/0/O)
-_PWD_ALPHABET = string.ascii_letters.replace("I", "").replace("l", "").replace("O", "") + string.digits
+_PWD_ALPHABET = (
+    string.ascii_letters.replace("I", "").replace("l", "").replace("O", "")
+    + string.digits
+)
 
 
 def _generate_password(length: int = 12) -> str:
     return "".join(_secrets.choice(_PWD_ALPHABET) for _ in range(length))
 
 
-def _extract_field(data: dict, *keys: str) -> str:
-    """Ищет первое ненулевое значение по одному из ключей."""
-    for k in keys:
-        v = data.get(k)
-        if v:
-            return str(v).strip()
-    return ""
+def _clean_login(raw: str) -> str:
+    """Превращает произвольную строку в допустимый логин [a-zA-Z0-9_.-]"""
+    return re.sub(r"[^a-zA-Z0-9_.-]", "_", raw.lower())[:40]
 
 
-@router.post("/webhook")
-async def getcourse_webhook(
-    request: Request,
-    secret: str = Query(""),
+# Статусы GetCourse, при которых создаём пользователя
+_ALLOWED_STATUSES = {"paid", "partially_paid", "new", ""}
+
+
+@router.get("/webhook")
+async def getcourse_webhook_get(
+    # Аутентификация
+    access_token: str = Query(""),
+    # Данные пользователя (из URL-шаблона GetCourse)
+    email: str = Query(""),
+    firstName: Optional[str] = Query(None),
+    lastName: Optional[str] = Query(None),
+    name: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    # Дополнительные поля (логируем, но не используем)
+    userId: Optional[str] = Query(None),
+    phone: Optional[str] = Query(None),
+    ID_course: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Принимает уведомление от GetCourse.
-    Поддерживаются форматы: JSON-тело и form-urlencoded.
+    GET-вебхук от GetCourse.
+    Вызывается при создании/оплате сделки.
+    Создаёт пользователя платформы по email и отправляет письмо через Enkod.
     """
-    # --- Проверка секрета ---
+    # --- Проверка токена ---
     expected = settings.GETCOURSE_WEBHOOK_SECRET
-    if expected and secret != expected:
-        raise HTTPException(status_code=403, detail="Invalid webhook secret")
+    if expected and access_token != expected:
+        logger.warning("GetCourse webhook: invalid access_token")
+        raise HTTPException(status_code=403, detail="Invalid access_token")
 
-    # --- Парсинг тела ---
-    content_type = request.headers.get("content-type", "")
-    if "application/json" in content_type:
-        try:
-            raw = await request.json()
-        except Exception:
-            raw = {}
-    else:
-        form = await request.form()
-        raw = dict(form)
-
-    logger.info("GetCourse webhook payload: %s", raw)
-
-    # --- Извлечение email ---
-    # GetCourse может слать: user[email], email, USER_EMAIL
-    email = (
-        _extract_field(raw, "email", "USER_EMAIL")
-        or _extract_field(raw.get("user", {}) if isinstance(raw.get("user"), dict) else {}, "email")
-        or _extract_field(raw, "user[email]")
+    logger.info(
+        "GetCourse webhook: email=%s status=%s firstName=%s lastName=%s course=%s",
+        email, status, firstName, lastName, ID_course,
     )
 
+    # --- Проверка статуса сделки ---
+    deal_status = (status or "").lower().strip()
+    if deal_status and deal_status not in _ALLOWED_STATUSES:
+        logger.info("GetCourse webhook: skipping status=%s", deal_status)
+        return {"status": "skipped", "reason": f"deal_status={deal_status}"}
+
+    # --- Проверка email ---
     if not email or "@" not in email:
-        logger.warning("GetCourse webhook: no valid email in payload, skipping")
+        logger.warning("GetCourse webhook: no valid email, skipping")
         return {"status": "skipped", "reason": "no_email"}
 
-    # --- Извлечение имени ---
-    name = (
-        _extract_field(raw, "name", "full_name", "USER_NAME")
-        or _extract_field(raw.get("user", {}) if isinstance(raw.get("user"), dict) else {}, "name", "full_name")
-        or _extract_field(raw, "user[name]", "user[full_name]")
-    )
-    first_name = _extract_field(raw, "first_name", "USER_FIRST_NAME") \
-        or _extract_field(raw.get("user", {}) if isinstance(raw.get("user"), dict) else {}, "first_name")
-    last_name = _extract_field(raw, "last_name", "USER_LAST_NAME") \
-        or _extract_field(raw.get("user", {}) if isinstance(raw.get("user"), dict) else {}, "last_name")
+    email = email.strip().lower()
 
-    full_name = name or " ".join(filter(None, [first_name, last_name])) or None
+    # --- Собираем полное имя ---
+    full_name = None
+    if name and name.strip():
+        full_name = name.strip()
+    elif firstName or lastName:
+        full_name = " ".join(filter(None, [
+            (firstName or "").strip(),
+            (lastName or "").strip(),
+        ])) or None
 
-    # --- Проверяем, существует ли пользователь с таким email ---
+    # --- Проверяем дубликат ---
     existing = await db.execute(select(User).where(User.email == email))
     if existing.scalar_one_or_none():
-        logger.info("GetCourse webhook: user %s already exists, skipping", email)
+        logger.info("GetCourse webhook: user %s already exists", email)
         return {"status": "exists"}
 
-    # --- Генерируем логин из email (часть до @) ---
-    base_login = email.split("@")[0].lower()
-    # Убираем запрещённые символы — оставляем только [a-zA-Z0-9_.-]
-    import re
-    base_login = re.sub(r"[^a-zA-Z0-9_.-]", "_", base_login)[:40]
-    # Если логин занят — добавляем суффикс
+    # --- Генерируем уникальный логин ---
+    base_login = _clean_login(email.split("@")[0])
+    if not base_login:
+        base_login = "user"
+
     login = base_login
     suffix = 2
     while True:
@@ -138,11 +140,40 @@ async def getcourse_webhook(
     await db.flush()
     await db.refresh(user)
 
-    # Отправляем логин/пароль через Enkod
-    send_welcome_email(email, login, password)
+    # --- Отправляем письмо через Enkod ---
+    sent = send_welcome_email(email, login, password)
 
     logger.info(
-        "GetCourse webhook: created user id=%s login=%s email=%s",
-        user.id, login, email,
+        "GetCourse webhook: created user id=%s login=%s email=%s email_sent=%s",
+        user.id, login, email, sent,
     )
+
     return {"status": "created", "login": login}
+
+
+@router.post("/webhook")
+async def getcourse_webhook_post(
+    # Оставляем POST для совместимости
+    access_token: str = Query(""),
+    email: str = Query(""),
+    firstName: Optional[str] = Query(None),
+    lastName: Optional[str] = Query(None),
+    name: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    userId: Optional[str] = Query(None),
+    ID_course: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """POST-совместимость — делегируем в GET-обработчик."""
+    return await getcourse_webhook_get(
+        access_token=access_token,
+        email=email,
+        firstName=firstName,
+        lastName=lastName,
+        name=name,
+        status=status,
+        userId=userId,
+        phone=None,
+        ID_course=ID_course,
+        db=db,
+    )
