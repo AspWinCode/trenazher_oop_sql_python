@@ -3,6 +3,13 @@ import { coursesApi, usersApi } from '../api';
 import type { CourseEnrollment } from '../api';
 import type { Course, User } from '../types';
 
+interface StudentStats {
+  user_id: number;
+  total_attempts: number;
+  solved_tasks: number;
+  in_progress_tasks: number;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [allCourses, setAllCourses] = useState<Course[]>([]);
@@ -13,15 +20,17 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [createdCredentials, setCreatedCredentials] = useState<{ login: string; password: string } | null>(null);
 
-  // Reset password modal
   const [resetUserId, setResetUserId] = useState<number | null>(null);
   const [resetPassword, setResetPassword] = useState('');
   const [resetError, setResetError] = useState('');
 
-  // Course enrollment modal
   const [enrollUserId, setEnrollUserId] = useState<number | null>(null);
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [enrollLoading, setEnrollLoading] = useState(false);
+
+  const [statsUserId, setStatsUserId] = useState<number | null>(null);
+  const [stats, setStats] = useState<StudentStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   const load = () => usersApi.list().then(({ data }) => setUsers(data)).finally(() => setLoading(false));
 
@@ -34,7 +43,13 @@ export default function AdminUsersPage() {
     e.preventDefault();
     setError('');
     try {
-      await usersApi.create({ ...form, email: form.email || undefined, full_name: form.full_name || undefined });
+      await usersApi.create({
+        login: form.login,
+        password: form.password,
+        role: form.role,
+        email: form.email || undefined,
+        full_name: form.full_name || undefined,
+      });
       setCreatedCredentials({ login: form.login, password: form.password });
       setForm({ login: '', password: '', role: 'student', email: '', full_name: '' });
       setShowCreate(false);
@@ -76,6 +91,20 @@ export default function AdminUsersPage() {
     }
   };
 
+  const openStats = async (userId: number) => {
+    setStatsUserId(userId);
+    setStatsLoading(true);
+    setStats(null);
+    try {
+      const { data } = await usersApi.getStats(userId);
+      setStats(data);
+    } catch {
+      setStats(null);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
   const handleEnroll = async (courseId: number) => {
     if (!enrollUserId) return;
     await usersApi.enroll(enrollUserId, courseId);
@@ -90,15 +119,18 @@ export default function AdminUsersPage() {
     setEnrollments(data);
   };
 
-  const q = search.toLowerCase();
-  const filteredUsers = users.filter((u) =>
-    u.login.toLowerCase().includes(q) ||
-    (u.full_name || '').toLowerCase().includes(q) ||
-    (u.email || '').toLowerCase().includes(q)
-  );
+  const filteredUsers = users.filter((u) => {
+    const q = search.toLowerCase();
+    return (
+      u.login.toLowerCase().includes(q) ||
+      (u.email ?? '').toLowerCase().includes(q) ||
+      (u.full_name ?? '').toLowerCase().includes(q)
+    );
+  });
 
   const enrolledIds = new Set(enrollments.map((e) => e.course_id));
   const enrollUser = users.find((u) => u.id === enrollUserId);
+  const statsUser = users.find((u) => u.id === statsUserId);
 
   if (loading) return <div className="text-center py-20 text-surface-300">Загрузка...</div>;
 
@@ -109,17 +141,25 @@ export default function AdminUsersPage() {
         <button onClick={() => { setShowCreate(!showCreate); setCreatedCredentials(null); }} className="btn-primary">+ Добавить</button>
       </div>
 
-      {/* Форма создания */}
       {showCreate && (
         <form onSubmit={handleCreate} className="card mb-6 space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Логин</label>
+              <label className="block text-sm font-medium mb-1">Логин *</label>
               <input className="input" value={form.login} onChange={(e) => setForm({ ...form, login: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Пароль</label>
+              <label className="block text-sm font-medium mb-1">Пароль *</label>
               <input className="input" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required placeholder="Введите пароль" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Email</label>
+              <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="student@example.com" />
+              <p className="text-xs text-surface-400 mt-0.5">Если указан — логин/пароль отправятся на почту автоматически</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Имя</label>
+              <input className="input" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Иван Иванов" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Роль</label>
@@ -127,14 +167,6 @@ export default function AdminUsersPage() {
                 <option value="student">Студент</option>
                 <option value="admin">Администратор</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Полное имя</label>
-              <input className="input" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Иванов Иван Иванович" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Email <span className="text-surface-400 font-normal">(для отправки пароля)</span></label>
-              <input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="student@example.com" />
             </div>
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
@@ -145,7 +177,6 @@ export default function AdminUsersPage() {
         </form>
       )}
 
-      {/* Учётные данные после создания */}
       {createdCredentials && (
         <div className="card mb-6 bg-green-50 border border-green-200">
           <div className="flex items-start justify-between">
@@ -161,17 +192,15 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* Поиск */}
       <div className="mb-4">
         <input
           className="input max-w-sm"
-          placeholder="Поиск по логину, имени или email..."
+          placeholder="Поиск по логину, email или имени..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Таблица */}
       <div className="card overflow-hidden p-0">
         <table className="w-full text-sm">
           <thead>
@@ -198,7 +227,7 @@ export default function AdminUsersPage() {
                   <div className="font-medium">{u.login}</div>
                   {u.full_name && <div className="text-xs text-surface-400">{u.full_name}</div>}
                 </td>
-                <td className="px-4 py-3 text-sm text-surface-400">{u.email || '—'}</td>
+                <td className="px-4 py-3 text-surface-400 text-xs">{u.email || <span className="text-surface-200">—</span>}</td>
                 <td className="px-4 py-3"><span className={u.role === 'admin' ? 'badge-blue' : 'badge-gray'}>{u.role}</span></td>
                 <td className="px-4 py-3"><span className={u.status === 'active' ? 'badge-green' : 'badge-red'}>{u.status}</span></td>
                 <td className="px-4 py-3">
@@ -210,9 +239,14 @@ export default function AdminUsersPage() {
                       Сбросить пароль
                     </button>
                     {u.role === 'student' && (
-                      <button onClick={() => openEnrollments(u.id)} className="text-xs text-purple-600 hover:underline">
-                        Доступ к курсам
-                      </button>
+                      <>
+                        <button onClick={() => openEnrollments(u.id)} className="text-xs text-purple-600 hover:underline">
+                          Доступ к курсам
+                        </button>
+                        <button onClick={() => openStats(u.id)} className="text-xs text-teal-600 hover:underline">
+                          Статистика
+                        </button>
+                      </>
                     )}
                   </div>
                 </td>
@@ -233,14 +267,7 @@ export default function AdminUsersPage() {
             <form onSubmit={handleResetPassword} className="space-y-3">
               <div>
                 <label className="block text-sm font-medium mb-1">Новый пароль</label>
-                <input
-                  className="input"
-                  type="text"
-                  value={resetPassword}
-                  onChange={(e) => setResetPassword(e.target.value)}
-                  required
-                  placeholder="Введите новый пароль"
-                />
+                <input className="input" type="text" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} required placeholder="Введите новый пароль" />
               </div>
               {resetError && <div className="text-red-600 text-sm">{resetError}</div>}
               <div className="flex gap-2 pt-2">
@@ -260,11 +287,12 @@ export default function AdminUsersPage() {
               <h2 className="text-lg font-bold">Доступ к курсам</h2>
               <button onClick={() => setEnrollUserId(null)} className="text-surface-400 hover:text-dark-900 text-xl leading-none">×</button>
             </div>
-            <p className="text-sm text-surface-400 mb-4">
+            <p className="text-sm text-surface-400 mb-3">
               Пользователь: <span className="font-medium text-dark-900">{enrollUser?.login}</span>
+              {enrollUser?.full_name && <span className="text-surface-300"> ({enrollUser.full_name})</span>}
             </p>
-            <p className="text-xs text-surface-300 mb-4">
-              Если курсы не назначены — студент видит все публичные курсы. При назначении хотя бы одного — только назначенные.
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+              ⚠️ Студент видит только назначенные курсы. Без доступа — курсов не видно.
             </p>
             {enrollLoading ? (
               <div className="text-center py-4 text-surface-300">Загрузка...</div>
@@ -291,6 +319,47 @@ export default function AdminUsersPage() {
             )}
             <div className="mt-4 pt-4 border-t border-surface-100">
               <button onClick={() => setEnrollUserId(null)} className="btn-secondary btn-sm w-full">Закрыть</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модал статистики студента */}
+      {statsUserId !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Статистика студента</h2>
+              <button onClick={() => setStatsUserId(null)} className="text-surface-400 hover:text-dark-900 text-xl leading-none">×</button>
+            </div>
+            <p className="text-sm text-surface-400 mb-4">
+              {statsUser?.full_name
+                ? <><span className="font-medium text-dark-900">{statsUser.full_name}</span> <span className="text-surface-300">({statsUser.login})</span></>
+                : <span className="font-medium text-dark-900">{statsUser?.login}</span>
+              }
+            </p>
+            {statsLoading ? (
+              <div className="text-center py-4 text-surface-300">Загрузка...</div>
+            ) : stats ? (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 bg-green-50 rounded-xl border border-green-100">
+                  <div className="text-2xl font-bold text-green-700">{stats.solved_tasks}</div>
+                  <div className="text-xs text-green-600 mt-1">Решено задач</div>
+                </div>
+                <div className="text-center p-3 bg-yellow-50 rounded-xl border border-yellow-100">
+                  <div className="text-2xl font-bold text-yellow-700">{stats.in_progress_tasks}</div>
+                  <div className="text-xs text-yellow-600 mt-1">В процессе</div>
+                </div>
+                <div className="text-center p-3 bg-surface-50 rounded-xl border border-surface-100">
+                  <div className="text-2xl font-bold text-dark-700">{stats.total_attempts}</div>
+                  <div className="text-xs text-surface-400 mt-1">Всего попыток</div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-surface-300">Нет данных</div>
+            )}
+            <div className="mt-4 pt-4 border-t border-surface-100">
+              <button onClick={() => setStatsUserId(null)} className="btn-secondary btn-sm w-full">Закрыть</button>
             </div>
           </div>
         </div>

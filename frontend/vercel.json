@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://217.12.37.19:8000/api/:path*"
+      "destination": "https://curly-trout-pjpvp7vpx945f66w4-8000.app.github.dev/api/:path*"
     },
     {
       "source": "/(.*)",

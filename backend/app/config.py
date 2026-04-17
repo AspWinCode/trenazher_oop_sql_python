@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     SMTP_FROM: str = ""
     SMTP_TLS: bool = True
     FRONTEND_URL: str = "http://localhost:3000"
+    # GetCourse webhook secret (оставь пустым чтобы отключить проверку)
+    GETCOURSE_WEBHOOK_SECRET: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -30,7 +30,15 @@ export function useTaskData(taskId?: string) {
   }, []);
 
   const refreshHints = useCallback((tid: number) => {
-    progressApi.getHints(tid).then(({ data }) => setHints(data)).catch(() => {});
+    progressApi.getHints(tid).then(({ data }) => {
+      setHints((prev) => {
+        // Автоматически показываем подсказки если появились новые
+        if (data.length > prev.length && data.length > 0) {
+          setShowHints(true);
+        }
+        return data;
+      });
+    }).catch(() => {});
   }, []);
 
   const handleSetCode = useCallback((newCode: string) => {

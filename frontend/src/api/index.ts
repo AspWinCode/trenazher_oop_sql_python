@@ -26,6 +26,7 @@ export const usersApi = {
   unenroll: (userId: number, courseId: number) => api.delete(`/users/${userId}/enrollments/${courseId}`),
   forgotPassword: (email: string) => api.post('/users/forgot-password', { email }),
   resetPasswordByToken: (token: string, new_password: string) => api.post('/users/reset-password-by-token', { token, new_password }),
+  getStats: (id: number) => api.get<{ user_id: number; total_attempts: number; solved_tasks: number; in_progress_tasks: number }>(`/users/${id}/stats`),
 };
 
 export const coursesApi = {

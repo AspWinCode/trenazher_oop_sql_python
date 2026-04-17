@@ -69,6 +69,7 @@ register_error_handlers(app)
 from app.api import auth, users, courses, tasks, submissions, progress, personal_links  # noqa: E402
 from app.api import ws, contests, ratings, achievements  # noqa: E402
 from app.api import admin_courses, course_student, platform_settings  # noqa: E402
+from app.api import getcourse  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(admin_courses.router, prefix="/api", tags=["Admin Courses"])
@@ -84,6 +85,7 @@ app.include_router(ratings.router, prefix="/api/ratings", tags=["Ratings"])
 app.include_router(achievements.router, prefix="/api/achievements", tags=["Achievements"])
 app.include_router(ws.router, prefix="/api/ws", tags=["WebSocket"])
 app.include_router(platform_settings.router, prefix="/api", tags=["Platform Settings"])
+app.include_router(getcourse.router, prefix="/api/getcourse", tags=["GetCourse"])
 
 
 @app.get("/api/health")

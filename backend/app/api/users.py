@@ -13,6 +13,7 @@ from app.database import get_db
 from app.middleware.auth_middleware import require_admin
 from app.models.course import Course
 from app.models.password_reset_token import PasswordResetToken
+from app.models.student_progress import StudentProgress
 from app.models.user import User
 from app.models.user_course_enrollment import UserCourseEnrollment
 from app.schemas.user import (
@@ -161,6 +162,31 @@ async def unenroll_user(user_id: int, course_id: int, db: AsyncSession = Depends
     enrollment = result.scalar_one_or_none()
     if enrollment:
         await db.delete(enrollment)
+
+
+# --- Student statistics ---
+
+class StudentStatsOut(BaseModel):
+    user_id: int
+    total_attempts: int
+    solved_tasks: int
+    in_progress_tasks: int
+
+@router.get("/{user_id}/stats", response_model=StudentStatsOut)
+async def get_student_stats(user_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    result = await db.execute(
+        select(StudentProgress).where(StudentProgress.user_id == user_id)
+    )
+    progress_list = result.scalars().all()
+    total_attempts = sum(p.attempts for p in progress_list)
+    solved_tasks = sum(1 for p in progress_list if p.best_verdict == "AC")
+    in_progress_tasks = sum(1 for p in progress_list if p.best_verdict != "AC" and p.attempts > 0)
+    return StudentStatsOut(
+        user_id=user_id,
+        total_attempts=total_attempts,
+        solved_tasks=solved_tasks,
+        in_progress_tasks=in_progress_tasks,
+    )
 
 
 # --- Password recovery (public endpoints) ---
