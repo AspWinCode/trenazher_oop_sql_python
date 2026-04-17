@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
 
 
-app = FastAPI(title="Task Checker Platform", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="ITPractikum", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

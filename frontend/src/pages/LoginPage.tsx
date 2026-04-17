@@ -35,8 +35,8 @@ export default function LoginPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-dark-900">Task Checker</h1>
-          <p className="text-surface-300 mt-1">Платформа проверки задач</p>
+          <h1 className="text-2xl font-bold text-dark-900">ITPractikum</h1>
+          <p className="text-surface-300 mt-1">Платформа для обучения</p>
         </div>
         <form onSubmit={handleSubmit} className="card space-y-5">
           <div>
