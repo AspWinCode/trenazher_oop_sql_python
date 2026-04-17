@@ -1,14 +1,30 @@
 """
-GetCourse webhook integration.
+GetCourse webhook — автоматическое управление доступами.
 
-GetCourse шлёт GET-запрос с параметрами в URL когда создаётся сделка.
-Мы берём email, имя, фамилию — создаём пользователя и отправляем письмо через Enkod.
+Параметры запроса (GET или POST, всё в query string):
+  Name       — имя пользователя
+  lastName   — фамилия пользователя
+  email      — email (ключевой идентификатор)
+  Course     — курс: "Python" | "SQL"
+  Status     — "active" (дать доступ) | "disabled" (забрать доступ)
 
-URL для настройки в GetCourse (Настройки → Автоматизация → Правила → Действие «Открыть HTTP-запрос»):
+Логика:
+  Status=active:
+    - Если пользователя нет → создаём, генерируем пароль, шлём письмо через Enkod
+    - Находим курс по Course (ищем по названию, содержащему "python" или "sql")
+    - Добавляем пользователя в курс (если ещё не добавлен)
+  Status=disabled:
+    - Находим пользователя по email
+    - Убираем его из курса
 
-  https://itpractikum.sflearning.ru/api/getcourse/webhook?access_token=<GETCOURSE_WEBHOOK_SECRET>&firstName={object.user.first_name}&lastName={object.user.last_name}&email={object.user.email}&status={object.status}
-
-Статусы сделки GetCourse: new, paid, partially_paid, canceled, refunded — создаём только на paid.
+URL для настройки в GetCourse:
+  https://itpractikum.sflearning.ru/api/getcourse/webhook
+  ?access_token=GcWh2024SecretItPraktikum
+  &Name={object.name}
+  &lastName={object.last_name}
+  &email={object.email}
+  &Course={object.Course}
+  &Status={object.Status}
 """
 from __future__ import annotations
 
@@ -24,12 +40,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
+from app.models.course import Course, CourseStatus
 from app.models.user import User, UserRole, UserStatus
+from app.models.user_course_enrollment import UserCourseEnrollment
 from app.services.auth_service import hash_password
 from app.services.email_service import send_welcome_email
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
 
 _PWD_ALPHABET = (
@@ -38,85 +55,62 @@ _PWD_ALPHABET = (
 )
 
 
-def _generate_password(length: int = 12) -> str:
+def _gen_password(length: int = 12) -> str:
     return "".join(_secrets.choice(_PWD_ALPHABET) for _ in range(length))
 
 
 def _clean_login(raw: str) -> str:
-    """Превращает произвольную строку в допустимый логин [a-zA-Z0-9_.-]"""
-    return re.sub(r"[^a-zA-Z0-9_.-]", "_", raw.lower())[:40]
+    return re.sub(r"[^a-zA-Z0-9_.-]", "_", raw.lower())[:40] or "user"
 
 
-# Статусы GetCourse, при которых создаём пользователя
-_ALLOWED_STATUSES = {"paid", "partially_paid", "new", ""}
-
-
-@router.get("/webhook")
-async def getcourse_webhook_get(
-    # Аутентификация
-    access_token: str = Query(""),
-    # Данные пользователя (из URL-шаблона GetCourse)
-    email: str = Query(""),
-    firstName: Optional[str] = Query(None),
-    lastName: Optional[str] = Query(None),
-    name: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    # Дополнительные поля (логируем, но не используем)
-    userId: Optional[str] = Query(None),
-    phone: Optional[str] = Query(None),
-    ID_course: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
-):
+async def _find_course(db: AsyncSession, course_param: str) -> Optional[Course]:
     """
-    GET-вебхук от GetCourse.
-    Вызывается при создании/оплате сделки.
-    Создаёт пользователя платформы по email и отправляет письмо через Enkod.
+    Находит курс по значению параметра Course.
+    "Python" → ищет курс с python/питон в названии
+    "SQL"    → ищет курс с sql в названии
     """
-    # --- Проверка токена ---
-    expected = settings.GETCOURSE_WEBHOOK_SECRET
-    if expected and access_token != expected:
-        logger.warning("GetCourse webhook: invalid access_token")
-        raise HTTPException(status_code=403, detail="Invalid access_token")
+    keyword = course_param.lower().strip()
 
-    logger.info(
-        "GetCourse webhook: email=%s status=%s firstName=%s lastName=%s course=%s",
-        email, status, firstName, lastName, ID_course,
+    # Маппинг ключевых слов → что искать в названии курса
+    search_map = {
+        "python": ["python", "питон", "oop"],
+        "sql":    ["sql"],
+    }
+
+    keywords = search_map.get(keyword, [keyword])
+
+    result = await db.execute(
+        select(Course).where(Course.status == CourseStatus.published)
     )
+    courses = result.scalars().all()
 
-    # --- Проверка статуса сделки ---
-    deal_status = (status or "").lower().strip()
-    if deal_status and deal_status not in _ALLOWED_STATUSES:
-        logger.info("GetCourse webhook: skipping status=%s", deal_status)
-        return {"status": "skipped", "reason": f"deal_status={deal_status}"}
+    for course in courses:
+        title_lower = course.title.lower()
+        if any(kw in title_lower for kw in keywords):
+            return course
 
-    # --- Проверка email ---
-    if not email or "@" not in email:
-        logger.warning("GetCourse webhook: no valid email, skipping")
-        return {"status": "skipped", "reason": "no_email"}
+    logger.warning("GetCourse webhook: course not found for param '%s'", course_param)
+    return None
 
-    email = email.strip().lower()
 
-    # --- Собираем полное имя ---
-    full_name = None
-    if name and name.strip():
-        full_name = name.strip()
-    elif firstName or lastName:
-        full_name = " ".join(filter(None, [
-            (firstName or "").strip(),
-            (lastName or "").strip(),
-        ])) or None
+async def _get_or_create_user(
+    db: AsyncSession,
+    email: str,
+    first_name: str,
+    last_name: str,
+) -> tuple[User, bool, str]:
+    """
+    Возвращает (user, is_new, plain_password).
+    plain_password непустой только для новых пользователей.
+    """
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if user:
+        return user, False, ""
 
-    # --- Проверяем дубликат ---
-    existing = await db.execute(select(User).where(User.email == email))
-    if existing.scalar_one_or_none():
-        logger.info("GetCourse webhook: user %s already exists", email)
-        return {"status": "exists"}
+    full_name = " ".join(filter(None, [first_name.strip(), last_name.strip()])) or None
 
-    # --- Генерируем уникальный логин ---
     base_login = _clean_login(email.split("@")[0])
-    if not base_login:
-        base_login = "user"
-
     login = base_login
     suffix = 2
     while True:
@@ -126,8 +120,7 @@ async def getcourse_webhook_get(
         login = f"{base_login}_{suffix}"
         suffix += 1
 
-    password = _generate_password()
-
+    password = _gen_password()
     user = User(
         login=login,
         password_hash=hash_password(password),
@@ -139,41 +132,155 @@ async def getcourse_webhook_get(
     db.add(user)
     await db.flush()
     await db.refresh(user)
+    return user, True, password
 
-    # --- Отправляем письмо через Enkod ---
-    sent = send_welcome_email(email, login, password)
+
+async def _enroll(db: AsyncSession, user_id: int, course_id: int) -> bool:
+    """Добавляет запись в enrollments. Возвращает True если добавил, False если уже был."""
+    existing = await db.execute(
+        select(UserCourseEnrollment).where(
+            UserCourseEnrollment.user_id == user_id,
+            UserCourseEnrollment.course_id == course_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return False
+    db.add(UserCourseEnrollment(user_id=user_id, course_id=course_id))
+    await db.flush()
+    return True
+
+
+async def _unenroll(db: AsyncSession, user_id: int, course_id: int) -> bool:
+    """Убирает запись из enrollments. Возвращает True если убрал."""
+    result = await db.execute(
+        select(UserCourseEnrollment).where(
+            UserCourseEnrollment.user_id == user_id,
+            UserCourseEnrollment.course_id == course_id,
+        )
+    )
+    enrollment = result.scalar_one_or_none()
+    if enrollment:
+        await db.delete(enrollment)
+        await db.flush()
+        return True
+    return False
+
+
+async def _handle(
+    db: AsyncSession,
+    name: str,
+    last_name: str,
+    email: str,
+    course_param: str,
+    status_param: str,
+    access_token: str,
+) -> dict:
+    # --- Проверка токена ---
+    expected = settings.GETCOURSE_WEBHOOK_SECRET
+    if expected and access_token != expected:
+        logger.warning("GetCourse webhook: invalid access_token")
+        raise HTTPException(status_code=403, detail="Invalid access_token")
 
     logger.info(
-        "GetCourse webhook: created user id=%s login=%s email=%s email_sent=%s",
-        user.id, login, email, sent,
+        "GetCourse webhook: email=%s Course=%s Status=%s",
+        email, course_param, status_param,
     )
 
-    return {"status": "created", "login": login}
+    # --- Валидация email ---
+    email = email.strip().lower()
+    if not email or "@" not in email:
+        return {"status": "error", "reason": "no_valid_email"}
+
+    # --- Валидация статуса ---
+    status_lower = status_param.strip().lower()
+    if status_lower not in ("active", "disabled"):
+        return {"status": "error", "reason": f"unknown_status={status_param}"}
+
+    # --- Находим курс ---
+    course = await _find_course(db, course_param)
+    if not course:
+        return {"status": "error", "reason": f"course_not_found: {course_param}"}
+
+    # ──────────────────────────────────────────────
+    #  STATUS = active → выдаём доступ
+    # ──────────────────────────────────────────────
+    if status_lower == "active":
+        user, is_new, plain_password = await _get_or_create_user(
+            db, email, name, last_name
+        )
+
+        enrolled = await _enroll(db, user.id, course.id)
+
+        if is_new:
+            sent = send_welcome_email(email, user.login, plain_password)
+            logger.info(
+                "GetCourse webhook: CREATED user=%s course=%s email_sent=%s",
+                user.login, course.title, sent,
+            )
+            return {
+                "status": "created",
+                "login": user.login,
+                "course": course.title,
+                "email_sent": sent,
+            }
+        else:
+            action = "enrolled" if enrolled else "already_enrolled"
+            logger.info(
+                "GetCourse webhook: EXISTING user=%s course=%s action=%s",
+                user.login, course.title, action,
+            )
+            return {
+                "status": "exists",
+                "login": user.login,
+                "course": course.title,
+                "action": action,
+            }
+
+    # ──────────────────────────────────────────────
+    #  STATUS = disabled → забираем доступ
+    # ──────────────────────────────────────────────
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        logger.warning("GetCourse webhook: DISABLE — user not found: %s", email)
+        return {"status": "not_found"}
+
+    removed = await _unenroll(db, user.id, course.id)
+    logger.info(
+        "GetCourse webhook: DISABLED user=%s course=%s removed=%s",
+        user.login, course.title, removed,
+    )
+    return {
+        "status": "disabled",
+        "login": user.login,
+        "course": course.title,
+        "removed": removed,
+    }
+
+
+# ── Эндпоинты ─────────────────────────────────────────────────────────────────
+
+@router.get("/webhook")
+async def getcourse_webhook_get(
+    access_token: str = Query(""),
+    Name: str = Query(""),
+    lastName: str = Query(""),
+    email: str = Query(""),
+    Course: str = Query(""),
+    Status: str = Query(""),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _handle(db, Name, lastName, email, Course, Status, access_token)
 
 
 @router.post("/webhook")
 async def getcourse_webhook_post(
-    # Оставляем POST для совместимости
     access_token: str = Query(""),
+    Name: str = Query(""),
+    lastName: str = Query(""),
     email: str = Query(""),
-    firstName: Optional[str] = Query(None),
-    lastName: Optional[str] = Query(None),
-    name: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    userId: Optional[str] = Query(None),
-    ID_course: Optional[str] = Query(None),
+    Course: str = Query(""),
+    Status: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    """POST-совместимость — делегируем в GET-обработчик."""
-    return await getcourse_webhook_get(
-        access_token=access_token,
-        email=email,
-        firstName=firstName,
-        lastName=lastName,
-        name=name,
-        status=status,
-        userId=userId,
-        phone=None,
-        ID_course=ID_course,
-        db=db,
-    )
+    return await _handle(db, Name, lastName, email, Course, Status, access_token)
