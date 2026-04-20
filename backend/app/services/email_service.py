@@ -10,7 +10,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 # Enkod API config
-ENKOD_API_URL = "https://api.enkod.ru/v1/mail"
+ENKOD_API_URL = "https://api.enkod.ru/v1/mail/"  # trailing slash важен — без него 307 redirect
 ENKOD_API_KEY = "p9Q3m6NGZ3KXT9OKOFQt2t5uJQjNs5PmXGj8kbnsBJzg"
 ENKOD_WELCOME_MESSAGE_ID = 1470  # messageId для шаблона "логин + пароль"
 
