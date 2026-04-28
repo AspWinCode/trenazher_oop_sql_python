@@ -69,7 +69,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-dark-900 text-white min-h-screen flex flex-col">
+    <aside className="w-64 bg-dark-900 text-white h-screen sticky top-0 flex flex-col">
       {/* Логотип */}
       <div className="p-4 border-b border-dark-700 flex items-center justify-center">
         {logoUrl ? (

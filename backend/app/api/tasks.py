@@ -18,6 +18,7 @@ from app.models.task_hint import TaskHint
 from app.models.task_lecture import TaskLecture
 from app.models.task_test import TaskTest
 from app.models.user import User
+from app.models.user_course_enrollment import UserCourseEnrollment
 from app.schemas.task import (
     TaskCreate,
     TaskDetailOut,
@@ -55,9 +56,18 @@ async def list_tasks(
         q = q.where(Task.submodule_id == submodule_id)
     if task_type is not None:
         q = q.where(Task.task_type == task_type)
-    # Студенты видят только опубликованные задачи
+    # Студенты видят только опубликованные задачи из курсов, к которым у них есть доступ
     if user.role != "admin":
         q = q.where(Task.status == TaskStatus.published)
+        # Подзапрос: id задач, привязанных к курсам, в которые зачислен пользователь
+        enrolled_task_ids = (
+            select(CourseNodeTask.task_id)
+            .join(CourseNode, CourseNode.id == CourseNodeTask.node_id)
+            .join(UserCourseEnrollment,
+                  UserCourseEnrollment.course_id == CourseNode.course_id)
+            .where(UserCourseEnrollment.user_id == user.id)
+        )
+        q = q.where(Task.id.in_(enrolled_task_ids))
     q = q.offset(offset).limit(limit)
     result = await db.execute(q)
     return [TaskOut.model_validate(t) for t in result.scalars().all()]
