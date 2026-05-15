@@ -13,6 +13,7 @@ class TaskTestCreate(BaseModel):
     test_type: TestType = TestType.public
     input_data: Optional[str] = None
     expected_output: Optional[str] = None
+    verification_sql: Optional[str] = None
     weight: float = 1.0
     order_index: int = 0
 
@@ -23,6 +24,7 @@ class TaskTestOut(BaseModel):
     test_type: TestType
     input_data: Optional[str]
     expected_output: Optional[str]
+    verification_sql: Optional[str]
     weight: float
     order_index: int
 

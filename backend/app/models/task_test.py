@@ -21,6 +21,7 @@ class TaskTest(Base):
     test_type: Mapped[TestType] = mapped_column(Enum(TestType), default=TestType.public)
     input_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     expected_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    verification_sql: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     weight: Mapped[float] = mapped_column(Float, default=1.0)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
 

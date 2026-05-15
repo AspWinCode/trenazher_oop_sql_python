@@ -51,6 +51,7 @@ class SubmissionExecutionTest(BaseModel):
     test_type: str
     input_data: Optional[str] = None
     expected_output: Optional[str] = None
+    verification_sql: Optional[str] = None
     weight: float = 1.0
     order_index: int = 0
 

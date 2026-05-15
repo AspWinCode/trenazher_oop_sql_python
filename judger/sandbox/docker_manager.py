@@ -143,7 +143,17 @@ def run_pytest_sandbox(code, test_code, timeout=None):
         _semaphore.release()
 
 
-def run_sql_sandbox(student_sql, schema_sql, seed_sql, expected_sql, timeout=None):
+def run_sql_sandbox(student_sql, schema_sql, seed_sql, expected_sql, verification_sql=None, timeout=None):
+    """Run SQL sandbox.
+
+    Two modes:
+    - SELECT mode (verification_sql is None/empty): student.sql and expected.sql are both
+      run on separate identical databases; their text outputs are compared directly.
+      Used for tasks where the student writes a SELECT query.
+    - DML mode (verification_sql is set): student.sql and expected.sql are each run as DML
+      on separate databases, then verification_sql (a SELECT) is run on both and results
+      compared. Used for INSERT/UPDATE/DELETE/CREATE TABLE tasks.
+    """
     timeout = timeout or SANDBOX_TIMEOUT
     _semaphore.acquire()
     work_dir = _mk_work_dir(prefix="sandbox_sql_")
@@ -153,6 +163,7 @@ def run_sql_sandbox(student_sql, schema_sql, seed_sql, expected_sql, timeout=Non
             ("seed.sql", seed_sql),
             ("student.sql", student_sql),
             ("expected.sql", expected_sql),
+            ("verification.sql", verification_sql),
         ]:
             with open(os.path.join(work_dir, name), "w") as f:
                 f.write(content or "")
@@ -163,11 +174,29 @@ mkdir -p /var/lib/postgresql/data /run/postgresql
 chown -R postgres:postgres /var/lib/postgresql /run/postgresql
 su-exec postgres pg_ctl initdb -D /var/lib/postgresql/data -o "--auth=trust --username=postgres" -s
 su-exec postgres pg_ctl start -D /var/lib/postgresql/data -l /tmp/pg.log -w -s
-su-exec postgres createdb sandbox_test
-su-exec postgres psql -d sandbox_test -q -f /workspace/schema.sql
-su-exec postgres psql -d sandbox_test -q -f /workspace/seed.sql
-STUDENT=$(su-exec postgres psql -d sandbox_test -t -A -f /workspace/student.sql 2>&1)
-EXPECTED=$(su-exec postgres psql -d sandbox_test -t -A -f /workspace/expected.sql 2>&1)
+
+# Setup student database
+su-exec postgres createdb sandbox_student
+su-exec postgres psql -d sandbox_student -q -f /workspace/schema.sql
+su-exec postgres psql -d sandbox_student -q -f /workspace/seed.sql
+
+# Setup expected database
+su-exec postgres createdb sandbox_expected
+su-exec postgres psql -d sandbox_expected -q -f /workspace/schema.sql
+su-exec postgres psql -d sandbox_expected -q -f /workspace/seed.sql
+
+if [ -s /workspace/verification.sql ]; then
+    # DML mode: run student/expected SQL silently, then compare via verification query
+    su-exec postgres psql -d sandbox_student -q -f /workspace/student.sql > /dev/null 2>&1 || true
+    su-exec postgres psql -d sandbox_expected -q -f /workspace/expected.sql > /dev/null 2>&1 || true
+    STUDENT=$(su-exec postgres psql -d sandbox_student -t -A -f /workspace/verification.sql 2>&1)
+    EXPECTED=$(su-exec postgres psql -d sandbox_expected -t -A -f /workspace/verification.sql 2>&1)
+else
+    # SELECT mode: compare direct output of student vs expected query
+    STUDENT=$(su-exec postgres psql -d sandbox_student -t -A -f /workspace/student.sql 2>&1)
+    EXPECTED=$(su-exec postgres psql -d sandbox_expected -t -A -f /workspace/expected.sql 2>&1)
+fi
+
 if [ "$STUDENT" = "$EXPECTED" ]; then
     echo "MATCH"
     exit 0

@@ -19,9 +19,10 @@ class SQLRunner(BaseRunner):
         for test in tests:
             test_id = test["id"]
             expected_sql = test.get("expected_output", "")
+            verification_sql = test.get("verification_sql") or ""
 
             start = time.time()
-            result = run_sql_sandbox(code, sql_schema, sql_seed, expected_sql)
+            result = run_sql_sandbox(code, sql_schema, sql_seed, expected_sql, verification_sql)
             elapsed = time.time() - start
             total_runtime += elapsed
 
