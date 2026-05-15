@@ -20,9 +20,11 @@ class SQLRunner(BaseRunner):
             test_id = test["id"]
             expected_sql = test.get("expected_output", "")
             verification_sql = test.get("verification_sql") or ""
+            # input_data used as per-test seed SQL; falls back to task-level sql_seed
+            test_seed = test.get("input_data") or sql_seed
 
             start = time.time()
-            result = run_sql_sandbox(code, sql_schema, sql_seed, expected_sql, verification_sql)
+            result = run_sql_sandbox(code, sql_schema, test_seed, expected_sql, verification_sql)
             elapsed = time.time() - start
             total_runtime += elapsed
 
