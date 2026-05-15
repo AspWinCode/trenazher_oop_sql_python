@@ -48,12 +48,12 @@ export default function AdminTaskEditPage() {
   const [hints, setHints] = useState<TaskHint[]>([]);
 
   // новый тест (форма)
-  const [newTest, setNewTest] = useState({ test_type: 'public', input_data: '', expected_output: '' });
+  const [newTest, setNewTest] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '' });
   const [addingTest, setAddingTest] = useState(false);
 
   // редактирование теста
   const [editingTestId, setEditingTestId] = useState<number | null>(null);
-  const [editingTestData, setEditingTestData] = useState({ test_type: 'public', input_data: '', expected_output: '' });
+  const [editingTestData, setEditingTestData] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '' });
 
   // новая подсказка (форма)
   const [newHint, setNewHint] = useState({ hint_level: 1, unlock_attempts: 3, content: '' });
@@ -117,7 +117,7 @@ export default function AdminTaskEditPage() {
     setError(null);
     try {
       await tasksApi.addTest(task.id, newTest);
-      setNewTest({ test_type: 'public', input_data: '', expected_output: '' });
+      setNewTest({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '' });
       setAddingTest(false);
       await loadTask();
     } catch (e: any) {
@@ -129,7 +129,7 @@ export default function AdminTaskEditPage() {
 
   const handleEditTest = (t: TaskTest) => {
     setEditingTestId(t.id);
-    setEditingTestData({ test_type: t.test_type, input_data: t.input_data || '', expected_output: t.expected_output || '' });
+    setEditingTestData({ test_type: t.test_type, input_data: t.input_data || '', expected_output: t.expected_output || '', verification_sql: t.verification_sql || '' });
   };
 
   const handleSaveTest = async () => {
@@ -330,7 +330,8 @@ export default function AdminTaskEditPage() {
             )}
             {taskType === 'sql_query' && (
               <div className="text-xs bg-warning-100 border border-warning-200 rounded-lg p-2 text-warning-800">
-                <strong>SQL:</strong> в поле «Эталонный SQL запрос» напишите правильный SQL, результат которого будет сравниваться с ответом студента строка-в-строку.
+                <strong>SELECT-задача:</strong> оставьте «Verification SQL» пустым — ответ студента сравнивается напрямую с эталонным SELECT.<br/>
+                <strong>DML-задача (INSERT/UPDATE/DELETE):</strong> в «Seed SQL» укажите начальные данные теста, в «Эталонный SQL» — правильный DML, в «Verification SQL» — SELECT для проверки состояния таблицы.
               </div>
             )}
 
@@ -348,16 +349,18 @@ export default function AdminTaskEditPage() {
                 </select>
               </div>
 
-              {/* Input — только для IO-задач */}
-              {taskType !== 'python_oop' && taskType !== 'python_numpy' && taskType !== 'sql_query' && (
+              {/* Input — для IO-задач как stdin, для SQL как per-test seed */}
+              {taskType !== 'python_oop' && taskType !== 'python_numpy' && (
                 <div>
-                  <label className="block text-xs font-semibold mb-1">Input (stdin)</label>
+                  <label className="block text-xs font-semibold mb-1">
+                    {taskType === 'sql_query' ? 'Seed SQL (начальные данные теста)' : 'Input (stdin)'}
+                  </label>
                   <textarea
                     className="input w-full font-mono text-sm"
                     rows={3}
                     value={newTest.input_data}
                     onChange={(e) => setNewTest({ ...newTest, input_data: e.target.value })}
-                    placeholder={'5 3'}
+                    placeholder={taskType === 'sql_query' ? "INSERT INTO orders VALUES (1,1,5000,'completed');" : '5 3'}
                   />
                 </div>
               )}
@@ -368,7 +371,7 @@ export default function AdminTaskEditPage() {
                   {taskType === 'python_oop' || taskType === 'python_numpy'
                     ? 'Pytest-код теста'
                     : taskType === 'sql_query'
-                    ? 'Эталонный SQL запрос'
+                    ? 'Эталонный SQL (правильный ответ)'
                     : 'Expected output'}
                 </label>
                 <textarea
@@ -382,11 +385,27 @@ export default function AdminTaskEditPage() {
                       : taskType === 'python_numpy'
                       ? 'import numpy as np\nfrom solution import solve\ndef test_shape():\n    result = solve()\n    assert result.shape == (3, 3)'
                       : taskType === 'sql_query'
-                      ? 'SELECT customer_name, COUNT(*) AS order_count\nFROM orders\nGROUP BY customer_name\nHAVING COUNT(*) > 1\nORDER BY order_count DESC'
+                      ? 'SELECT * FROM customers ORDER BY customer_id;\n-- или для DML:\nINSERT INTO customers VALUES (...);'
                       : '8'
                   }
                 />
               </div>
+
+              {/* Verification SQL — только для SQL-задач */}
+              {taskType === 'sql_query' && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    Verification SQL <span className="text-surface-400 font-normal">(для DML-задач — SELECT для проверки состояния)</span>
+                  </label>
+                  <textarea
+                    className="input w-full font-mono text-sm"
+                    rows={2}
+                    value={newTest.verification_sql}
+                    onChange={(e) => setNewTest({ ...newTest, verification_sql: e.target.value })}
+                    placeholder="SELECT * FROM customers ORDER BY customer_id;"
+                  />
+                </div>
+              )}
             </div>
 
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>
@@ -405,7 +424,7 @@ export default function AdminTaskEditPage() {
                   <th className="px-3 py-2 font-medium w-8">#</th>
                   <th className="px-3 py-2 font-medium w-24">Тип</th>
                   <th className="px-3 py-2 font-medium">
-                    {taskType === 'python_oop' || taskType === 'python_numpy' ? '—' : 'Input'}
+                    {taskType === 'sql_query' ? 'Seed SQL' : taskType === 'python_oop' || taskType === 'python_numpy' ? '—' : 'Input'}
                   </th>
                   <th className="px-3 py-2 font-medium">
                     {taskType === 'python_oop' || taskType === 'python_numpy'
@@ -414,6 +433,9 @@ export default function AdminTaskEditPage() {
                       ? 'Эталонный SQL'
                       : 'Expected output'}
                   </th>
+                  {taskType === 'sql_query' && (
+                    <th className="px-3 py-2 font-medium">Verification SQL</th>
+                  )}
                   <th className="px-3 py-2 font-medium w-16"></th>
                 </tr>
               </thead>
@@ -445,6 +467,15 @@ export default function AdminTaskEditPage() {
                         <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">{t.expected_output || '—'}</pre>
                       )}
                     </td>
+                    {taskType === 'sql_query' && (
+                      <td className="px-3 py-2">
+                        {editingTestId === t.id ? (
+                          <textarea className="input w-full font-mono text-xs" rows={2} value={editingTestData.verification_sql} onChange={e => setEditingTestData({ ...editingTestData, verification_sql: e.target.value })} />
+                        ) : (
+                          <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">{t.verification_sql || '—'}</pre>
+                        )}
+                      </td>
+                    )}
                     <td className="px-3 py-2 space-y-1">
                       {editingTestId === t.id ? (
                         <>

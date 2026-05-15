@@ -43,6 +43,7 @@ export interface TaskTest {
   test_type: 'public' | 'hidden';
   input_data: string | null;
   expected_output: string | null;
+  verification_sql: string | null;
   weight: number;
   order_index: number;
 }
