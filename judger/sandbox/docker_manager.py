@@ -119,10 +119,11 @@ def run_pytest_sandbox(code, test_code, extra_files=None, timeout=None):
         container = client.containers.run(
             SANDBOX_IMAGE_PYTHON,
             command=["sh", "-c",
-                     "cd /workspace && python -m pytest test_solution.py -v --tb=short "
+                     "cp /workspace/* /tmp/ 2>/dev/null || true && "
+                     "cd /tmp && python -m pytest test_solution.py -v --tb=short "
                      "-p no:cacheprovider 2>&1"],
             volumes={work_dir: {"bind": "/workspace", "mode": "ro"}},
-            environment={"PYTHONDONTWRITEBYTECODE": "1"},
+            environment={"PYTHONDONTWRITEBYTECODE": "1", "MPLBACKEND": "Agg"},
             mem_limit=SANDBOX_MEMORY_LIMIT,
             cpu_period=SANDBOX_CPU_PERIOD,
             cpu_quota=SANDBOX_CPU_QUOTA,
@@ -130,7 +131,7 @@ def run_pytest_sandbox(code, test_code, extra_files=None, timeout=None):
             network_disabled=True,
             read_only=True,
             security_opt=_security_opt(),
-            tmpfs={"/tmp": "size=64m"},
+            tmpfs={"/tmp": "size=128m"},
             detach=True,
         )
         try:
