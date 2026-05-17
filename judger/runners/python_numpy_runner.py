@@ -20,9 +20,10 @@ class PythonNumPyRunner(BaseRunner):
             test_code = test.get("expected_output", "")
             if "import numpy" not in test_code:
                 test_code = "import numpy as np\n" + test_code
+            test_files = test.get("test_files") or []
 
             start = time.time()
-            result = run_pytest_sandbox(code, test_code)
+            result = run_pytest_sandbox(code, test_code, extra_files=test_files)
             elapsed = time.time() - start
             total_runtime += elapsed
 

@@ -14,6 +14,7 @@ class TaskTestCreate(BaseModel):
     input_data: Optional[str] = None
     expected_output: Optional[str] = None
     verification_sql: Optional[str] = None
+    test_files: Optional[List] = None  # [{"name": "data.csv", "content": "..."}]
     weight: float = 1.0
     order_index: int = 0
 
@@ -25,6 +26,7 @@ class TaskTestOut(BaseModel):
     input_data: Optional[str]
     expected_output: Optional[str]
     verification_sql: Optional[str]
+    test_files: Optional[List]
     weight: float
     order_index: int
 

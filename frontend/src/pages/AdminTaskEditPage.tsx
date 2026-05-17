@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { tasksApi } from '../api';
-import type { Task, TaskTest, TaskHint } from '../types';
+import type { Task, TaskTest, TaskHint, TestFile } from '../types';
 
 const RUNNER_MAP: Record<string, string> = {
   python_io: 'stdin_runner',
@@ -48,12 +48,12 @@ export default function AdminTaskEditPage() {
   const [hints, setHints] = useState<TaskHint[]>([]);
 
   // новый тест (форма)
-  const [newTest, setNewTest] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '' });
+  const [newTest, setNewTest] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [] as TestFile[] });
   const [addingTest, setAddingTest] = useState(false);
 
   // редактирование теста
   const [editingTestId, setEditingTestId] = useState<number | null>(null);
-  const [editingTestData, setEditingTestData] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '' });
+  const [editingTestData, setEditingTestData] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [] as TestFile[] });
 
   // новая подсказка (форма)
   const [newHint, setNewHint] = useState({ hint_level: 1, unlock_attempts: 3, content: '' });
@@ -117,7 +117,7 @@ export default function AdminTaskEditPage() {
     setError(null);
     try {
       await tasksApi.addTest(task.id, newTest);
-      setNewTest({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '' });
+      setNewTest({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [] });
       setAddingTest(false);
       await loadTask();
     } catch (e: any) {
@@ -129,7 +129,7 @@ export default function AdminTaskEditPage() {
 
   const handleEditTest = (t: TaskTest) => {
     setEditingTestId(t.id);
-    setEditingTestData({ test_type: t.test_type, input_data: t.input_data || '', expected_output: t.expected_output || '', verification_sql: t.verification_sql || '' });
+    setEditingTestData({ test_type: t.test_type, input_data: t.input_data || '', expected_output: t.expected_output || '', verification_sql: t.verification_sql || '', test_files: t.test_files || [] });
   };
 
   const handleSaveTest = async () => {
@@ -406,6 +406,50 @@ export default function AdminTaskEditPage() {
                   />
                 </div>
               )}
+
+              {/* Файлы для sandbox — для pandas/matplotlib задач */}
+              {taskType !== 'sql_query' && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1">
+                    Файлы для sandbox <span className="text-surface-400 font-normal">(CSV/JSON для pandas, matplotlib)</span>
+                  </label>
+                  {newTest.test_files.map((f, i) => (
+                    <div key={i} className="border border-surface-200 rounded p-2 mb-2 space-y-1">
+                      <div className="flex gap-2 items-center">
+                        <input
+                          className="input text-xs font-mono flex-1"
+                          placeholder="data.csv"
+                          value={f.name}
+                          onChange={(e) => {
+                            const files = [...newTest.test_files];
+                            files[i] = { ...files[i], name: e.target.value };
+                            setNewTest({ ...newTest, test_files: files });
+                          }}
+                        />
+                        <button type="button" className="text-xs text-red-500 hover:underline"
+                          onClick={() => setNewTest({ ...newTest, test_files: newTest.test_files.filter((_, j) => j !== i) })}>
+                          Удалить
+                        </button>
+                      </div>
+                      <textarea
+                        className="input w-full font-mono text-xs"
+                        rows={4}
+                        placeholder={"id,name,amount\n1,Иванов,500\n2,Петров,300"}
+                        value={f.content}
+                        onChange={(e) => {
+                          const files = [...newTest.test_files];
+                          files[i] = { ...files[i], content: e.target.value };
+                          setNewTest({ ...newTest, test_files: files });
+                        }}
+                      />
+                    </div>
+                  ))}
+                  <button type="button" className="text-xs text-blue-600 hover:underline"
+                    onClick={() => setNewTest({ ...newTest, test_files: [...newTest.test_files, { name: '', content: '' }] })}>
+                    + Добавить файл
+                  </button>
+                </div>
+              )}
             </div>
 
             <button type="submit" className="btn-primary btn-sm" disabled={saving}>
@@ -435,6 +479,9 @@ export default function AdminTaskEditPage() {
                   </th>
                   {taskType === 'sql_query' && (
                     <th className="px-3 py-2 font-medium">Verification SQL</th>
+                  )}
+                  {taskType !== 'sql_query' && (
+                    <th className="px-3 py-2 font-medium">Файлы</th>
                   )}
                   <th className="px-3 py-2 font-medium w-16"></th>
                 </tr>
@@ -473,6 +520,28 @@ export default function AdminTaskEditPage() {
                           <textarea className="input w-full font-mono text-xs" rows={2} value={editingTestData.verification_sql} onChange={e => setEditingTestData({ ...editingTestData, verification_sql: e.target.value })} />
                         ) : (
                           <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">{t.verification_sql || '—'}</pre>
+                        )}
+                      </td>
+                    )}
+                    {taskType !== 'sql_query' && (
+                      <td className="px-3 py-2">
+                        {editingTestId === t.id ? (
+                          <div className="space-y-1">
+                            {editingTestData.test_files.map((f, i) => (
+                              <div key={i} className="flex gap-1 items-center">
+                                <input className="input text-xs font-mono w-24" value={f.name}
+                                  onChange={e => { const fs = [...editingTestData.test_files]; fs[i] = { ...fs[i], name: e.target.value }; setEditingTestData({ ...editingTestData, test_files: fs }); }} />
+                                <button type="button" className="text-xs text-red-500"
+                                  onClick={() => setEditingTestData({ ...editingTestData, test_files: editingTestData.test_files.filter((_, j) => j !== i) })}>✕</button>
+                              </div>
+                            ))}
+                            <button type="button" className="text-xs text-blue-600 hover:underline"
+                              onClick={() => setEditingTestData({ ...editingTestData, test_files: [...editingTestData.test_files, { name: '', content: '' }] })}>
+                              + файл
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-surface-400">{(t.test_files?.length || 0) > 0 ? `${t.test_files!.length} файл(ов)` : '—'}</span>
                         )}
                       </td>
                     )}

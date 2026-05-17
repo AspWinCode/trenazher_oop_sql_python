@@ -37,6 +37,11 @@ export type TaskType = 'python_io' | 'python_oop' | 'python_numpy' | 'sql_query'
 export type RunnerType = 'stdin_runner' | 'pytest_runner' | 'sql_runner' | 'cpp_runner' | 'js_runner';
 export type Verdict = 'AC' | 'WA' | 'RE' | 'TLE' | 'MLE' | 'CE' | 'PE' | 'IE';
 
+export interface TestFile {
+  name: string;
+  content: string;
+}
+
 export interface TaskTest {
   id: number;
   task_id: number;
@@ -44,6 +49,7 @@ export interface TaskTest {
   input_data: string | null;
   expected_output: string | null;
   verification_sql: string | null;
+  test_files: TestFile[] | null;
   weight: number;
   order_index: number;
 }

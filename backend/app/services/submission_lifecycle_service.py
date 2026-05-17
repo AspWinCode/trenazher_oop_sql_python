@@ -18,6 +18,7 @@ def _build_execution_payload(submission: Submission, task: Task) -> dict:
             input_data=t.input_data,
             expected_output=t.expected_output,
             verification_sql=t.verification_sql,
+            test_files=t.test_files,
             weight=t.weight,
             order_index=t.order_index,
         )

@@ -96,7 +96,12 @@ def run_python_sandbox(code, stdin_data="", timeout=None):
         _semaphore.release()
 
 
-def run_pytest_sandbox(code, test_code, timeout=None):
+def run_pytest_sandbox(code, test_code, extra_files=None, timeout=None):
+    """Run pytest sandbox.
+
+    extra_files: list of {"name": str, "content": str} written alongside solution.py.
+    Used to provide CSV/JSON/Excel data files for pandas/matplotlib tasks.
+    """
     timeout = timeout or SANDBOX_TIMEOUT
     _semaphore.acquire()
     work_dir = _mk_work_dir(prefix="sandbox_")
@@ -105,6 +110,11 @@ def run_pytest_sandbox(code, test_code, timeout=None):
             f.write(code)
         with open(os.path.join(work_dir, "test_solution.py"), "w") as f:
             f.write(test_code)
+        for file_entry in (extra_files or []):
+            fname = os.path.basename(file_entry.get("name", ""))
+            if fname:
+                with open(os.path.join(work_dir, fname), "w", encoding="utf-8") as f:
+                    f.write(file_entry.get("content", ""))
 
         container = client.containers.run(
             SANDBOX_IMAGE_PYTHON,

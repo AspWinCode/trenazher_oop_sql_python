@@ -16,9 +16,10 @@ class PythonOOPRunner(BaseRunner):
         for test in tests:
             test_id = test["id"]
             test_code = test.get("expected_output", "")
+            test_files = test.get("test_files") or []
 
             start = time.time()
-            result = run_pytest_sandbox(code, test_code)
+            result = run_pytest_sandbox(code, test_code, extra_files=test_files)
             elapsed = time.time() - start
             total_runtime += elapsed
 
