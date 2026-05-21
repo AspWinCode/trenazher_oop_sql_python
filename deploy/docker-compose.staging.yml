@@ -31,7 +31,7 @@ services:
 
   backend-staging:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     ports:
       - "8001:8000"
@@ -57,7 +57,7 @@ services:
 
   judger-staging:
     build:
-      context: ./judger
+      context: ../judger
       dockerfile: Dockerfile
     environment:
       REDIS_URL: redis://redis-staging:6379/0
@@ -80,7 +80,7 @@ services:
 
   frontend-staging:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     ports:
       - "8080:3000"
