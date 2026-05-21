@@ -28,6 +28,7 @@ URL для настройки в GetCourse:
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import re
 import secrets as _secrets
@@ -177,7 +178,10 @@ async def _handle(
 ) -> dict:
     # --- Проверка токена ---
     expected = settings.GETCOURSE_WEBHOOK_SECRET
-    if expected and access_token != expected:
+    if not expected:
+        logger.error("GetCourse webhook: GETCOURSE_WEBHOOK_SECRET is not configured")
+        raise HTTPException(status_code=503, detail="Webhook not configured")
+    if not hmac.compare_digest(access_token, expected):
         logger.warning("GetCourse webhook: invalid access_token")
         raise HTTPException(status_code=403, detail="Invalid access_token")
 

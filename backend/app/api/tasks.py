@@ -101,23 +101,50 @@ async def get_task_context(
 
 
 @router.get("/{task_id}", response_model=TaskDetailOut)
-async def get_task(task_id: int, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_task(task_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     from app.services.cache_service import cache_get, cache_set
+
+    # Non-admin: verify published status + course enrollment before serving any data
+    if user.role != "admin":
+        access_q = (
+            select(Task.id)
+            .join(CourseNodeTask, CourseNodeTask.task_id == Task.id)
+            .join(CourseNode, CourseNode.id == CourseNodeTask.node_id)
+            .join(UserCourseEnrollment, UserCourseEnrollment.course_id == CourseNode.course_id)
+            .where(
+                Task.id == task_id,
+                Task.status == TaskStatus.published,
+                UserCourseEnrollment.user_id == user.id,
+            )
+        )
+        access = await db.execute(access_q)
+        if not access.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Task not found")
+
+    # Fetch task data (full version cached — strip sensitive fields per-request)
     cache_key = "task:{}".format(task_id)
     cached = cache_get(cache_key)
     if cached is not None:
-        return cached
+        out = TaskDetailOut.model_validate(cached)
+    else:
+        result = await db.execute(
+            select(Task)
+            .options(selectinload(Task.tests), selectinload(Task.hints), selectinload(Task.lectures))
+            .where(Task.id == task_id)
+        )
+        task = result.scalar_one_or_none()
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        out = TaskDetailOut.model_validate(task)
+        cache_set(cache_key, out.model_dump(), ttl=300)
 
-    result = await db.execute(
-        select(Task)
-        .options(selectinload(Task.tests), selectinload(Task.hints), selectinload(Task.lectures))
-        .where(Task.id == task_id)
-    )
-    task = result.scalar_one_or_none()
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    out = TaskDetailOut.model_validate(task)
-    cache_set(cache_key, out.model_dump(), ttl=300)
+    # Strip sensitive test fields for non-admin (expected answers, sql verification, test data files)
+    if user.role != "admin":
+        for test in out.tests:
+            test.expected_output = None
+            test.verification_sql = None
+            test.test_files = None
+
     return out
 
 

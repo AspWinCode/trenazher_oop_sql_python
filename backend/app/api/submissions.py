@@ -13,6 +13,7 @@ from app.middleware.auth_middleware import (
     get_current_user,
     require_judger_internal_token,
 )
+from app.middleware.rate_limiter import submission_limiter
 from app.models.submission import Submission
 from app.models.submission_test import SubmissionTest
 from app.models.user import User
@@ -53,6 +54,12 @@ async def submit_solution(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    allowed, _ = submission_limiter.check("ratelimit:submission:{}".format(user.id))
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many submissions. Please wait before trying again.",
+        )
     try:
         submission, task_type = await create_submission_and_enqueue(
             db,
@@ -84,6 +91,7 @@ async def get_submission_detail(
     if submission.user_id != user.id and user.role.value != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
 
+    is_admin = user.role.value == "admin"
     test_results = []
     for tr in submission.test_results:
         t = SubmissionTestOut(
@@ -93,8 +101,9 @@ async def get_submission_detail(
             runtime=tr.runtime,
             actual_output=tr.actual_output,
             test_type=tr.test.test_type if tr.test else None,
-            input_data=tr.test.input_data if tr.test else None,
-            expected_output=tr.test.expected_output if tr.test else None,
+            # Sensitive fields: only visible to admin
+            input_data=tr.test.input_data if (tr.test and is_admin) else None,
+            expected_output=tr.test.expected_output if (tr.test and is_admin) else None,
         )
         test_results.append(t)
 

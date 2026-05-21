@@ -1,0 +1,92 @@
+# Staging environment — runs alongside production on different ports
+# Ports: backend=8001, frontend=8080
+# Usage:
+#   docker compose -p staging -f deploy/docker-compose.staging.yml up -d --build
+
+services:
+  postgres-staging:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: platform
+    volumes:
+      - pgdata_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: "no"
+
+  redis-staging:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: "no"
+
+  backend-staging:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://platform:${POSTGRES_PASSWORD}@postgres-staging:5432/platform
+      SYNC_DATABASE_URL: postgresql://platform:${POSTGRES_PASSWORD}@postgres-staging:5432/platform
+      REDIS_URL: redis://redis-staging:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      ADMIN_LOGIN: ${ADMIN_LOGIN:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      JUDGER_INTERNAL_TOKEN: ${JUDGER_INTERNAL_TOKEN}
+      CORS_ORIGINS: "http://localhost:8080"
+      GETCOURSE_WEBHOOK_SECRET: ${GETCOURSE_WEBHOOK_SECRET}
+      # Email disabled on staging — prevents sending real emails to users
+      SMTP_HOST: ""
+      SKIP_ALEMBIC: "1"
+    depends_on:
+      postgres-staging:
+        condition: service_healthy
+      redis-staging:
+        condition: service_healthy
+    restart: "no"
+
+  judger-staging:
+    build:
+      context: ./judger
+      dockerfile: Dockerfile
+    environment:
+      REDIS_URL: redis://redis-staging:6379/0
+      BACKEND_INTERNAL_URL: http://backend-staging:8000/api/submissions/internal
+      JUDGER_INTERNAL_TOKEN: ${JUDGER_INTERNAL_TOKEN}
+      SANDBOX_IMAGE_PYTHON: platform-sandbox-python:latest
+      SANDBOX_IMAGE_SQL: platform-sandbox-sql:latest
+      SANDBOX_IMAGE_CPP: platform-sandbox-cpp:latest
+      SANDBOX_IMAGE_JS: platform-sandbox-js:latest
+      SANDBOX_TIMEOUT: "15"
+      SANDBOX_MEMORY_LIMIT: "128m"
+      SANDBOX_MAX_CONCURRENT: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp
+    depends_on:
+      redis-staging:
+        condition: service_healthy
+    restart: "no"
+
+  frontend-staging:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:3000"
+    depends_on:
+      - backend-staging
+    restart: "no"
+
+volumes:
+  pgdata_staging:

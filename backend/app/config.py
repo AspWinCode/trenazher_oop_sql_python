@@ -7,12 +7,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+asyncpg://platform:platform@postgres:5432/platform"
-    SYNC_DATABASE_URL: str = "postgresql://platform:platform@postgres:5432/platform"
+    DATABASE_URL: str = "postgresql+asyncpg://platform:CHANGE_ME@postgres:5432/platform"
+    SYNC_DATABASE_URL: str = "postgresql://platform:CHANGE_ME@postgres:5432/platform"
     REDIS_URL: str = "redis://redis:6379/0"
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     ADMIN_LOGIN: str = "admin"
     ADMIN_PASSWORD: str
     JUDGER_INTERNAL_TOKEN: str

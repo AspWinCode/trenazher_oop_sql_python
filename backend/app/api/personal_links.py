@@ -68,4 +68,10 @@ async def resolve_link(token: str, db: AsyncSession = Depends(get_db)):
     task = task_result.scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
-    return TaskDetailOut.model_validate(task)
+    out = TaskDetailOut.model_validate(task)
+    # Personal links are unauthenticated — never expose expected answers or test internals
+    for test in out.tests:
+        test.expected_output = None
+        test.verification_sql = None
+        test.test_files = None
+    return out

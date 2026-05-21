@@ -67,6 +67,7 @@ class RedisRateLimiter:
 
 
 submission_limiter = RedisRateLimiter(max_requests=20, window_seconds=60)
+login_limiter = RedisRateLimiter(max_requests=5, window_seconds=60)
 
 
 async def check_submission_rate(request: Request) -> None:
@@ -77,4 +78,15 @@ async def check_submission_rate(request: Request) -> None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many submissions. Please wait before trying again.",
+        )
+
+
+async def check_login_rate(request: Request) -> None:
+    """5 attempts per minute per IP to prevent brute-force attacks on login."""
+    ip = request.client.host if request.client else "unknown"
+    allowed, _ = login_limiter.check("ratelimit:login:{}".format(ip))
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please wait before trying again.",
         )

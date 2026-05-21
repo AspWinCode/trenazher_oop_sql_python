@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth_middleware import get_current_user
+from app.middleware.rate_limiter import check_login_rate
 from app.models.user import User, UserStatus
 from app.schemas.auth import LoginRequest, RefreshRequest, RefreshResponse, TokenResponse
 from app.schemas.user import ChangePassword, UserOut
@@ -15,7 +16,7 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db), _=Depends(check_login_rate)):
     result = await db.execute(select(User).where(User.login == body.login))
     user = result.scalar_one_or_none()
     if user is None or not verify_password(body.password, user.password_hash):
