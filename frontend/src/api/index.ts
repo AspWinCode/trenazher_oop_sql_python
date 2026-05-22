@@ -15,8 +15,14 @@ export interface CourseEnrollment {
   course_title: string;
 }
 
+export interface UsersListResponse {
+  users: User[];
+  total: number;
+}
+
 export const usersApi = {
-  list: () => api.get<User[]>('/users'),
+  list: (params?: { page?: number; limit?: number; search?: string }) =>
+    api.get<UsersListResponse>('/users', { params }),
   get: (id: number) => api.get<User>(`/users/${id}`),
   create: (data: { login: string; password: string; role?: string; email?: string; full_name?: string }) => api.post<User>('/users', data),
   update: (id: number, data: Partial<User>) => api.put<User>(`/users/${id}`, data),

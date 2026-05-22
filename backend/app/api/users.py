@@ -6,7 +6,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -37,11 +37,41 @@ class EnrollmentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("", response_model=List[UserOut])
-async def list_users(offset: int = 0, limit: int = 50, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
-    limit = min(limit, 200)
-    result = await db.execute(select(User).order_by(User.id).offset(offset).limit(limit))
-    return [UserOut.model_validate(u) for u in result.scalars().all()]
+class UsersListOut(BaseModel):
+    users: List[UserOut]
+    total: int
+
+
+@router.get("", response_model=UsersListOut)
+async def list_users(
+    page: int = 1,
+    limit: int = 50,
+    search: str = "",
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    limit = min(max(limit, 1), 200)
+    page = max(page, 1)
+    offset = (page - 1) * limit
+
+    q = select(User)
+    count_q = select(func.count()).select_from(User)
+
+    if search.strip():
+        s = f"%{search.strip()}%"
+        filt = or_(
+            User.login.ilike(s),
+            User.email.ilike(s),
+            User.full_name.ilike(s),
+        )
+        q = q.where(filt)
+        count_q = count_q.where(filt)
+
+    total = (await db.execute(count_q)).scalar() or 0
+    result = await db.execute(q.order_by(User.id).offset(offset).limit(limit))
+    users = [UserOut.model_validate(u) for u in result.scalars().all()]
+
+    return UsersListOut(users=users, total=total)
 
 
 @router.get("/{user_id}", response_model=UserOut)

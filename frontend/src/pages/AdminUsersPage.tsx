@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { coursesApi, usersApi } from '../api';
 import type { CourseEnrollment } from '../api';
 import type { Course, User } from '../types';
@@ -10,10 +10,26 @@ interface StudentStats {
   in_progress_tasks: number;
 }
 
+function getPageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | '...')[] = [1];
+  if (current > 3) pages.push('...');
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ login: '', password: '', role: 'student', email: '', full_name: '' });
   const [error, setError] = useState('');
@@ -32,12 +48,42 @@ export default function AdminUsersPage() {
   const [stats, setStats] = useState<StudentStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  const load = () => usersApi.list().then(({ data }) => setUsers(data)).finally(() => setLoading(false));
+  // Debounce search: wait 400ms after typing, then reset to page 1
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    usersApi.list({ page, limit, search })
+      .then(({ data }) => {
+        setUsers(data.users);
+        setTotal(data.total);
+      })
+      .finally(() => setLoading(false));
+  }, [page, limit, search]);
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  useEffect(() => {
     coursesApi.list().then(({ data }) => setAllCourses(data)).catch(() => {});
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const pageNumbers = getPageNumbers(page, totalPages);
+  const fromItem = total === 0 ? 0 : (page - 1) * limit + 1;
+  const toItem = Math.min(page * limit, total);
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(1);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,20 +165,9 @@ export default function AdminUsersPage() {
     setEnrollments(data);
   };
 
-  const filteredUsers = users.filter((u) => {
-    const q = search.toLowerCase();
-    return (
-      u.login.toLowerCase().includes(q) ||
-      (u.email ?? '').toLowerCase().includes(q) ||
-      (u.full_name ?? '').toLowerCase().includes(q)
-    );
-  });
-
   const enrolledIds = new Set(enrollments.map((e) => e.course_id));
   const enrollUser = users.find((u) => u.id === enrollUserId);
   const statsUser = users.find((u) => u.id === statsUserId);
-
-  if (loading) return <div className="text-center py-20 text-surface-300">Загрузка...</div>;
 
   return (
     <div>
@@ -196,8 +231,8 @@ export default function AdminUsersPage() {
         <input
           className="input max-w-sm"
           placeholder="Поиск по логину, email или имени..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
         />
       </div>
 
@@ -214,13 +249,17 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-surface-300">Загрузка...</td>
+              </tr>
+            ) : users.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-surface-300">
                   {search ? 'Пользователи не найдены' : 'Нет пользователей'}
                 </td>
               </tr>
-            ) : filteredUsers.map((u) => (
+            ) : users.map((u) => (
               <tr key={u.id} className="border-t border-surface-100">
                 <td className="px-4 py-3 text-surface-400">{u.id}</td>
                 <td className="px-4 py-3">
@@ -254,6 +293,72 @@ export default function AdminUsersPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+        <div className="text-sm text-surface-400">
+          {total === 0
+            ? 'Нет пользователей'
+            : `Показано ${fromItem}–${toItem} из ${total}`}
+        </div>
+
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Per-page selector */}
+          <div className="flex items-center gap-1 text-sm">
+            <span className="text-surface-400 mr-1">На странице:</span>
+            {[25, 50, 100].map((n) => (
+              <button
+                key={n}
+                onClick={() => handleLimitChange(n)}
+                className={`px-2 py-1 rounded text-sm ${
+                  limit === n
+                    ? 'bg-primary-600 text-white'
+                    : 'text-primary-600 hover:bg-primary-50'
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+
+          {/* Page navigation */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-2 py-1 text-sm rounded disabled:opacity-30 text-primary-600 hover:bg-primary-50 disabled:hover:bg-transparent"
+              >
+                ←
+              </button>
+              {pageNumbers.map((p, i) =>
+                p === '...' ? (
+                  <span key={`el-${i}`} className="px-1 text-surface-400 select-none">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p as number)}
+                    className={`w-8 h-8 text-sm rounded ${
+                      page === p
+                        ? 'bg-primary-600 text-white'
+                        : 'text-primary-600 hover:bg-primary-50'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-2 py-1 text-sm rounded disabled:opacity-30 text-primary-600 hover:bg-primary-50 disabled:hover:bg-transparent"
+              >
+                →
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Модал сброса пароля */}
