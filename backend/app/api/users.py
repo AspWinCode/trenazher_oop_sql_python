@@ -7,6 +7,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -100,8 +101,11 @@ async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db), _=De
         full_name=body.full_name or None,
     )
     db.add(user)
-    await db.flush()
-    await db.refresh(user)
+    try:
+        await db.flush()
+        await db.refresh(user)
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Логин или email уже существует")
     # Send welcome email if email provided
     if body.email:
         send_welcome_email(body.email, body.login, body.password)

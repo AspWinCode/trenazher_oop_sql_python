@@ -37,6 +37,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -131,9 +132,18 @@ async def _get_or_create_user(
         full_name=full_name,
     )
     db.add(user)
-    await db.flush()
-    await db.refresh(user)
-    return user, True, password
+    try:
+        await db.flush()
+        await db.refresh(user)
+        return user, True, password
+    except IntegrityError:
+        # Race condition: another request created the same user simultaneously
+        await db.rollback()
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        if user:
+            return user, False, ""
+        raise
 
 
 async def _enroll(db: AsyncSession, user_id: int, course_id: int) -> bool:
