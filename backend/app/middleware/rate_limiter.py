@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json as _json
 import logging
 import time
 from collections import defaultdict
@@ -82,9 +83,18 @@ async def check_submission_rate(request: Request) -> None:
 
 
 async def check_login_rate(request: Request) -> None:
-    """5 attempts per minute per IP to prevent brute-force attacks on login."""
-    ip = request.client.host if request.client else "unknown"
-    allowed, _ = login_limiter.check("ratelimit:login:{}".format(ip))
+    """5 attempts per minute per login identifier (not IP) — only the specific user gets locked out."""
+    identifier = request.client.host if request.client else "unknown"
+    try:
+        body_bytes = await request.body()
+        if body_bytes:
+            data = _json.loads(body_bytes)
+            login_val = (data.get("login") or "").strip().lower()
+            if login_val:
+                identifier = login_val
+    except Exception:
+        pass
+    allowed, _ = login_limiter.check("ratelimit:login:{}".format(identifier))
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
