@@ -31,8 +31,20 @@ class SQLRunner(BaseRunner):
             if result.timed_out:
                 tr = TestResult(test_id=test_id, verdict="TLE", runtime=elapsed)
                 overall_verdict = "TLE"
+            elif result.exit_code == 2 or "INTERNAL_ERROR:" in result.stdout:
+                # Schema/seed loading failed — task config problem, not student error
+                tr = TestResult(test_id=test_id, verdict="IE", runtime=elapsed,
+                                actual_output=result.stdout[:2000])
+                overall_verdict = "IE"
             elif result.exit_code == 0 and "MATCH" in result.stdout:
                 tr = TestResult(test_id=test_id, verdict="AC", runtime=elapsed, actual_output="Match")
+            elif "RUNTIME_ERROR:" in result.stdout:
+                # Student SQL raised an error (DML mode)
+                error_text = result.stdout.split("RUNTIME_ERROR:", 1)[-1].strip()
+                tr = TestResult(test_id=test_id, verdict="WA", runtime=elapsed,
+                                actual_output=error_text[:2000])
+                if overall_verdict == "AC":
+                    overall_verdict = "WA"
             else:
                 tr = TestResult(
                     test_id=test_id, verdict="WA", runtime=elapsed,

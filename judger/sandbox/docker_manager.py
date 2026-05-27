@@ -186,19 +186,30 @@ chown -R postgres:postgres /var/lib/postgresql /run/postgresql
 su-exec postgres pg_ctl initdb -D /var/lib/postgresql/data -o "--auth=trust --username=postgres" -s
 su-exec postgres pg_ctl start -D /var/lib/postgresql/data -l /tmp/pg.log -w -s
 
-# Setup student database
+# Setup student database — errors here are task config problems, not student errors
 su-exec postgres createdb sandbox_student
-su-exec postgres psql -d sandbox_student -q -f /workspace/schema.sql
-su-exec postgres psql -d sandbox_student -q -f /workspace/seed.sql
+if ! su-exec postgres psql -d sandbox_student -q -f /workspace/schema.sql 2>/tmp/schema_err.txt; then
+    echo "INTERNAL_ERROR:schema:" $(cat /tmp/schema_err.txt)
+    exit 2
+fi
+if ! su-exec postgres psql -d sandbox_student -q -f /workspace/seed.sql 2>/tmp/seed_err.txt; then
+    echo "INTERNAL_ERROR:seed:" $(cat /tmp/seed_err.txt)
+    exit 2
+fi
 
 # Setup expected database
 su-exec postgres createdb sandbox_expected
-su-exec postgres psql -d sandbox_expected -q -f /workspace/schema.sql
-su-exec postgres psql -d sandbox_expected -q -f /workspace/seed.sql
+su-exec postgres psql -d sandbox_expected -q -f /workspace/schema.sql > /dev/null 2>&1
+su-exec postgres psql -d sandbox_expected -q -f /workspace/seed.sql > /dev/null 2>&1
 
 if [ -s /workspace/verification.sql ]; then
-    # DML mode: run student/expected SQL silently, then compare via verification query
-    su-exec postgres psql -d sandbox_student -q -f /workspace/student.sql > /dev/null 2>&1 || true
+    # DML mode: capture student SQL errors, run expected SQL silently
+    STUDENT_ERR=$(su-exec postgres psql -d sandbox_student -f /workspace/student.sql 2>&1) || true
+    STUDENT_EXIT=$?
+    if [ $STUDENT_EXIT -ne 0 ]; then
+        echo "RUNTIME_ERROR:$STUDENT_ERR"
+        exit 1
+    fi
     su-exec postgres psql -d sandbox_expected -q -f /workspace/expected.sql > /dev/null 2>&1 || true
     STUDENT=$(su-exec postgres psql -d sandbox_student -t -A -f /workspace/verification.sql 2>&1)
     EXPECTED=$(su-exec postgres psql -d sandbox_expected -t -A -f /workspace/verification.sql 2>&1)
