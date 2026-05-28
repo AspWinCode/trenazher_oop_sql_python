@@ -29,7 +29,7 @@ ADMIN_BASE = "/api/admin/courses"
 async def _create_course(client: AsyncClient, headers: dict, **kwargs) -> dict:
     """Создать курс через Admin API и вернуть JSON."""
     payload = {"title": "Test Course", "status": "draft", **kwargs}
-    resp = await client.post(f"{ADMIN_BASE}/", json=payload, headers=headers)
+    resp = await client.post(f"{ADMIN_BASE}", json=payload, headers=headers)
     assert resp.status_code == 201, resp.text
     return resp.json()
 
@@ -73,7 +73,7 @@ class TestAdminCourseCRUD:
     @pytest.mark.asyncio
     async def test_create_course_minimal(self, client: AsyncClient, admin_headers):
         """Минимальное создание курса — только title."""
-        resp = await client.post(f"{ADMIN_BASE}/", json={"title": "Minimal"}, headers=admin_headers)
+        resp = await client.post(f"{ADMIN_BASE}", json={"title": "Minimal"}, headers=admin_headers)
         assert resp.status_code == 201
         data = resp.json()
         assert data["title"] == "Minimal"
@@ -84,7 +84,7 @@ class TestAdminCourseCRUD:
     async def test_create_course_full(self, client: AsyncClient, admin_headers):
         """Создание курса со всеми полями."""
         resp = await client.post(
-            f"{ADMIN_BASE}/",
+            f"{ADMIN_BASE}",
             json={
                 "title": "Full Course",
                 "slug": "full-course",
@@ -106,7 +106,7 @@ class TestAdminCourseCRUD:
         """Список курсов возвращает все созданные."""
         await _create_course(client, admin_headers, title="A")
         await _create_course(client, admin_headers, title="B")
-        resp = await client.get(f"{ADMIN_BASE}/", headers=admin_headers)
+        resp = await client.get(f"{ADMIN_BASE}", headers=admin_headers)
         assert resp.status_code == 200
         assert len(resp.json()) >= 2
 
@@ -250,7 +250,7 @@ class TestAdminCourseSlug:
         """Дублирующийся slug при создании → 400."""
         await _create_course(client, admin_headers, slug="my-slug")
         resp = await client.post(
-            f"{ADMIN_BASE}/",
+            f"{ADMIN_BASE}",
             json={"title": "Another", "slug": "my-slug"},
             headers=admin_headers,
         )
@@ -285,7 +285,7 @@ class TestAdminCourseSlug:
     async def test_invalid_slug_uppercase_rejected(self, client: AsyncClient, admin_headers):
         """Slug с заглавными буквами → 422 (Pydantic pattern validation)."""
         resp = await client.post(
-            f"{ADMIN_BASE}/",
+            f"{ADMIN_BASE}",
             json={"title": "C", "slug": "My-Slug"},
             headers=admin_headers,
         )
@@ -295,7 +295,7 @@ class TestAdminCourseSlug:
     async def test_invalid_slug_with_spaces_rejected(self, client: AsyncClient, admin_headers):
         """Slug с пробелами → 422."""
         resp = await client.post(
-            f"{ADMIN_BASE}/",
+            f"{ADMIN_BASE}",
             json={"title": "C", "slug": "my slug"},
             headers=admin_headers,
         )
@@ -305,7 +305,7 @@ class TestAdminCourseSlug:
     async def test_invalid_slug_with_underscore_rejected(self, client: AsyncClient, admin_headers):
         """Slug с подчёркиванием → 422."""
         resp = await client.post(
-            f"{ADMIN_BASE}/",
+            f"{ADMIN_BASE}",
             json={"title": "C", "slug": "my_slug"},
             headers=admin_headers,
         )
@@ -315,7 +315,7 @@ class TestAdminCourseSlug:
     async def test_empty_title_rejected(self, client: AsyncClient, admin_headers):
         """Пустой title → 422."""
         resp = await client.post(
-            f"{ADMIN_BASE}/",
+            f"{ADMIN_BASE}",
             json={"title": ""},
             headers=admin_headers,
         )
@@ -1041,13 +1041,13 @@ class TestAccessControl:
     @pytest.mark.asyncio
     async def test_student_cannot_list_admin_courses(self, client: AsyncClient, student_headers):
         """Студент не имеет доступа к /api/admin/courses/ → 403."""
-        resp = await client.get(f"{ADMIN_BASE}/", headers=student_headers)
+        resp = await client.get(f"{ADMIN_BASE}", headers=student_headers)
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
     async def test_student_cannot_create_admin_course(self, client: AsyncClient, student_headers):
         """Студент не может создать курс через Admin API → 403."""
-        resp = await client.post(f"{ADMIN_BASE}/", json={"title": "Hack"}, headers=student_headers)
+        resp = await client.post(f"{ADMIN_BASE}", json={"title": "Hack"}, headers=student_headers)
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
@@ -1098,7 +1098,7 @@ class TestAccessControl:
     @pytest.mark.asyncio
     async def test_unauthenticated_cannot_access_admin(self, client: AsyncClient):
         """Без токена → 403 (или 401) для admin endpoints."""
-        resp = await client.get(f"{ADMIN_BASE}/")
+        resp = await client.get(f"{ADMIN_BASE}")
         assert resp.status_code in (401, 403)
 
     @pytest.mark.asyncio

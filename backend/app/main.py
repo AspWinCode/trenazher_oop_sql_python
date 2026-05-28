@@ -73,9 +73,9 @@ from app.api import getcourse  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(admin_courses.router, prefix="/api", tags=["Admin Courses"])
+app.include_router(courses.router, prefix="/api/courses", tags=["Courses"])
 app.include_router(course_student.router, prefix="/api", tags=["Course Student"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
-app.include_router(courses.router, prefix="/api/courses", tags=["Courses"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(submissions.router, prefix="/api/submissions", tags=["Submissions"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])

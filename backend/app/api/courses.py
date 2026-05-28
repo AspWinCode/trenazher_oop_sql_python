@@ -36,9 +36,10 @@ router = APIRouter()
 # --- Courses ---
 
 
-def _build_node_tree(node: CourseNode) -> CourseNodeTreeOut:
-    # Для публичного дерева студентам флаги container/leaf и кол-во задач не считаем пока,
-    # эта ответственность лежит на специализированном student API.
+def _build_node_tree(node: CourseNode, student: bool = False) -> CourseNodeTreeOut:
+    children = sorted(node.children, key=lambda n: n.sort_order)
+    if student:
+        children = [c for c in children if c.status == CourseNodeStatus.published]
     return CourseNodeTreeOut(
         id=node.id,
         course_id=node.course_id,
@@ -47,11 +48,11 @@ def _build_node_tree(node: CourseNode) -> CourseNodeTreeOut:
         title=node.title,
         sort_order=node.sort_order,
         status=node.status,
-        has_children=len(node.children) > 0,
+        has_children=len(children) > 0,
         task_count=len(node.node_tasks),
         can_attach_tasks=False,
         can_create_children=False,
-        children=[_build_node_tree(c) for c in sorted(node.children, key=lambda n: n.sort_order)],
+        children=[_build_node_tree(c, student=student) for c in children],
     )
 
 
@@ -105,10 +106,10 @@ async def get_course_tree(
         .order_by(CourseNode.sort_order, CourseNode.id)
     )
     roots = r2.scalars().unique().all()
-    if user.role == "student":
-        # Студент видит только опубликованные ветки: статус published у курса и всех узлов по пути.
+    is_student = user.role == "student"
+    if is_student:
         roots = [n for n in roots if n.status == CourseNodeStatus.published]
-    return [_build_node_tree(n) for n in roots]
+    return [_build_node_tree(n, student=is_student) for n in roots]
 
 
 @router.get("/{course_id}", response_model=CourseDetailOut)
