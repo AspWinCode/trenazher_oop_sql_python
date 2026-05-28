@@ -18,6 +18,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from tests.conftest import enroll
 
 # ---------------------------------------------------------------------------
 # Вспомогательные функции
@@ -1103,11 +1104,13 @@ class TestAccessControl:
 
     @pytest.mark.asyncio
     async def test_student_sees_only_published_courses(
-        self, client: AsyncClient, admin_headers, student_headers
+        self, client: AsyncClient, admin_headers, student_headers,
+        db: AsyncSession, student_user
     ):
-        """Студент видит только опубликованные курсы в /api/courses."""
+        """Студент видит только опубликованные курсы, на которые зачислен."""
         await _create_course(client, admin_headers, title="Draft Course", status="draft")
-        await _create_course(client, admin_headers, title="Published Course", status="published")
+        published = await _create_course(client, admin_headers, title="Published Course", status="published")
+        await enroll(db, student_user, published["id"])
 
         resp = await client.get("/api/courses", headers=student_headers)
         assert resp.status_code == 200

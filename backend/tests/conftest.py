@@ -110,3 +110,12 @@ def admin_headers(admin_user):
 def student_headers(student_user):
     token = create_access_token({"sub": str(student_user.id), "role": "student"})
     return {"Authorization": f"Bearer {token}"}
+
+
+async def enroll(db: AsyncSession, student_user, course_id: int):
+    """Зачислить студента на курс (helper для тестов)."""
+    from app.models.user_course_enrollment import UserCourseEnrollment
+
+    enrollment = UserCourseEnrollment(user_id=student_user.id, course_id=course_id)
+    db.add(enrollment)
+    await db.flush()

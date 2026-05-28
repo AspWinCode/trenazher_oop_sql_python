@@ -11,6 +11,8 @@
 """
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from tests.conftest import enroll
 
 
 # ---------------------------------------------------------------------------
@@ -82,11 +84,13 @@ class TestLegacyCourseCRUD:
 
     @pytest.mark.asyncio
     async def test_list_courses_student_sees_only_published(
-        self, client: AsyncClient, admin_headers, student_headers
+        self, client: AsyncClient, admin_headers, student_headers,
+        db: AsyncSession, student_user
     ):
-        """Студент видит только опубликованные курсы."""
+        """Студент видит только опубликованные курсы, на которые зачислен."""
         await _create_course(client, admin_headers, title="Hidden Draft", status="draft")
-        await _create_course(client, admin_headers, title="Visible", status="published")
+        visible = await _create_course(client, admin_headers, title="Visible", status="published")
+        await enroll(db, student_user, visible["id"])
 
         resp = await client.get("/api/courses", headers=student_headers)
         assert resp.status_code == 200
