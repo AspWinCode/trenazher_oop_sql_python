@@ -64,15 +64,6 @@ async def list_courses(
     q = select(Course).order_by(Course.sort_order, Course.id)
     if user.role == "student":
         q = q.where(Course.status == CourseStatus.published)
-        # Студент видит только те курсы, к которым у него есть доступ (enrollment).
-        # Если зачислений нет — курсов не показываем.
-        enrollment_r = await db.execute(
-            select(UserCourseEnrollment.course_id).where(
-                UserCourseEnrollment.user_id == user.id
-            )
-        )
-        enrolled_ids = [row[0] for row in enrollment_r.fetchall()]
-        q = q.where(Course.id.in_(enrolled_ids))
     result = await db.execute(q)
     return [CourseOut.model_validate(c) for c in result.scalars().all()]
 
