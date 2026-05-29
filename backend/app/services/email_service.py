@@ -17,7 +17,7 @@ ENKOD_API_URL = "https://api.enkod.ru/v1/mail/"  # trailing slash важен —
 ENKOD_API_KEY = "p9Q3m6NGZ3KXT9OKOFQt2t5uJQjNs5PmXGj8kbnsBJzg"
 ENKOD_WELCOME_MESSAGE_ID = 1470  # messageId для шаблона "логин + пароль"
 # Установите messageId шаблона сброса пароля в Enkod (0 = не используется)
-ENKOD_RESET_MESSAGE_ID = 0
+ENKOD_RESET_MESSAGE_ID = 1588
 
 
 def _send_enkod(email: str, message_id: int, snippets: dict) -> bool:
