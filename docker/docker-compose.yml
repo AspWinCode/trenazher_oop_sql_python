@@ -41,6 +41,7 @@ services:
       JUDGER_INTERNAL_TOKEN: ${JUDGER_INTERNAL_TOKEN}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       GETCOURSE_WEBHOOK_SECRET: ${GETCOURSE_WEBHOOK_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:-https://itpractikum.sflearning.ru}
     depends_on:
       postgres:
         condition: service_healthy
