@@ -88,7 +88,7 @@ def run_python_sandbox(code, stdin_data="", timeout=None):
             return SandboxResult(-1, "", "Time limit exceeded", timed_out=True)
         finally:
             try:
-                container.remove(force=True)
+                container.remove(force=True, v=True)
             except Exception:
                 log.warning("Failed to remove container")
     finally:
@@ -146,7 +146,7 @@ def run_pytest_sandbox(code, test_code, extra_files=None, timeout=None):
             return SandboxResult(-1, "", "Time limit exceeded", timed_out=True)
         finally:
             try:
-                container.remove(force=True)
+                container.remove(force=True, v=True)
             except Exception:
                 log.warning("Failed to remove container")
     finally:
@@ -256,7 +256,7 @@ fi
             return SandboxResult(-1, "", "Time limit exceeded", timed_out=True)
         finally:
             try:
-                container.remove(force=True)
+                container.remove(force=True, v=True)
             except Exception:
                 log.warning("Failed to remove container")
     finally:
@@ -303,7 +303,7 @@ def _run_io_sandbox(image, filename, run_cmd_template, code, stdin_data="", time
             return SandboxResult(-1, "", "Time limit exceeded", timed_out=True)
         finally:
             try:
-                container.remove(force=True)
+                container.remove(force=True, v=True)
             except Exception:
                 log.warning("Failed to remove container")
     finally:
