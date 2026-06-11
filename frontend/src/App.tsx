@@ -18,6 +18,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import PersonalTaskPage from './pages/PersonalTaskPage';
 import CourseLearnPage from './pages/CourseLearnPage';
 import CoursesPage from './pages/CoursesPage';
+import SubmissionDetailPage from './pages/SubmissionDetailPage';
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="tasks" element={<TasksPage />} />
         <Route path="task/:taskId" element={<TaskPage />} />
         <Route path="course/:courseId" element={<CourseLearnPage />} />
+        <Route path="submissions/:submissionId" element={<SubmissionDetailPage />} />
         <Route path="progress" element={<ProgressPage />} />
         <Route path="profile/:userId" element={<ProfilePage />} />
         <Route path="admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />

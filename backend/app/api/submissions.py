@@ -82,7 +82,10 @@ async def get_submission_detail(
 ):
     result = await db.execute(
         select(Submission)
-        .options(selectinload(Submission.test_results).selectinload(SubmissionTest.test))
+        .options(
+            selectinload(Submission.test_results).selectinload(SubmissionTest.test),
+            selectinload(Submission.task),
+        )
         .where(Submission.id == submission_id)
     )
     submission = result.scalar_one_or_none()
@@ -108,6 +111,7 @@ async def get_submission_detail(
         test_results.append(t)
 
     out = SubmissionDetailOut.model_validate(submission)
+    out.task_type = submission.task.task_type.value if submission.task else ""
     out.test_results = test_results
     if submission.verdict:
         SUBMISSIONS_VERDICT.labels(verdict=submission.verdict.value).inc()

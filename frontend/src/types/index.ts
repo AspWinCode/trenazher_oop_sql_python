@@ -109,6 +109,7 @@ export interface Submission {
   memory: number | null;
   error_output: string | null;
   created_at: string;
+  task_type?: string;
   test_results?: SubmissionTestResult[];
 }
 

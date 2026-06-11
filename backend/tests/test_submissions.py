@@ -88,6 +88,39 @@ async def test_internal_routes_require_token(client: AsyncClient, admin_headers)
 
 
 @pytest.mark.asyncio
+async def test_get_submission_detail_includes_task_type(client: AsyncClient, admin_headers):
+    task = await client.post("/api/tasks", json={
+        "title": "Detail Task", "task_type": "python_io", "runner_type": "stdin_runner",
+    }, headers=admin_headers)
+    tid = task.json()["id"]
+
+    with patch("app.services.submission_service.celery"):
+        sub = await client.post("/api/submissions", json={"task_id": tid, "code": "pass"}, headers=admin_headers)
+    sid = sub.json()["id"]
+
+    resp = await client.get(f"/api/submissions/{sid}", headers=admin_headers)
+    assert resp.status_code == 200
+    assert resp.json()["task_type"] == "python_io"
+
+
+@pytest.mark.asyncio
+async def test_get_submission_access_denied_for_other_user(
+    client: AsyncClient, admin_headers, student_headers
+):
+    task = await client.post("/api/tasks", json={
+        "title": "Access Task", "task_type": "python_io", "runner_type": "stdin_runner",
+    }, headers=admin_headers)
+    tid = task.json()["id"]
+
+    with patch("app.services.submission_service.celery"):
+        sub = await client.post("/api/submissions", json={"task_id": tid, "code": "pass"}, headers=admin_headers)
+    sid = sub.json()["id"]
+
+    resp = await client.get(f"/api/submissions/{sid}", headers=student_headers)
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_internal_complete_updates_progress(client: AsyncClient, admin_headers):
     task = await client.post("/api/tasks", json={
         "title": "Finalize Sub", "task_type": "python_io", "runner_type": "stdin_runner",

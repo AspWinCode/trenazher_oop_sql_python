@@ -43,6 +43,7 @@ class SubmissionTestOut(BaseModel):
 
 
 class SubmissionDetailOut(SubmissionOut):
+    task_type: str = ""
     test_results: List[SubmissionTestOut] = []
 
 
