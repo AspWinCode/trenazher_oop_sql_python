@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { submissionsApi } from '../api';
 import type { Submission } from '../types';
 import VerdictBadge from '../components/VerdictBadge';
 import CodeEditor from '../components/CodeEditor';
+import { useSubmissionLive } from '../features/task/hooks/useSubmissionLive';
 
 type Tab = 'error' | 'tests' | 'code';
 
@@ -26,16 +27,15 @@ export default function SubmissionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('tests');
+  const userPickedTab = useRef(false);
 
   useEffect(() => {
     if (!submissionId) return;
+    userPickedTab.current = false;
     setLoading(true);
     submissionsApi
       .get(Number(submissionId))
-      .then(({ data }) => {
-        setSubmission(data);
-        setTab(defaultTab(data));
-      })
+      .then(({ data }) => setSubmission(data))
       .catch((err: { response?: { status?: number } }) => {
         if (err.response?.status === 404) setError('Отправка не найдена');
         else if (err.response?.status === 403) setError('Нет доступа к этой отправке');
@@ -43,6 +43,26 @@ export default function SubmissionDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [submissionId]);
+
+  // Live-обновление, пока отправка не завершена
+  useSubmissionLive(
+    submission?.id ?? null,
+    submission != null && submission.status !== 'finished',
+    setSubmission,
+  );
+
+  // Пока ученик сам не выбрал вкладку — держим вкладку по умолчанию,
+  // в том числе после того как отправка завершится с ошибкой
+  useEffect(() => {
+    if (submission && !userPickedTab.current) {
+      setTab(defaultTab(submission));
+    }
+  }, [submission]);
+
+  const selectTab = (key: Tab) => {
+    userPickedTab.current = true;
+    setTab(key);
+  };
 
   if (loading) return <div className="text-center py-20 text-surface-300">Загрузка...</div>;
   if (error || !submission) {
@@ -105,7 +125,7 @@ export default function SubmissionDetailPage() {
           {tabs.map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => selectTab(key)}
               className={`px-5 py-3 text-sm transition-colors flex items-center gap-1.5 ${
                 tab === key
                   ? 'border-b-2 border-primary-600 text-primary-600 font-medium -mb-px'
