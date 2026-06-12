@@ -215,11 +215,15 @@ function TaskSolver({
                 </summary>
                 <div className="mt-2 space-y-1">
                   {history.slice(0, 10).map((s) => (
-                    <div key={s.id} className="flex items-center justify-between text-sm py-1.5 border-b border-surface-100 last:border-0">
+                    <Link
+                      key={s.id}
+                      to={`/submissions/${s.id}`}
+                      className="flex items-center justify-between text-sm py-1.5 border-b border-surface-100 last:border-0 hover:bg-surface-50 rounded transition-colors px-1 -mx-1"
+                    >
                       <span className="text-surface-400 text-xs">#{s.id}</span>
                       <VerdictBadge verdict={s.verdict} />
                       <span className="text-xs text-surface-400">{new Date(s.created_at).toLocaleString('ru')}</span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </details>
