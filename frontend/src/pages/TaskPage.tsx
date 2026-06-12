@@ -5,6 +5,7 @@ import type { TaskCourseContext } from '../api';
 import CodeEditor from '../components/CodeEditor';
 import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
+import SubmissionDetailLink from '../components/SubmissionDetailLink';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 
@@ -236,6 +237,9 @@ export default function TaskPage() {
                   ))}
                 </div>
               )}
+              {submission.status === 'finished' && (
+                <SubmissionDetailLink submissionId={submission.id} verdict={submission.verdict} />
+              )}
             </div>
           )}
 
@@ -251,7 +255,12 @@ export default function TaskPage() {
                   >
                     <span className="text-surface-300">#{s.id}</span>
                     <VerdictBadge verdict={s.verdict} />
-                    <span className="text-xs text-surface-300">{new Date(s.created_at).toLocaleString('ru')}</span>
+                    <span className="flex items-center gap-1 text-xs text-surface-300">
+                      {new Date(s.created_at).toLocaleString('ru')}
+                      <svg className="w-3.5 h-3.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </span>
                   </Link>
                 ))}
               </div>
