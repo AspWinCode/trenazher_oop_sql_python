@@ -4,7 +4,10 @@ from __future__ import annotations
 import base64
 import uuid
 
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,8 +15,42 @@ from app.database import get_db
 from app.middleware.auth_middleware import get_current_user, require_admin
 from app.models.platform_settings import PlatformSetting
 from app.models.user import User
+from app.services.guest_service import get_guest_config, set_guest_config
 
 router = APIRouter()
+
+
+class GuestConfigIn(BaseModel):
+    enabled: bool = False
+    task_limit: int = Field(default=3, ge=0, le=1000)
+    course_ids: List[int] = []
+
+
+class GuestConfigOut(BaseModel):
+    enabled: bool
+    task_limit: int
+    course_ids: List[int]
+
+
+@router.get("/settings/guest", response_model=GuestConfigOut)
+async def get_guest_settings(db: AsyncSession = Depends(get_db)):
+    """Публичный — нужен странице логина и фронту для блокировок."""
+    return GuestConfigOut(**await get_guest_config(db))
+
+
+@router.put("/settings/guest", response_model=GuestConfigOut)
+async def update_guest_settings(
+    body: GuestConfigIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    config = await set_guest_config(
+        db,
+        enabled=body.enabled,
+        task_limit=body.task_limit,
+        course_ids=body.course_ids,
+    )
+    return GuestConfigOut(**config)
 
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"}
 MAX_SIZE = 2 * 1024 * 1024  # 2 MB

@@ -1,13 +1,20 @@
 import api from './client';
-import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint } from '../types';
+import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig } from '../types';
 
 export const authApi = {
   login: (login: string, password: string) =>
     api.post<{ token: string; refresh_token: string; user: User }>('/auth/login', { login, password }),
+  guestLogin: () =>
+    api.post<{ token: string; refresh_token: string; user: User }>('/auth/guest'),
   refresh: (refresh_token: string) =>
     api.post<{ token: string; refresh_token: string }>('/auth/refresh', { refresh_token }),
   changePassword: (old_password: string, new_password: string) =>
     api.post('/auth/change-password', { old_password, new_password }),
+};
+
+export const guestApi = {
+  getConfig: () => api.get<GuestConfig>('/settings/guest'),
+  updateConfig: (data: GuestConfig) => api.put<GuestConfig>('/settings/guest', data),
 };
 
 export interface CourseEnrollment {

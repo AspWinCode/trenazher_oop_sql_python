@@ -31,6 +31,7 @@ class UserOut(BaseModel):
     status: UserStatus
     email: Optional[str] = None
     full_name: Optional[str] = None
+    is_guest: bool = False
     created_at: datetime
     updated_at: datetime
 

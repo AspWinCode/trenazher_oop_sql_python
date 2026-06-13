@@ -40,6 +40,9 @@ export default function Sidebar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
+  const isGuest = user?.is_guest ?? false;
+  // Гостю доступны только курсы — остальные разделы скрываем.
+  const visibleNavItems = isGuest ? navItems.filter((i) => i.to === '/courses') : navItems;
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -138,8 +141,14 @@ export default function Sidebar() {
                   }`}
                   style={{ paddingLeft: `${16 + item.depth * 8}px`, paddingRight: '12px' }}
                 >
-                  <StatusDot status={item.status} />
-                  <span className="truncate flex-1">
+                  {item.locked ? (
+                    <svg className="w-4 h-4 shrink-0 text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  ) : (
+                    <StatusDot status={item.status} />
+                  )}
+                  <span className={`truncate flex-1 ${item.locked ? 'text-surface-500' : ''}`}>
                     <span className={`mr-1 text-xs ${isActive ? 'text-primary-200' : 'text-surface-500'}`}>
                       {item.number}
                     </span>
@@ -154,7 +163,7 @@ export default function Sidebar() {
         /* ── Обычная навигация ── */
         <nav className="flex-1 py-4">
           <div className="px-3 mb-2 text-xs font-semibold text-surface-300 uppercase tracking-wider">Обучение</div>
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to} to={item.to} end={item.to === '/'}
               className={({ isActive }) =>
@@ -190,16 +199,20 @@ export default function Sidebar() {
 
       {/* Футер */}
       <div className="p-4 border-t border-dark-700 space-y-2">
-        <NavLink
-          to={`/profile/${user?.id}`}
-          className={({ isActive }) =>
-            `block text-sm transition-colors ${isActive ? 'text-white' : 'text-surface-300 hover:text-white'}`
-          }
-        >
-          Мой профиль
-        </NavLink>
+        {isGuest ? (
+          <div className="text-xs text-primary-300 font-medium">Демо-режим (гость)</div>
+        ) : (
+          <NavLink
+            to={`/profile/${user?.id}`}
+            className={({ isActive }) =>
+              `block text-sm transition-colors ${isActive ? 'text-white' : 'text-surface-300 hover:text-white'}`
+            }
+          >
+            Мой профиль
+          </NavLink>
+        )}
         <button onClick={handleLogout} className="w-full text-left text-sm text-surface-300 hover:text-white transition-colors">
-          Выйти
+          {isGuest ? 'Выйти из демо' : 'Выйти'}
         </button>
       </div>
     </aside>

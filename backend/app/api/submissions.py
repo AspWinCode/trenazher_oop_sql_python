@@ -60,6 +60,15 @@ async def submit_solution(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many submissions. Please wait before trying again.",
         )
+    if user.is_guest:
+        from app.services.guest_service import get_guest_config, is_task_allowed_for_guest
+
+        config = await get_guest_config(db)
+        if not await is_task_allowed_for_guest(db, body.task_id, config):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Эта задача недоступна в демо-режиме. Зарегистрируйтесь для полного доступа.",
+            )
     try:
         submission, task_type = await create_submission_and_enqueue(
             db,

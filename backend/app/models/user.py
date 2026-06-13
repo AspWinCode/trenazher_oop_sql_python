@@ -8,6 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+# Зарезервированный префикс логина для эфемерных гостевых аккаунтов (демо-режим).
+GUEST_LOGIN_PREFIX = "guest_"
+
+
 class UserRole(str, enum.Enum):
     admin = "admin"
     student = "student"
@@ -31,6 +35,11 @@ class User(Base):
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    @property
+    def is_guest(self) -> bool:
+        """Гость определяется по зарезервированному префиксу логина — без отдельной колонки."""
+        return bool(self.login) and self.login.startswith(GUEST_LOGIN_PREFIX)
 
     submissions = relationship("Submission", back_populates="user", passive_deletes=True)
     progress = relationship("StudentProgress", back_populates="user", passive_deletes=True)

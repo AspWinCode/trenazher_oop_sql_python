@@ -3,9 +3,11 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   courseStudentApi,
   coursesApi,
+  guestApi,
   type CourseNodeTree,
   type NodeTaskProgress,
 } from '../api';
+import { useAuthStore } from '../store/auth';
 import CodeEditor from '../components/CodeEditor';
 import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
@@ -370,6 +372,7 @@ function TaskSolver({
 // ── Главная страница ──────────────────────────────────────────────────────────
 export default function CourseLearnPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const isGuest = useAuthStore((s) => s.user?.is_guest ?? false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
@@ -408,6 +411,24 @@ export default function CourseLearnPage() {
         });
 
         const items = flattenTree(tree, nodeTasks);
+
+        // Для гостя блокируем задачи сверх лимита (первые N в порядке курса доступны).
+        if (isGuest) {
+          let limit = 0;
+          try {
+            limit = (await guestApi.getConfig()).data.task_limit;
+          } catch {
+            limit = 0;
+          }
+          let taskIdx = 0;
+          items.forEach((it) => {
+            if (it.kind === 'task') {
+              it.locked = taskIdx >= limit;
+              taskIdx += 1;
+            }
+          });
+        }
+
         const taskItems = items.filter((i) => i.kind === 'task');
         const completed = taskItems.filter((i) => i.status === 'completed').length;
 
@@ -436,6 +457,7 @@ export default function CourseLearnPage() {
     [sidebarItems],
   );
   const currentIndex = taskItems.findIndex((t) => t.taskId === selectedTaskId);
+  const selectedLocked = currentIndex >= 0 && !!taskItems[currentIndex]?.locked;
 
   const selectTask = useCallback(
     (taskId: number) => {
@@ -463,7 +485,18 @@ export default function CourseLearnPage() {
 
   return (
     <div className="-mx-6 -my-6 lg:-mx-8 lg:-my-8 overflow-hidden bg-surface-50" style={{ height: 'calc(100vh - 0px)' }}>
-      {selectedTaskId ? (
+      {selectedTaskId && selectedLocked ? (
+        <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
+          <span className="text-5xl">🔒</span>
+          <div>
+            <p className="font-semibold text-surface-600 text-lg">Задача недоступна в демо-режиме</p>
+            <p className="text-surface-400 text-sm mt-1 max-w-md">
+              В гостевом режиме открыты только первые задачи курса.
+              Зарегистрируйтесь, чтобы решать все задачи и сохранять прогресс.
+            </p>
+          </div>
+        </div>
+      ) : selectedTaskId ? (
         <TaskSolver
           key={selectedTaskId}
           taskId={String(selectedTaskId)}

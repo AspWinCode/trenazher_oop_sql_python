@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { courseStudentApi, coursesApi } from '../api';
 import type { CourseProgressStats } from '../api';
 import type { Course } from '../types';
+import { useAuthStore } from '../store/auth';
 
 export default function CoursesPage() {
+  const isGuest = useAuthStore((s) => s.user?.is_guest ?? false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [progressMap, setProgressMap] = useState<Record<number, CourseProgressStats>>({});
   const [loading, setLoading] = useState(true);
@@ -31,8 +33,19 @@ export default function CoursesPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Курсы</h1>
+      {isGuest && (
+        <div className="mb-6 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 flex items-start gap-2">
+          <span className="text-base leading-none">🔓</span>
+          <span>
+            Вы в <span className="font-semibold">демо-режиме</span>. Доступна часть задач каждого курса.
+            Для полного доступа и сохранения прогресса зарегистрируйтесь.
+          </span>
+        </div>
+      )}
       {courses.length === 0 ? (
-        <div className="card text-center py-12 text-surface-300">Курсы пока не добавлены</div>
+        <div className="card text-center py-12 text-surface-300">
+          {isGuest ? 'Для гостевого режима пока не открыт ни один курс' : 'Курсы пока не добавлены'}
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {courses.map((c) => {

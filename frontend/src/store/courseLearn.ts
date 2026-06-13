@@ -9,6 +9,7 @@ export interface CourseSidebarItem {
   taskId?: number;
   nodeTaskId?: number;
   status?: 'not_started' | 'in_progress' | 'completed';
+  locked?: boolean;
 }
 
 interface CourseLearnStore {

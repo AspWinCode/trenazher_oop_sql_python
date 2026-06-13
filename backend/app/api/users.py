@@ -86,6 +86,13 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db), _=Depends(r
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    from app.models.user import GUEST_LOGIN_PREFIX
+
+    if body.login.startswith(GUEST_LOGIN_PREFIX):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Префикс «{GUEST_LOGIN_PREFIX}» зарезервирован для гостевого режима",
+        )
     existing = await db.execute(select(User).where(User.login == body.login))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Login already exists")

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authApi } from '../api';
+import { authApi, guestApi } from '../api';
 import { useAuthStore } from '../store/auth';
 
 export default function LoginPage() {
@@ -8,8 +8,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [guestEnabled, setGuestEnabled] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const { setAuth } = useAuthStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    guestApi.getConfig()
+      .then(({ data }) => setGuestEnabled(data.enabled))
+      .catch(() => setGuestEnabled(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +31,20 @@ export default function LoginPage() {
       setError(err.response?.data?.detail || 'Ошибка входа');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGuest = async () => {
+    setError('');
+    setGuestLoading(true);
+    try {
+      const { data } = await authApi.guestLogin();
+      setAuth(data.token, data.refresh_token, data.user);
+      navigate('/courses');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Гостевой режим недоступен');
+    } finally {
+      setGuestLoading(false);
     }
   };
 
@@ -51,6 +73,26 @@ export default function LoginPage() {
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? 'Вход...' : 'Войти'}
           </button>
+          {guestEnabled && (
+            <>
+              <div className="relative flex items-center py-1">
+                <div className="flex-grow border-t border-surface-200" />
+                <span className="mx-3 text-xs text-surface-300">или</span>
+                <div className="flex-grow border-t border-surface-200" />
+              </div>
+              <button
+                type="button"
+                onClick={handleGuest}
+                disabled={guestLoading}
+                className="btn-secondary w-full"
+              >
+                {guestLoading ? 'Входим...' : 'Войти как гость (демо)'}
+              </button>
+              <p className="text-center text-xs text-surface-300">
+                Демо-доступ к части задач без регистрации
+              </p>
+            </>
+          )}
           <p className="text-center text-xs text-surface-300 pt-1">
             <Link to="/forgot-password" className="text-primary-600 hover:underline">Забыли пароль?</Link>
           </p>

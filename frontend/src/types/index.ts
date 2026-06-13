@@ -5,8 +5,15 @@ export interface User {
   status: 'active' | 'blocked' | 'archived';
   email: string | null;
   full_name: string | null;
+  is_guest?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface GuestConfig {
+  enabled: boolean;
+  task_limit: number;
+  course_ids: number[];
 }
 
 export interface Course {

@@ -11,8 +11,23 @@ from app.models.user import User, UserStatus
 from app.schemas.auth import LoginRequest, RefreshRequest, RefreshResponse, TokenResponse
 from app.schemas.user import ChangePassword, UserOut
 from app.services.auth_service import create_token_pair, decode_refresh_token, hash_password, verify_password
+from app.services.guest_service import cleanup_stale_guests, create_guest_user, get_guest_config
 
 router = APIRouter()
+
+
+@router.post("/guest", response_model=TokenResponse)
+async def guest_login(db: AsyncSession = Depends(get_db)):
+    """Создаёт эфемерного гостя и выдаёт токены. Доступно только если
+    администратор включил гостевой режим."""
+    config = await get_guest_config(db)
+    if not config["enabled"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Гостевой режим отключён")
+
+    await cleanup_stale_guests(db)
+    user = await create_guest_user(db)
+    access, refresh = create_token_pair(user.id, user.role.value)
+    return TokenResponse(token=access, refresh_token=refresh, user=UserOut.model_validate(user))
 
 
 @router.post("/login", response_model=TokenResponse)

@@ -29,8 +29,14 @@ from app.schemas.course import (
     SubmoduleUpdate,
 )
 from app.schemas.course_hierarchy import CourseNodeTreeOut
+from app.services.guest_service import get_guest_config
 
 router = APIRouter()
+
+
+async def _guest_course_allowed(db: AsyncSession, course_id: int) -> bool:
+    config = await get_guest_config(db)
+    return config["enabled"] and course_id in config["course_ids"]
 
 
 # --- Courses ---
@@ -62,7 +68,15 @@ async def list_courses(
     user: User = Depends(get_current_user),
 ):
     q = select(Course).order_by(Course.sort_order, Course.id)
-    if user.role == "student":
+    if user.is_guest:
+        # Гость видит только курсы, открытые администратором для демо-режима.
+        config = await get_guest_config(db)
+        allowed = config["course_ids"] if config["enabled"] else []
+        q = q.where(
+            Course.status == CourseStatus.published,
+            Course.id.in_(allowed) if allowed else Course.id.in_([-1]),
+        )
+    elif user.role == "student":
         q = q.where(Course.status == CourseStatus.published)
         enrollment_r = await db.execute(
             select(UserCourseEnrollment.course_id).where(
@@ -84,6 +98,8 @@ async def get_course_tree(
     r = await db.execute(select(Course).where(Course.id == course_id))
     course = r.scalar_one_or_none()
     if not course or (user.role == "student" and course.status != CourseStatus.published):
+        raise HTTPException(status_code=404, detail="Course not found")
+    if user.is_guest and not await _guest_course_allowed(db, course_id):
         raise HTTPException(status_code=404, detail="Course not found")
     r2 = await db.execute(
         select(CourseNode)
