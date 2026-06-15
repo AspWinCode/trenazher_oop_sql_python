@@ -104,8 +104,16 @@ async def get_task_context(
 async def get_task(task_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     from app.services.cache_service import cache_get, cache_set
 
-    # Non-admin: verify published status + course enrollment before serving any data
-    if user.role != "admin":
+    # Non-admin: verify access before serving any data
+    if user.is_guest:
+        # Гость: задача должна входить в первые N задач разрешённого курса (как при отправке)
+        from app.services.guest_service import get_guest_config, is_task_allowed_for_guest
+
+        config = await get_guest_config(db)
+        if not await is_task_allowed_for_guest(db, task_id, config):
+            raise HTTPException(status_code=404, detail="Task not found")
+    elif user.role != "admin":
+        # Обычный студент: опубликованная задача + запись на курс
         access_q = (
             select(Task.id)
             .join(CourseNodeTask, CourseNodeTask.task_id == Task.id)

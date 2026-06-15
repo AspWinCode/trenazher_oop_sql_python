@@ -192,6 +192,25 @@ async def test_regular_student_unaffected_by_guest_gating(
     assert resp.status_code == 201, resp.text
 
 
+# --- Просмотр задачи гостем ---
+
+@pytest.mark.asyncio
+async def test_guest_can_get_allowed_task_but_not_locked(client: AsyncClient, admin_headers):
+    cid, task_ids = await _create_published_course_with_tasks(client, admin_headers, 3)
+    await _set_guest_config(
+        client, admin_headers, enabled=True, task_limit=2, course_ids=[cid]
+    )
+    headers, _ = await _guest_headers(client)
+
+    # задача в пределах лимита — доступна
+    ok = await client.get(f"/api/tasks/{task_ids[0]}", headers=headers)
+    assert ok.status_code == 200, ok.text
+
+    # задача за пределами лимита — 404 (как заблокированная)
+    locked = await client.get(f"/api/tasks/{task_ids[2]}", headers=headers)
+    assert locked.status_code == 404
+
+
 # --- Резерв префикса ---
 
 @pytest.mark.asyncio
