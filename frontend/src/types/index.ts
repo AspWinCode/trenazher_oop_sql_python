@@ -16,6 +16,16 @@ export interface GuestConfig {
   course_ids: number[];
 }
 
+export interface PlatformMetrics {
+  total_users: number;
+  registrations: { month: string; count: number; cumulative: number }[];
+  tasks: {
+    most_attempted: { task_id: number; title: string; submissions: number }[];
+    most_failed: { task_id: number; title: string; wrong_attempts: number }[];
+  };
+  sections: { task_type: string; label: string; submissions: number; solvers: number }[];
+}
+
 export interface Course {
   id: number;
   title: string;

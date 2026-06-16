@@ -1,5 +1,5 @@
 import api from './client';
-import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig } from '../types';
+import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig, PlatformMetrics } from '../types';
 
 export const authApi = {
   login: (login: string, password: string) =>
@@ -15,6 +15,10 @@ export const authApi = {
 export const guestApi = {
   getConfig: () => api.get<GuestConfig>('/settings/guest'),
   updateConfig: (data: GuestConfig) => api.put<GuestConfig>('/settings/guest', data),
+};
+
+export const adminMetricsApi = {
+  get: () => api.get<PlatformMetrics>('/admin/metrics'),
 };
 
 export interface CourseEnrollment {
