@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.submission import Submission, Verdict
 from app.models.task import Task
 from app.models.user import GUEST_LOGIN_PREFIX, User
+from app.models.user_login_event import UserLoginEvent
 
 TASK_TYPE_LABELS = {
     "python_io": "Python (ввод-вывод)",
@@ -139,6 +140,55 @@ async def _sections(db: AsyncSession) -> list[dict]:
     return sections
 
 
+async def _active_audience(db: AsyncSession) -> dict:
+    """Активная аудитория за 30 дней и вовлечённость (сессии/мес на активного).
+
+    Сессия = событие login или session_start. Гости исключены."""
+    now = datetime.now(timezone.utc)
+    cutoff_30d = now - timedelta(days=30)
+    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+
+    active_30d_q = (
+        select(func.count(func.distinct(UserLoginEvent.user_id)))
+        .join(User, User.id == UserLoginEvent.user_id)
+        .where(
+            User.login.not_like(_GUEST_LIKE),
+            UserLoginEvent.created_at >= cutoff_30d,
+        )
+    )
+    active_30d = (await db.execute(active_30d_q)).scalar_one() or 0
+
+    sessions_q = (
+        select(func.count(UserLoginEvent.id))
+        .join(User, User.id == UserLoginEvent.user_id)
+        .where(
+            User.login.not_like(_GUEST_LIKE),
+            UserLoginEvent.created_at >= month_start,
+        )
+    )
+    sessions_month = (await db.execute(sessions_q)).scalar_one() or 0
+
+    active_month_q = (
+        select(func.count(func.distinct(UserLoginEvent.user_id)))
+        .join(User, User.id == UserLoginEvent.user_id)
+        .where(
+            User.login.not_like(_GUEST_LIKE),
+            UserLoginEvent.created_at >= month_start,
+        )
+    )
+    active_month = (await db.execute(active_month_q)).scalar_one() or 0
+
+    avg = round(sessions_month / active_month, 2) if active_month else 0.0
+    return {
+        "active_users_30d": active_30d,
+        "engagement": {
+            "sessions_this_month": sessions_month,
+            "active_users_this_month": active_month,
+            "avg_sessions_per_user": avg,
+        },
+    }
+
+
 async def get_platform_metrics(db: AsyncSession) -> dict:
     total_users_r = await db.execute(
         select(func.count(User.id)).where(User.login.not_like(_GUEST_LIKE))
@@ -148,9 +198,12 @@ async def get_platform_metrics(db: AsyncSession) -> dict:
     registrations = await _registrations(db)
     tasks = await _top_tasks(db)
     sections = await _sections(db)
+    audience = await _active_audience(db)
 
     return {
         "total_users": total_users,
+        "active_users_30d": audience["active_users_30d"],
+        "engagement": audience["engagement"],
         "registrations": registrations,
         "tasks": tasks,
         "sections": sections,

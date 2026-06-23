@@ -16,6 +16,7 @@ from app.models.task_hint import TaskHint
 from app.models.task_lecture import TaskLecture
 from app.models.task_test import TaskTest, TestType
 from app.models.user import User, UserRole, UserStatus
+from app.models.user_login_event import UserLoginEvent
 from app.models.user_course_progress import UserCourseProgress
 from app.models.user_course_enrollment import UserCourseEnrollment
 from app.models.user_course_node_task_progress import (
@@ -62,4 +63,5 @@ __all__ = [
     "Achievement",
     "UserAchievement",
     "PlatformSetting",
+    "UserLoginEvent",
 ]

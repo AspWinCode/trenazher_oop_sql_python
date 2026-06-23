@@ -1,7 +1,15 @@
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { authApi } from '../api';
 
 export default function Layout() {
+  // Пинг активности при загрузке приложения — для метрик сессий.
+  // Бэкенд сам решает, считать ли это новой сессией (простой > 30 мин).
+  useEffect(() => {
+    authApi.activityPing().catch(() => {});
+  }, []);
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />

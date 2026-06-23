@@ -74,6 +74,50 @@ async def test_metrics_counts_tasks_and_sections(client: AsyncClient, admin_head
 
 
 @pytest.mark.asyncio
+async def test_login_records_event_and_active_audience(client: AsyncClient, admin_headers):
+    # реальный вход админа должен записать событие
+    login = await client.post(
+        "/api/auth/login", json={"login": "admin", "password": "admin123"}
+    )
+    assert login.status_code == 200
+
+    data = (await client.get(METRICS, headers=admin_headers)).json()
+    assert data["active_users_30d"] >= 1
+    assert data["engagement"]["sessions_this_month"] >= 1
+    assert data["engagement"]["active_users_this_month"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_activity_ping_dedup(client: AsyncClient, admin_headers):
+    first = await client.post("/api/auth/activity", headers=admin_headers)
+    assert first.status_code == 204
+
+    s1 = (await client.get(METRICS, headers=admin_headers)).json()["engagement"]["sessions_this_month"]
+    assert s1 >= 1
+
+    # повторный пинг в пределах 30 минут не создаёт новую сессию
+    second = await client.post("/api/auth/activity", headers=admin_headers)
+    assert second.status_code == 204
+    s2 = (await client.get(METRICS, headers=admin_headers)).json()["engagement"]["sessions_this_month"]
+    assert s2 == s1
+
+
+@pytest.mark.asyncio
+async def test_guest_excluded_from_active_audience(client: AsyncClient, admin_headers):
+    await client.put(
+        "/api/settings/guest",
+        json={"enabled": True, "task_limit": 5, "course_ids": []},
+        headers=admin_headers,
+    )
+    # вход гостя пишет событие, но гость должен быть исключён из аудитории
+    guest = await client.post("/api/auth/guest")
+    assert guest.status_code == 200
+
+    data = (await client.get(METRICS, headers=admin_headers)).json()
+    assert data["active_users_30d"] == 0
+
+
+@pytest.mark.asyncio
 async def test_metrics_excludes_guests(client: AsyncClient, admin_headers):
     # включаем гостевой режим и создаём гостя
     cid, task_id = await _published_course_with_task(client, admin_headers)

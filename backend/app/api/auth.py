@@ -26,6 +26,9 @@ async def guest_login(db: AsyncSession = Depends(get_db)):
 
     await cleanup_stale_guests(db)
     user = await create_guest_user(db)
+    from app.services.activity_service import log_login
+
+    await log_login(db, user.id)
     access, refresh = create_token_pair(user.id, user.role.value)
     return TokenResponse(token=access, refresh_token=refresh, user=UserOut.model_validate(user))
 
@@ -41,6 +44,9 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db), _=Depend
     if user.status != UserStatus.active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active")
     access, refresh = create_token_pair(user.id, user.role.value)
+    from app.services.activity_service import log_login
+
+    await log_login(db, user.id)
     return TokenResponse(token=access, refresh_token=refresh, user=UserOut.model_validate(user))
 
 
@@ -58,6 +64,18 @@ async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or blocked")
     access, refresh = create_token_pair(user.id, user.role.value)
     return RefreshResponse(token=access, refresh_token=refresh)
+
+
+@router.post("/activity", status_code=status.HTTP_204_NO_CONTENT)
+async def record_activity_ping(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Лёгкий пинг с фронта при открытии приложения — фиксирует сессию,
+    если пользователь не был активен более 30 минут."""
+    from app.services.activity_service import record_activity
+
+    await record_activity(db, user.id)
 
 
 @router.post("/change-password")

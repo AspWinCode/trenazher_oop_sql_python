@@ -18,6 +18,12 @@ export interface GuestConfig {
 
 export interface PlatformMetrics {
   total_users: number;
+  active_users_30d: number;
+  engagement: {
+    sessions_this_month: number;
+    active_users_this_month: number;
+    avg_sessions_per_user: number;
+  };
   registrations: { month: string; count: number; cumulative: number }[];
   tasks: {
     most_attempted: { task_id: number; title: string; submissions: number }[];

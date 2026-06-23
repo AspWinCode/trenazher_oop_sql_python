@@ -10,6 +10,7 @@ export const authApi = {
     api.post<{ token: string; refresh_token: string }>('/auth/refresh', { refresh_token }),
   changePassword: (old_password: string, new_password: string) =>
     api.post('/auth/change-password', { old_password, new_password }),
+  activityPing: () => api.post('/auth/activity'),
 };
 
 export const guestApi = {

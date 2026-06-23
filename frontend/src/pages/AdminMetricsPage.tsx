@@ -64,10 +64,11 @@ export default function AdminMetricsPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Метрики платформы</h1>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Всего пользователей" value={data.total_users} />
+        <StatCard label="Активны за 30 дней" value={data.active_users_30d} />
+        <StatCard label="Сессий на пользователя (месяц)" value={data.engagement.avg_sessions_per_user} />
         <StatCard label="Регистраций в этом месяце" value={newUsers30} />
-        <StatCard label="Активных разделов" value={data.sections.length} />
       </div>
 
       <div className="mb-6">
