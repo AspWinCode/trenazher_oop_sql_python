@@ -16,6 +16,40 @@ export interface GuestConfig {
   course_ids: number[];
 }
 
+export interface SupportMessage {
+  id: number;
+  sender: 'student' | 'manager';
+  body: string;
+  created_at: string;
+}
+
+export interface SupportThread {
+  id: number;
+  status: 'open' | 'closed';
+  unread_for_student: boolean;
+  messages: SupportMessage[];
+}
+
+export interface AdminSupportThread {
+  id: number;
+  user_id: number;
+  user_login: string;
+  user_full_name: string | null;
+  status: 'open' | 'closed';
+  unread_for_admin: boolean;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+}
+
+export interface AdminSupportThreadDetail {
+  id: number;
+  user_id: number;
+  user_login: string;
+  user_full_name: string | null;
+  status: 'open' | 'closed';
+  messages: SupportMessage[];
+}
+
 export interface PlatformMetrics {
   total_users: number;
   active_users_30d: number;

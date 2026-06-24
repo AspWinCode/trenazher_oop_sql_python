@@ -14,6 +14,7 @@ import AdminTaskEditPage from './pages/AdminTaskEditPage';
 import AdminLinksPage from './pages/AdminLinksPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
 import AdminMetricsPage from './pages/AdminMetricsPage';
+import AdminSupportPage from './pages/AdminSupportPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import PersonalTaskPage from './pages/PersonalTaskPage';
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="admin/links" element={<ProtectedRoute requireAdmin><AdminLinksPage /></ProtectedRoute>} />
         <Route path="admin/settings" element={<ProtectedRoute requireAdmin><AdminSettingsPage /></ProtectedRoute>} />
         <Route path="admin/metrics" element={<ProtectedRoute requireAdmin><AdminMetricsPage /></ProtectedRoute>} />
+        <Route path="admin/support" element={<ProtectedRoute requireAdmin><AdminSupportPage /></ProtectedRoute>} />
       </Route>
     </Routes>
   );

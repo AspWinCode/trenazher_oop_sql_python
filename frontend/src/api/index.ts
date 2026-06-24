@@ -1,5 +1,5 @@
 import api from './client';
-import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig, PlatformMetrics } from '../types';
+import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig, PlatformMetrics, SupportThread, SupportMessage, AdminSupportThread, AdminSupportThreadDetail } from '../types';
 
 export const authApi = {
   login: (login: string, password: string) =>
@@ -234,6 +234,21 @@ export const platformSettingsApi = {
     });
   },
   deleteLogo: () => api.delete<{ url: null }>('/settings/logo'),
+};
+
+export const supportApi = {
+  // студент
+  getThread: () => api.get<SupportThread | null>('/support/thread'),
+  sendMessage: (body: string) => api.post<SupportMessage>('/support/messages', { body }),
+  markRead: () => api.post('/support/thread/read'),
+  // админ
+  adminUnreadCount: () => api.get<{ unread: number }>('/admin/support/unread-count'),
+  adminListThreads: (unreadOnly = false) =>
+    api.get<AdminSupportThread[]>('/admin/support/threads', { params: { unread_only: unreadOnly } }),
+  adminGetThread: (id: number) => api.get<AdminSupportThreadDetail>(`/admin/support/threads/${id}`),
+  adminReply: (id: number, body: string) =>
+    api.post<SupportMessage>(`/admin/support/threads/${id}/reply`, { body }),
+  adminClose: (id: number) => api.post(`/admin/support/threads/${id}/close`),
 };
 
 export const achievementsApi = {

@@ -11,6 +11,8 @@ from app.models.student_progress import StudentProgress
 from app.models.submission import Submission, SubmissionStatus, Verdict
 from app.models.submission_test import SubmissionTest
 from app.models.submodule import Submodule
+from app.models.support_thread import SupportThread
+from app.models.support_message import SupportMessage
 from app.models.task import RunnerType, Task, TaskStatus, TaskType
 from app.models.task_hint import TaskHint
 from app.models.task_lecture import TaskLecture
@@ -64,4 +66,6 @@ __all__ = [
     "UserAchievement",
     "PlatformSetting",
     "UserLoginEvent",
+    "SupportThread",
+    "SupportMessage",
 ]

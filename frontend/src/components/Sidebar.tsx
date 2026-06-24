@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { useCourseLearnStore } from '../store/courseLearn';
-import { platformSettingsApi } from '../api';
+import { platformSettingsApi, supportApi } from '../api';
+import { SupportSocketClient } from '../services/realtime/supportSocket';
+
+const SUPPORT_ICON = 'M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 20l.8-3.6A7.94 7.94 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z';
+const SUPPORT_REFRESH_MS = 20_000;
 
 const navItems = [
   { to: '/courses', label: 'Курсы', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
@@ -38,8 +42,9 @@ function StatusDot({ status }: { status?: 'not_started' | 'in_progress' | 'compl
 }
 
 export default function Sidebar() {
-  const { user, logout } = useAuthStore();
+  const { user, token, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const isAdmin = user?.role === 'admin';
   const isGuest = user?.is_guest ?? false;
   // Гостю доступны только курсы — остальные разделы скрываем.
@@ -49,6 +54,29 @@ export default function Sidebar() {
   useEffect(() => {
     platformSettingsApi.getLogo().then(({ data }) => setLogoUrl(data.url)).catch(() => {});
   }, []);
+
+  // Счётчик непрочитанных обращений поддержки (только для админа).
+  const [supportUnread, setSupportUnread] = useState(0);
+  const onSupportPage = location.pathname.startsWith('/admin/support');
+  useEffect(() => {
+    if (!isAdmin) return;
+    const load = () => supportApi.adminUnreadCount().then(({ data }) => setSupportUnread(data.unread)).catch(() => {});
+    load();
+    const id = setInterval(load, SUPPORT_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [isAdmin, onSupportPage]);
+
+  useEffect(() => {
+    if (!isAdmin || !token) return;
+    const socket = new SupportSocketClient({
+      token,
+      onNewMessage: () => {
+        supportApi.adminUnreadCount().then(({ data }) => setSupportUnread(data.unread)).catch(() => {});
+      },
+    });
+    socket.start();
+    return () => socket.stop();
+  }, [isAdmin, token]);
 
   const {
     courseId,
@@ -193,6 +221,22 @@ export default function Sidebar() {
                   {item.label}
                 </NavLink>
               ))}
+              <NavLink
+                to="/admin/support"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm transition-colors ${isActive ? 'bg-primary-600 text-white' : 'text-surface-200 hover:bg-dark-700'}`
+                }
+              >
+                <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={SUPPORT_ICON} />
+                </svg>
+                <span className="flex-1">Поддержка</span>
+                {supportUnread > 0 && (
+                  <span className="ml-auto min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-semibold flex items-center justify-center">
+                    {supportUnread}
+                  </span>
+                )}
+              </NavLink>
             </>
           )}
         </nav>

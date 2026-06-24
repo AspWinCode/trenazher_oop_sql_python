@@ -69,6 +69,7 @@ class RedisRateLimiter:
 
 submission_limiter = RedisRateLimiter(max_requests=20, window_seconds=60)
 login_limiter = RedisRateLimiter(max_requests=5, window_seconds=60)
+support_limiter = RedisRateLimiter(max_requests=10, window_seconds=60)
 
 
 async def check_submission_rate(request: Request) -> None:

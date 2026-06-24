@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import SupportWidget from './SupportWidget';
 import { authApi } from '../api';
 
 export default function Layout() {
@@ -18,6 +19,7 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+      <SupportWidget />
     </div>
   );
 }
