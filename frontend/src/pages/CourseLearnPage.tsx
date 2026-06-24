@@ -12,6 +12,7 @@ import CodeEditor from '../components/CodeEditor';
 import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
 import SubmissionDetailLink from '../components/SubmissionDetailLink';
+import TestResultCard from '../components/TestResultCard';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useCourseLearnStore, type CourseSidebarItem } from '../store/courseLearn';
@@ -326,20 +327,19 @@ function TaskSolver({
                   <div className="text-xs text-surface-400 mb-2">Время: {submission.runtime.toFixed(3)}с</div>
                 )}
                 {submission.error_output && (
-                  <pre className="bg-white border border-red-100 text-red-800 text-xs p-3 rounded-lg overflow-auto max-h-36 mt-2 font-mono">
-                    {submission.error_output}
-                  </pre>
+                  <details className="mt-2" open>
+                    <summary className="cursor-pointer text-xs font-medium text-red-600 mb-1">
+                      Подробности ошибки (трассировка)
+                    </summary>
+                    <pre className="bg-white border border-red-100 text-red-800 text-xs p-3 rounded-lg overflow-auto max-h-36 font-mono">
+                      {submission.error_output}
+                    </pre>
+                  </details>
                 )}
                 {submission.test_results && submission.test_results.length > 0 && (
-                  <div className="space-y-1 mt-2">
+                  <div className="space-y-3 mt-3">
                     {submission.test_results.map((tr, i) => (
-                      <div key={tr.id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-1.5">
-                        <span className="text-surface-400 w-14 text-xs shrink-0">Тест {i + 1}</span>
-                        <VerdictBadge verdict={tr.verdict} />
-                        {tr.runtime != null && (
-                          <span className="text-xs text-surface-400 ml-auto">{tr.runtime.toFixed(3)}с</span>
-                        )}
-                      </div>
+                      <TestResultCard key={tr.id} index={i} result={tr} />
                     ))}
                   </div>
                 )}

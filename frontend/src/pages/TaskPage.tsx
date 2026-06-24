@@ -6,6 +6,7 @@ import CodeEditor from '../components/CodeEditor';
 import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
 import SubmissionDetailLink from '../components/SubmissionDetailLink';
+import TestResultCard from '../components/TestResultCard';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 
@@ -224,16 +225,17 @@ export default function TaskPage() {
                 <div className="text-xs text-surface-300 mb-3">Время: {submission.runtime.toFixed(3)}s</div>
               )}
               {submission.error_output && (
-                <pre className="bg-red-50 text-red-800 text-xs p-3 rounded-lg overflow-auto max-h-40">{submission.error_output}</pre>
+                <details className="mb-2" open>
+                  <summary className="cursor-pointer text-xs font-medium text-red-600 mb-1">
+                    Подробности ошибки (трассировка)
+                  </summary>
+                  <pre className="bg-red-50 text-red-800 text-xs p-3 rounded-lg overflow-auto max-h-40">{submission.error_output}</pre>
+                </details>
               )}
               {submission.test_results && submission.test_results.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {submission.test_results.map((tr, i) => (
-                    <div key={tr.id} className="flex items-center gap-3 text-sm bg-surface-50 p-2 rounded-lg">
-                      <span className="text-surface-300 w-16">Тест {i + 1}</span>
-                      <VerdictBadge verdict={tr.verdict} />
-                      {tr.runtime != null && <span className="text-xs text-surface-300">{tr.runtime.toFixed(3)}s</span>}
-                    </div>
+                    <TestResultCard key={tr.id} index={i} result={tr} />
                   ))}
                 </div>
               )}

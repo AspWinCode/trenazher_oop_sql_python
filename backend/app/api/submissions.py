@@ -104,8 +104,17 @@ async def get_submission_detail(
         raise HTTPException(status_code=403, detail="Access denied")
 
     is_admin = user.role.value == "admin"
+    # У IO-задач expected_output — это литеральный ожидаемый вывод; у oop/sql там
+    # лежит код теста / SQL, поэтому студенту его не показываем.
+    io_task_types = {"python_io", "python_numpy", "cpp_io", "js_io"}
+    task_type_value = submission.task.task_type.value if submission.task else ""
+    is_io_task = task_type_value in io_task_types
     test_results = []
     for tr in submission.test_results:
+        is_public = bool(tr.test and tr.test.test_type.value == "public")
+        # Ожидаемый вывод студенту — только для IO-задач и только по публичным
+        # тестам (скрытые не раскрываем, чтобы их нельзя было захардкодить).
+        show_expected = is_admin or (is_io_task and is_public)
         t = SubmissionTestOut(
             id=tr.id,
             test_id=tr.test_id,
@@ -113,9 +122,9 @@ async def get_submission_detail(
             runtime=tr.runtime,
             actual_output=tr.actual_output,
             test_type=tr.test.test_type if tr.test else None,
-            # Sensitive fields: only visible to admin
+            # input_data — по-прежнему только админу
             input_data=tr.test.input_data if (tr.test and is_admin) else None,
-            expected_output=tr.test.expected_output if (tr.test and is_admin) else None,
+            expected_output=tr.test.expected_output if (tr.test and show_expected) else None,
         )
         test_results.append(t)
 

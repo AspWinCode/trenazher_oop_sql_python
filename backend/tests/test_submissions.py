@@ -170,3 +170,83 @@ async def test_internal_complete_updates_progress(client: AsyncClient, admin_hea
     assert len(progress) == 1
     assert progress[0]["attempts"] == 1
     assert progress[0]["best_verdict"] == "AC"
+
+
+async def _finalize(client, internal_headers, sid, test_results, verdict="WA"):
+    await client.post(f"/api/submissions/internal/{sid}/start", headers=internal_headers)
+    await client.post(
+        f"/api/submissions/internal/{sid}/complete",
+        headers=internal_headers,
+        json={"verdict": verdict, "test_results": test_results},
+    )
+
+
+@pytest.mark.asyncio
+async def test_student_sees_expected_only_for_public_io_tests(
+    client: AsyncClient, admin_headers, student_headers
+):
+    task = await client.post("/api/tasks", json={
+        "title": "Expected Visibility", "task_type": "python_io", "runner_type": "stdin_runner",
+        "tests": [
+            {"input_data": "1", "expected_output": "1", "test_type": "public", "order_index": 1},
+            {"input_data": "2", "expected_output": "2", "test_type": "hidden", "order_index": 2},
+        ],
+    }, headers=admin_headers)
+    tj = task.json()
+    tid = tj["id"]
+    public_id = tj["tests"][0]["id"]
+    hidden_id = tj["tests"][1]["id"]
+
+    with patch("app.services.submission_service.celery"):
+        sub = await client.post(
+            "/api/submissions", json={"task_id": tid, "code": "print(input())"}, headers=student_headers
+        )
+    sid = sub.json()["id"]
+
+    internal_headers = {"X-Judger-Token": settings.JUDGER_INTERNAL_TOKEN}
+    await _finalize(client, internal_headers, sid, [
+        {"test_id": public_id, "verdict": "AC", "actual_output": "1"},
+        {"test_id": hidden_id, "verdict": "WA", "actual_output": "9"},
+    ])
+
+    resp = await client.get(f"/api/submissions/{sid}", headers=student_headers)
+    assert resp.status_code == 200
+    results = {tr["test_id"]: tr for tr in resp.json()["test_results"]}
+    # публичный тест — студент видит ожидаемое
+    assert results[public_id]["expected_output"] == "1"
+    # скрытый тест — ожидаемое скрыто
+    assert results[hidden_id]["expected_output"] is None
+    # input_data по-прежнему только админу
+    assert results[public_id]["input_data"] is None
+
+
+@pytest.mark.asyncio
+async def test_student_does_not_see_expected_for_non_io_task(
+    client: AsyncClient, admin_headers, student_headers
+):
+    task = await client.post("/api/tasks", json={
+        "title": "OOP no expected", "task_type": "python_oop", "runner_type": "pytest_runner",
+        "tests": [
+            {"expected_output": "def test(): pass", "test_type": "public", "order_index": 1},
+        ],
+    }, headers=admin_headers)
+    tj = task.json()
+    tid = tj["id"]
+    test_id = tj["tests"][0]["id"]
+
+    with patch("app.services.submission_service.celery"):
+        sub = await client.post(
+            "/api/submissions", json={"task_id": tid, "code": "pass"}, headers=student_headers
+        )
+    sid = sub.json()["id"]
+
+    internal_headers = {"X-Judger-Token": settings.JUDGER_INTERNAL_TOKEN}
+    await _finalize(client, internal_headers, sid, [
+        {"test_id": test_id, "verdict": "WA", "actual_output": "fail"},
+    ])
+
+    resp = await client.get(f"/api/submissions/{sid}", headers=student_headers)
+    assert resp.status_code == 200
+    tr = resp.json()["test_results"][0]
+    # у oop-задач expected_output — это код теста, студенту не показываем
+    assert tr["expected_output"] is None
