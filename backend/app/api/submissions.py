@@ -104,17 +104,25 @@ async def get_submission_detail(
         raise HTTPException(status_code=403, detail="Access denied")
 
     is_admin = user.role.value == "admin"
-    # У IO-задач expected_output — это литеральный ожидаемый вывод; у oop/sql там
-    # лежит код теста / SQL, поэтому студенту его не показываем.
-    io_task_types = {"python_io", "python_numpy", "cpp_io", "js_io"}
+    # IO-задачи: expected_output в задаче — литеральный ожидаемый вывод, его можно
+    # показать. У oop/sql/numpy в этом поле лежит код теста/SQL — НЕ показываем.
+    io_task_types = {"python_io", "cpp_io", "js_io"}
     task_type_value = submission.task.task_type.value if submission.task else ""
     is_io_task = task_type_value in io_task_types
     test_results = []
     for tr in submission.test_results:
         is_public = bool(tr.test and tr.test.test_type.value == "public")
-        # Ожидаемый вывод студенту — только для IO-задач и только по публичным
-        # тестам (скрытые не раскрываем, чтобы их нельзя было захардкодить).
-        show_expected = is_admin or (is_io_task and is_public)
+        # Эталон, вычисленный раннером (строки SQL и т.п.) — безопасное содержимое;
+        # литеральный expected из задачи — только для IO-типов.
+        runner_expected = tr.expected_output
+        cfg_expected = tr.test.expected_output if tr.test else None
+        if is_admin:
+            expected = runner_expected or cfg_expected
+        elif is_public:
+            # скрытые тесты эталон не раскрывают (чтобы нельзя было захардкодить)
+            expected = runner_expected or (cfg_expected if is_io_task else None)
+        else:
+            expected = None
         t = SubmissionTestOut(
             id=tr.id,
             test_id=tr.test_id,
@@ -124,7 +132,7 @@ async def get_submission_detail(
             test_type=tr.test.test_type if tr.test else None,
             # input_data — по-прежнему только админу
             input_data=tr.test.input_data if (tr.test and is_admin) else None,
-            expected_output=tr.test.expected_output if (tr.test and show_expected) else None,
+            expected_output=expected,
         )
         test_results.append(t)
 

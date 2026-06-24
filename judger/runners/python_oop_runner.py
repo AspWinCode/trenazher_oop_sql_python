@@ -1,6 +1,6 @@
 import time
 
-from judger.runners.base_runner import BaseRunner, RunResult, TestResult
+from judger.runners.base_runner import BaseRunner, RunResult, TestResult, summarize_pytest_failure
 from judger.sandbox.docker_manager import run_pytest_sandbox
 
 
@@ -31,7 +31,7 @@ class PythonOOPRunner(BaseRunner):
             else:
                 tr = TestResult(
                     test_id=test_id, verdict="WA", runtime=elapsed,
-                    actual_output=result.stdout[:2000],
+                    actual_output=summarize_pytest_failure(result.stdout),
                 )
                 if overall_verdict == "AC":
                     overall_verdict = "WA"

@@ -16,6 +16,9 @@ class SubmissionTest(Base):
     verdict: Mapped[Optional[Verdict]] = mapped_column(Enum(Verdict), nullable=True)
     runtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     actual_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Эталонный результат, вычисленный раннером (строки SQL и т.п.). У типов
+    # без эталона (pytest/IO с литералом из задачи) — null.
+    expected_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     submission = relationship("Submission", back_populates="test_results")
     test = relationship("TaskTest", back_populates="submission_tests")

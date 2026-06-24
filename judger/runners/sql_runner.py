@@ -4,6 +4,16 @@ from judger.runners.base_runner import BaseRunner, RunResult, TestResult
 from judger.sandbox.docker_manager import run_sql_sandbox
 
 
+def _parse_sql_diff(stdout: str) -> tuple[str, str]:
+    """Из вывода песочницы вытащить строки студента и эталонные строки.
+    Песочница печатает их как 'STUDENT_OUTPUT:...' / 'EXPECTED_OUTPUT:...'."""
+    if "STUDENT_OUTPUT:" in stdout and "EXPECTED_OUTPUT:" in stdout:
+        _, rest = stdout.split("STUDENT_OUTPUT:", 1)
+        student_part, expected_part = rest.split("EXPECTED_OUTPUT:", 1)
+        return student_part.strip("\n"), expected_part.strip("\n")
+    return stdout, ""
+
+
 class SQLRunner(BaseRunner):
     def run(self, code: str, tests: list[dict], **kwargs) -> RunResult:
         sql_schema = kwargs.get("sql_schema", "")
@@ -46,9 +56,11 @@ class SQLRunner(BaseRunner):
                 if overall_verdict == "AC":
                     overall_verdict = "WA"
             else:
+                student_rows, expected_rows = _parse_sql_diff(result.stdout)
                 tr = TestResult(
                     test_id=test_id, verdict="WA", runtime=elapsed,
-                    actual_output=result.stdout[:2000],
+                    actual_output=student_rows[:2000],
+                    expected_output=expected_rows[:2000],
                 )
                 if overall_verdict == "AC":
                     overall_verdict = "WA"

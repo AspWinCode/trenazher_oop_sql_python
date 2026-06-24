@@ -339,7 +339,7 @@ function TaskSolver({
                 {submission.test_results && submission.test_results.length > 0 && (
                   <div className="space-y-3 mt-3">
                     {submission.test_results.map((tr, i) => (
-                      <TestResultCard key={tr.id} index={i} result={tr} />
+                      <TestResultCard key={tr.id} index={i} result={tr} taskType={submission.task_type} />
                     ))}
                   </div>
                 )}

@@ -75,6 +75,7 @@ class SubmissionTestResultIn(BaseModel):
     verdict: Verdict
     runtime: Optional[float] = None
     actual_output: Optional[str] = None
+    expected_output: Optional[str] = None
 
 
 class SubmissionCompleteIn(BaseModel):

@@ -68,6 +68,7 @@ def _completion_payload(result: RunResult) -> dict:
                 "verdict": tr.verdict,
                 "runtime": tr.runtime,
                 "actual_output": tr.actual_output or None,
+                "expected_output": tr.expected_output or None,
             }
             for tr in result.test_results
         ],

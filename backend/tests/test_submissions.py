@@ -250,3 +250,42 @@ async def test_student_does_not_see_expected_for_non_io_task(
     tr = resp.json()["test_results"][0]
     # у oop-задач expected_output — это код теста, студенту не показываем
     assert tr["expected_output"] is None
+
+
+@pytest.mark.asyncio
+async def test_student_sees_runner_expected_for_public_sql(
+    client: AsyncClient, admin_headers, student_headers
+):
+    task = await client.post("/api/tasks", json={
+        "title": "SQL expected rows", "task_type": "sql_query", "runner_type": "sql_runner",
+        "tests": [
+            {"expected_output": "SELECT 1", "test_type": "public", "order_index": 1},
+            {"expected_output": "SELECT 2", "test_type": "hidden", "order_index": 2},
+        ],
+    }, headers=admin_headers)
+    tj = task.json()
+    tid = tj["id"]
+    public_id = tj["tests"][0]["id"]
+    hidden_id = tj["tests"][1]["id"]
+
+    with patch("app.services.submission_service.celery"):
+        sub = await client.post(
+            "/api/submissions", json={"task_id": tid, "code": "SELECT 1"}, headers=student_headers
+        )
+    sid = sub.json()["id"]
+
+    internal_headers = {"X-Judger-Token": settings.JUDGER_INTERNAL_TOKEN}
+    # раннер вернул вычисленные эталонные строки в expected_output
+    await _finalize(client, internal_headers, sid, [
+        {"test_id": public_id, "verdict": "WA", "actual_output": "1|wrong", "expected_output": "1|Ручка"},
+        {"test_id": hidden_id, "verdict": "WA", "actual_output": "2|wrong", "expected_output": "2|secret"},
+    ])
+
+    resp = await client.get(f"/api/submissions/{sid}", headers=student_headers)
+    assert resp.status_code == 200
+    results = {tr["test_id"]: tr for tr in resp.json()["test_results"]}
+    # публичный SQL-тест — студент видит вычисленный эталон (строки)
+    assert results[public_id]["expected_output"] == "1|Ручка"
+    assert results[public_id]["actual_output"] == "1|wrong"
+    # скрытый — эталон не раскрываем, даже если раннер его вернул
+    assert results[hidden_id]["expected_output"] is None

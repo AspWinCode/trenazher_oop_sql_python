@@ -4,6 +4,7 @@ import type { SubmissionTestResult } from '../types';
 interface Props {
   index: number;
   result: SubmissionTestResult;
+  taskType?: string;
 }
 
 interface DiffRow {
@@ -11,6 +12,8 @@ interface DiffRow {
   expected: string;
   diff: boolean;
 }
+
+const PYTEST_TASK_TYPES = new Set(['python_oop', 'python_numpy']);
 
 function stripTrailingNewline(s: string): string {
   return s.replace(/\n+$/, '');
@@ -28,6 +31,15 @@ function buildDiff(actual: string, expected: string): DiffRow[] {
     rows.push({ actual: actualLine, expected: expectedLine, diff: actualLine !== expectedLine });
   }
   return rows;
+}
+
+/** Попытаться вытащить из строки pytest 'assert X == Y' пару получено/ожидалось. */
+function parseAssert(text: string): { got: string; want: string } | null {
+  for (const line of text.split('\n')) {
+    const m = line.match(/assert\s+(.+?)\s*==\s*(.+)/);
+    if (m) return { got: m[1].trim(), want: m[2].trim() };
+  }
+  return null;
 }
 
 function OutputColumn({
@@ -58,7 +70,7 @@ function OutputColumn({
               : 'text-dark-700';
             return (
               <div key={i} className={`px-2 ${hl}`}>
-                {line === '' ? ' ' : line}
+                {line === '' ? ' ' : line}
               </div>
             );
           })
@@ -68,19 +80,33 @@ function OutputColumn({
   );
 }
 
+function SingleOutput({ title, text }: { title: string; text: string }) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-surface-400 mb-1">{title}</div>
+      <pre className="bg-white border border-surface-200 rounded-lg text-xs font-mono overflow-auto max-h-48 leading-relaxed px-2 py-1.5 text-dark-700 whitespace-pre-wrap">
+        {text || <span className="text-surface-300 italic">нет вывода</span>}
+      </pre>
+    </div>
+  );
+}
+
 /**
- * Карточка результата одного теста: вердикт + две колонки «ваш вывод» / «ожидается»
- * с подсветкой расхождений. Ожидаемое показывается только когда бэкенд его отдал
- * (публичные тесты IO-задач); у скрытых тестов правая колонка маскируется.
- * Общий компонент для TaskPage и CourseLearnPage.
+ * Карточка результата одного теста. Поведение зависит от того, что доступно:
+ *  • есть эталон (публичные тесты IO-задач, строки SQL) → две колонки с подсветкой;
+ *  • pytest-задачи (oop/numpy) → «Разбор ошибки» (эталона нет, показываем суть провала);
+ *  • иначе → одна колонка «Результат вашего кода».
+ * Скрытые тесты эталон не раскрывают. Общий компонент для TaskPage и CourseLearnPage.
  */
-export default function TestResultCard({ index, result }: Props) {
+export default function TestResultCard({ index, result, taskType }: Props) {
   const isPass = result.verdict === 'AC';
   const isHidden = result.test_type === 'hidden';
   const hasExpected = result.expected_output != null;
+  const isPytest = taskType != null && PYTEST_TASK_TYPES.has(taskType);
   const actual = result.actual_output ?? '';
 
   const rows = hasExpected ? buildDiff(actual, result.expected_output ?? '') : [];
+  const parsed = !hasExpected && isPytest && !isPass ? parseAssert(actual) : null;
 
   return (
     <div
@@ -102,18 +128,31 @@ export default function TestResultCard({ index, result }: Props) {
           <OutputColumn title="Результат вашего кода" rows={rows} side="actual" empty="нет вывода" />
           <OutputColumn title="Какой результат должен быть" rows={rows} side="expected" />
         </div>
-      ) : (
+      ) : isPytest ? (
         <div>
-          <div className="text-xs font-medium text-surface-400 mb-1">Результат вашего кода</div>
-          <pre className="bg-white border border-surface-200 rounded-lg text-xs font-mono overflow-auto max-h-48 leading-relaxed px-2 py-1.5 text-dark-700 whitespace-pre-wrap">
-            {actual || <span className="text-surface-300 italic">нет вывода</span>}
-          </pre>
+          {parsed && (
+            <div className="text-xs font-mono mb-2 space-y-0.5">
+              <div>
+                <span className="text-surface-400">получено: </span>
+                <span className="bg-red-100 text-red-800 px-1 rounded">{parsed.got}</span>
+              </div>
+              <div>
+                <span className="text-surface-400">ожидалось: </span>
+                <span className="bg-green-100 text-green-800 px-1 rounded">{parsed.want}</span>
+              </div>
+            </div>
+          )}
+          <SingleOutput title="Разбор ошибки" text={actual} />
+        </div>
+      ) : (
+        <>
+          <SingleOutput title="Результат вашего кода" text={actual} />
           {isHidden && (
             <div className="text-xs text-surface-400 mt-1">
               🔒 Это скрытый тест — ожидаемый результат не показывается.
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

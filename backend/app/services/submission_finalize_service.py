@@ -47,6 +47,7 @@ async def finalize_submission(db: AsyncSession, submission: Submission, body: Su
                 verdict=tr.verdict,
                 runtime=tr.runtime,
                 actual_output=tr.actual_output,
+                expected_output=tr.expected_output,
             )
         )
 
