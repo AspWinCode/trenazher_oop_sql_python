@@ -1,7 +1,17 @@
+import re
 import time
 
 from judger.runners.base_runner import BaseRunner, RunResult, TestResult
 from judger.sandbox.docker_manager import run_sql_sandbox
+
+# Внутренний путь песочницы в тексте ошибки psql — студенту его показывать не нужно.
+_PSQL_ERR_PREFIX = re.compile(r"psql:/workspace/student\.sql:(\d+):\s*(?:ERROR:\s*)?")
+
+
+def _clean_sql_error(text: str) -> str:
+    """Заменить технический префикс psql на человекочитаемый.
+    'psql:/workspace/student.sql:7: ERROR: ...' -> 'Ошибка в запросе (строка 7): ...'"""
+    return _PSQL_ERR_PREFIX.sub(lambda m: f"Ошибка в запросе (строка {m.group(1)}): ", text)
 
 
 def _parse_sql_diff(stdout: str) -> tuple[str, str]:
@@ -10,7 +20,7 @@ def _parse_sql_diff(stdout: str) -> tuple[str, str]:
     if "STUDENT_OUTPUT:" in stdout and "EXPECTED_OUTPUT:" in stdout:
         _, rest = stdout.split("STUDENT_OUTPUT:", 1)
         student_part, expected_part = rest.split("EXPECTED_OUTPUT:", 1)
-        return student_part.strip("\n"), expected_part.strip("\n")
+        return _clean_sql_error(student_part.strip("\n")), expected_part.strip("\n")
     return stdout, ""
 
 
@@ -50,7 +60,7 @@ class SQLRunner(BaseRunner):
                 tr = TestResult(test_id=test_id, verdict="AC", runtime=elapsed, actual_output="Match")
             elif "RUNTIME_ERROR:" in result.stdout:
                 # Student SQL raised an error (DML mode)
-                error_text = result.stdout.split("RUNTIME_ERROR:", 1)[-1].strip()
+                error_text = _clean_sql_error(result.stdout.split("RUNTIME_ERROR:", 1)[-1].strip())
                 tr = TestResult(test_id=test_id, verdict="WA", runtime=elapsed,
                                 actual_output=error_text[:2000])
                 if overall_verdict == "AC":
