@@ -33,13 +33,29 @@ function buildDiff(actual: string, expected: string): DiffRow[] {
   return rows;
 }
 
-/** Попытаться вытащить из строки pytest 'assert X == Y' пару получено/ожидалось. */
-function parseAssert(text: string): { got: string; want: string } | null {
-  for (const line of text.split('\n')) {
-    const m = line.match(/assert\s+(.+?)\s*==\s*(.+)/);
-    if (m) return { got: m[1].trim(), want: m[2].trim() };
-  }
-  return null;
+/** Разбор ошибки pytest: judger отдаёт уже человекочитаемый текст, здесь только
+ * подсвечиваем строки «получено:» / «ожидалось:». */
+function FailureBreakdown({ text }: { text: string }) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-surface-400 mb-1">Разбор ошибки</div>
+      <pre className="bg-white border border-surface-200 rounded-lg text-xs font-mono overflow-auto max-h-48 leading-relaxed px-2 py-1.5 whitespace-pre-wrap">
+        {text ? (
+          text.split('\n').map((ln, i) => {
+            const t = ln.trimStart();
+            const cls = t.startsWith('получено:')
+              ? 'text-red-700'
+              : t.startsWith('ожидалось:')
+              ? 'text-green-700'
+              : 'text-dark-700';
+            return <div key={i} className={cls}>{ln || ' '}</div>;
+          })
+        ) : (
+          <span className="text-surface-300 italic">нет вывода</span>
+        )}
+      </pre>
+    </div>
+  );
 }
 
 function OutputColumn({
@@ -106,7 +122,6 @@ export default function TestResultCard({ index, result, taskType }: Props) {
   const actual = result.actual_output ?? '';
 
   const rows = hasExpected ? buildDiff(actual, result.expected_output ?? '') : [];
-  const parsed = !hasExpected && isPytest && !isPass ? parseAssert(actual) : null;
 
   return (
     <div
@@ -129,21 +144,7 @@ export default function TestResultCard({ index, result, taskType }: Props) {
           <OutputColumn title="Какой результат должен быть" rows={rows} side="expected" />
         </div>
       ) : isPytest ? (
-        <div>
-          {parsed && (
-            <div className="text-xs font-mono mb-2 space-y-0.5">
-              <div>
-                <span className="text-surface-400">получено: </span>
-                <span className="bg-red-100 text-red-800 px-1 rounded">{parsed.got}</span>
-              </div>
-              <div>
-                <span className="text-surface-400">ожидалось: </span>
-                <span className="bg-green-100 text-green-800 px-1 rounded">{parsed.want}</span>
-              </div>
-            </div>
-          )}
-          <SingleOutput title="Разбор ошибки" text={actual} />
-        </div>
+        <FailureBreakdown text={actual} />
       ) : (
         <>
           <SingleOutput title="Результат вашего кода" text={actual} />

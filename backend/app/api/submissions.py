@@ -113,14 +113,15 @@ async def get_submission_detail(
     for tr in submission.test_results:
         is_public = bool(tr.test and tr.test.test_type.value == "public")
         # Эталон, вычисленный раннером (строки SQL и т.п.) — безопасное содержимое;
-        # литеральный expected из задачи — только для IO-типов.
+        # литеральный expected из задачи годится только для IO-типов. У pytest
+        # (oop/numpy) в expected_output лежит КОД теста — его не показываем никому
+        # (даже админу), чтобы фронт показал «Разбор ошибки», а не код теста.
         runner_expected = tr.expected_output
         cfg_expected = tr.test.expected_output if tr.test else None
-        if is_admin:
-            expected = runner_expected or cfg_expected
-        elif is_public:
-            # скрытые тесты эталон не раскрывают (чтобы нельзя было захардкодить)
-            expected = runner_expected or (cfg_expected if is_io_task else None)
+        meaningful_expected = runner_expected or (cfg_expected if is_io_task else None)
+        # скрытые тесты эталон не раскрывают студенту (чтобы нельзя было захардкодить)
+        if is_admin or is_public:
+            expected = meaningful_expected
         else:
             expected = None
         t = SubmissionTestOut(

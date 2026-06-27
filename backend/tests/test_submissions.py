@@ -245,11 +245,12 @@ async def test_student_does_not_see_expected_for_non_io_task(
         {"test_id": test_id, "verdict": "WA", "actual_output": "fail"},
     ])
 
-    resp = await client.get(f"/api/submissions/{sid}", headers=student_headers)
-    assert resp.status_code == 200
-    tr = resp.json()["test_results"][0]
-    # у oop-задач expected_output — это код теста, студенту не показываем
-    assert tr["expected_output"] is None
+    # у oop-задач expected_output — это КОД теста; не показываем ни студенту, ни админу
+    for headers in (student_headers, admin_headers):
+        resp = await client.get(f"/api/submissions/{sid}", headers=headers)
+        assert resp.status_code == 200
+        tr = resp.json()["test_results"][0]
+        assert tr["expected_output"] is None
 
 
 @pytest.mark.asyncio
