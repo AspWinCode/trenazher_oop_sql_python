@@ -47,6 +47,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       JUDGER_INTERNAL_TOKEN: ${JUDGER_INTERNAL_TOKEN}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      SUPPORT_ALERT_EMAILS: ${SUPPORT_ALERT_EMAILS:-osipow.1997@gmail.com,support@sf.education}
+      ENKOD_SUPPORT_MESSAGE_ID: ${ENKOD_SUPPORT_MESSAGE_ID:-0}
       SKIP_ALEMBIC: "1"
     depends_on:
       postgres:

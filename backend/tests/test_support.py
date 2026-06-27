@@ -176,3 +176,34 @@ async def test_admin_reply_missing_thread(client: AsyncClient, admin_headers):
 async def test_student_cannot_use_admin_endpoints(client: AsyncClient, student_headers):
     resp = await client.get("/api/admin/support/threads", headers=student_headers)
     assert resp.status_code == 403
+
+
+def test_support_alert_noop_when_disabled(monkeypatch):
+    from app.config import settings
+    from app.services import email_service
+
+    monkeypatch.setattr(settings, "ENKOD_SUPPORT_MESSAGE_ID", 0)
+    calls = []
+    monkeypatch.setattr(email_service, "_send_enkod", lambda *a, **k: calls.append(a))
+    email_service.dispatch_support_alert("Иван", "вопрос")
+    assert calls == []  # без messageId письма не шлём
+
+
+def test_support_alert_sends_to_each_recipient(monkeypatch):
+    from app.config import settings
+    from app.services import email_service
+
+    monkeypatch.setattr(settings, "ENKOD_SUPPORT_MESSAGE_ID", 1588)
+    monkeypatch.setattr(settings, "SUPPORT_ALERT_EMAILS", "a@x.ru, b@y.ru")
+    calls = []
+    monkeypatch.setattr(
+        email_service, "_send_enkod",
+        lambda to, mid, snippets: calls.append((to, mid, snippets)),
+    )
+    email_service.dispatch_support_alert("Иван Петров", "не работает задача")
+
+    assert [c[0] for c in calls] == ["a@x.ru", "b@y.ru"]
+    assert all(c[1] == 1588 for c in calls)
+    assert calls[0][2]["student"] == "Иван Петров"
+    assert calls[0][2]["message"] == "не работает задача"
+    assert calls[0][2]["link"].endswith("/admin/support")

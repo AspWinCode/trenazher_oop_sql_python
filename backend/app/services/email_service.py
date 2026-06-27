@@ -83,6 +83,28 @@ def _send_smtp(to: str, subject: str, html_body: str) -> bool:
         return False
 
 
+def dispatch_support_alert(student: str, message: str) -> None:
+    """Разослать уведомление о новом вопросе поддержки на адреса из конфига.
+
+    Best-effort: отправляется в фоне, любые ошибки только логируются и не влияют
+    на сохранение сообщения студента. Канал — Enkod (шаблон ``ENKOD_SUPPORT_MESSAGE_ID``
+    со сниппетами ``student``, ``message``, ``link``). Пока messageId не задан — no-op.
+    """
+    if not settings.ENKOD_SUPPORT_MESSAGE_ID:
+        return
+    link = f"{settings.FRONTEND_URL}/admin/support"
+    recipients = [e.strip() for e in (settings.SUPPORT_ALERT_EMAILS or "").split(",") if e.strip()]
+    for to in recipients:
+        try:
+            _send_enkod(
+                to,
+                settings.ENKOD_SUPPORT_MESSAGE_ID,
+                {"student": student, "message": message, "link": link},
+            )
+        except Exception:
+            logger.warning("Support alert failed for %s", to, exc_info=True)
+
+
 def send_password_reset_email(to: str, token: str) -> bool:
     """Send password reset link via Enkod (if configured) or SMTP."""
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"

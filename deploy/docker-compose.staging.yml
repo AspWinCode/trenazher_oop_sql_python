@@ -47,6 +47,7 @@ services:
       GETCOURSE_WEBHOOK_SECRET: ${GETCOURSE_WEBHOOK_SECRET}
       # Email disabled on staging — prevents sending real emails to users
       SMTP_HOST: ""
+      ENKOD_SUPPORT_MESSAGE_ID: "0"
       SKIP_ALEMBIC: "1"
     depends_on:
       postgres-staging:

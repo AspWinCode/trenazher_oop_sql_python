@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -18,6 +18,7 @@ from app.middleware.rate_limiter import support_limiter
 from app.models.support_message import SENDER_STUDENT, SupportMessage
 from app.models.support_thread import STATUS_OPEN, SupportThread
 from app.models.user import User
+from app.services.email_service import dispatch_support_alert
 from app.schemas.support import (
     AdminSupportThreadDetailOut,
     AdminSupportThreadOut,
@@ -46,6 +47,7 @@ def _guard_not_guest(user: User) -> None:
 @router.post("/support/messages", response_model=SupportMessageOut, status_code=201)
 async def send_message(
     body: SupportMessageCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -56,7 +58,10 @@ async def send_message(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Слишком много сообщений. Подождите немного.",
         )
-    message = await support_service.post_student_message(db, user.id, body.body.strip())
+    text = body.body.strip()
+    message = await support_service.post_student_message(db, user.id, text)
+    # Email-алерт менеджерам — в фоне, не блокирует ответ и не ломает отправку.
+    background_tasks.add_task(dispatch_support_alert, user.full_name or user.login, text)
     return message
 
 

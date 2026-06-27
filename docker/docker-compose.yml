@@ -42,6 +42,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       GETCOURSE_WEBHOOK_SECRET: ${GETCOURSE_WEBHOOK_SECRET}
       FRONTEND_URL: ${FRONTEND_URL:-https://itpractikum.sflearning.ru}
+      SUPPORT_ALERT_EMAILS: ${SUPPORT_ALERT_EMAILS:-osipow.1997@gmail.com,support@sf.education}
+      ENKOD_SUPPORT_MESSAGE_ID: ${ENKOD_SUPPORT_MESSAGE_ID:-0}
     depends_on:
       postgres:
         condition: service_healthy

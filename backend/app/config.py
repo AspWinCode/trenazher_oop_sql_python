@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     # GetCourse webhook secret (оставь пустым чтобы отключить проверку)
     GETCOURSE_WEBHOOK_SECRET: str = ""
+    # Email-алерты о вопросах поддержки (Enkod). Список получателей через запятую.
+    SUPPORT_ALERT_EMAILS: str = "osipow.1997@gmail.com,support@sf.education"
+    # messageId шаблона письма в Enkod (0 = алерты отключены, пока шаблон не создан)
+    ENKOD_SUPPORT_MESSAGE_ID: int = 0
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
