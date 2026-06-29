@@ -1,5 +1,5 @@
 import api from './client';
-import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig, PlatformMetrics, SupportThread, SupportMessage, AdminSupportThread, AdminSupportThreadDetail } from '../types';
+import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig, PlatformMetrics, SupportThread, SupportMessage, AdminSupportThread, AdminSupportThreadDetail, UserCourseProgressDetail } from '../types';
 
 export const authApi = {
   login: (login: string, password: string) =>
@@ -45,6 +45,7 @@ export const usersApi = {
   forgotPassword: (email: string) => api.post('/users/forgot-password', { email }),
   resetPasswordByToken: (token: string, new_password: string) => api.post('/users/reset-password-by-token', { token, new_password }),
   getStats: (id: number) => api.get<{ user_id: number; total_attempts: number; solved_tasks: number; in_progress_tasks: number }>(`/users/${id}/stats`),
+  getCourseProgress: (id: number) => api.get<UserCourseProgressDetail>(`/users/${id}/course-progress`),
 };
 
 export const coursesApi = {

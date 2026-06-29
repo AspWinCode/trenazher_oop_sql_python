@@ -2,21 +2,29 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.middleware.auth_middleware import require_admin
 from app.models.course import Course
+from app.models.course_node import CourseNode, CourseNodeStatus
+from app.models.course_node_task import CourseNodeTask
 from app.models.password_reset_token import PasswordResetToken
 from app.models.student_progress import StudentProgress
 from app.models.user import User
 from app.models.user_course_enrollment import UserCourseEnrollment
+from app.models.user_course_node_task_progress import (
+    NodeTaskProgressStatus,
+    UserCourseNodeTaskProgress,
+)
+from app.models.user_login_event import UserLoginEvent
 from app.schemas.user import (
     ForgotPasswordRequest,
     ResetPassword,
@@ -227,6 +235,142 @@ async def get_student_stats(user_id: int, db: AsyncSession = Depends(get_db), _=
         total_attempts=total_attempts,
         solved_tasks=solved_tasks,
         in_progress_tasks=in_progress_tasks,
+    )
+
+
+# --- Per-user course progress (admin card) ---
+
+class CourseTaskProgressOut(BaseModel):
+    task_title: str
+    completed: bool
+    completed_at: Optional[datetime] = None
+
+
+class CourseProgressBlockOut(BaseModel):
+    course_id: int
+    course_title: str
+    passed: int
+    total: int
+    tasks: List[CourseTaskProgressOut]
+
+
+class UserCourseProgressDetailOut(BaseModel):
+    user_id: int
+    total_tasks: int
+    total_passed: int
+    last_online: Optional[datetime] = None
+    courses: List[CourseProgressBlockOut]
+
+
+async def _ordered_course_node_tasks(db: AsyncSession, course_id: int):
+    """(node_task_id, task_id, title) задач курса в порядке обхода дерева.
+
+    Только опубликованные узлы, дедуп по task_id (первое вхождение) — тот же
+    порядок, что видит студент."""
+    result = await db.execute(
+        select(CourseNode)
+        .options(selectinload(CourseNode.node_tasks).selectinload(CourseNodeTask.task))
+        .where(
+            CourseNode.course_id == course_id,
+            CourseNode.status == CourseNodeStatus.published,
+        )
+        .order_by(CourseNode.sort_order, CourseNode.id)
+    )
+    nodes = result.scalars().unique().all()
+
+    children_by_parent: dict = {}
+    for node in nodes:
+        children_by_parent.setdefault(node.parent_id, []).append(node)
+
+    ordered: list = []
+    seen: set = set()
+
+    def walk(parent_id):
+        for node in children_by_parent.get(parent_id, []):
+            for nt in sorted(node.node_tasks, key=lambda x: (x.sort_order, x.id)):
+                if nt.task_id in seen:
+                    continue
+                seen.add(nt.task_id)
+                title = nt.task.title if nt.task else f"Задача #{nt.task_id}"
+                ordered.append((nt.id, nt.task_id, title))
+            walk(node.id)
+
+    walk(None)
+    return ordered
+
+
+@router.get("/{user_id}/course-progress", response_model=UserCourseProgressDetailOut)
+async def get_user_course_progress(
+    user_id: int, db: AsyncSession = Depends(get_db), _=Depends(require_admin)
+):
+    """Карточка пользователя: прогресс по каждому доступному курсу + итоги."""
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    last_online = (
+        await db.execute(
+            select(func.max(UserLoginEvent.created_at)).where(
+                UserLoginEvent.user_id == user_id
+            )
+        )
+    ).scalar_one_or_none()
+
+    progress_rows = (
+        await db.execute(
+            select(UserCourseNodeTaskProgress).where(
+                UserCourseNodeTaskProgress.user_id == user_id
+            )
+        )
+    ).scalars().all()
+    progress_by_node_task = {p.node_task_id: p for p in progress_rows}
+
+    courses = (
+        await db.execute(
+            select(Course)
+            .join(UserCourseEnrollment, UserCourseEnrollment.course_id == Course.id)
+            .where(UserCourseEnrollment.user_id == user_id)
+            .order_by(Course.sort_order, Course.id)
+        )
+    ).scalars().all()
+
+    blocks: List[CourseProgressBlockOut] = []
+    total_tasks = 0
+    total_passed = 0
+    for course in courses:
+        ordered = await _ordered_course_node_tasks(db, course.id)
+        tasks_out: List[CourseTaskProgressOut] = []
+        passed = 0
+        for node_task_id, _task_id, title in ordered:
+            p = progress_by_node_task.get(node_task_id)
+            completed = bool(p and p.status == NodeTaskProgressStatus.completed)
+            if completed:
+                passed += 1
+            tasks_out.append(
+                CourseTaskProgressOut(
+                    task_title=title,
+                    completed=completed,
+                    completed_at=p.completed_at if (p and completed) else None,
+                )
+            )
+        blocks.append(
+            CourseProgressBlockOut(
+                course_id=course.id,
+                course_title=course.title,
+                passed=passed,
+                total=len(ordered),
+                tasks=tasks_out,
+            )
+        )
+        total_tasks += len(ordered)
+        total_passed += passed
+
+    return UserCourseProgressDetailOut(
+        user_id=user_id,
+        total_tasks=total_tasks,
+        total_passed=total_passed,
+        last_online=last_online,
+        courses=blocks,
     )
 
 

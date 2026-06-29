@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { coursesApi, usersApi } from '../api';
 import type { CourseEnrollment } from '../api';
 import type { Course, User } from '../types';
+import UserProgressDrawer from '../components/UserProgressDrawer';
 
 interface StudentStats {
   user_id: number;
@@ -47,6 +48,8 @@ export default function AdminUsersPage() {
   const [statsUserId, setStatsUserId] = useState<number | null>(null);
   const [stats, setStats] = useState<StudentStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+
+  const [cardUserId, setCardUserId] = useState<number | null>(null);
 
   // Debounce search: wait 400ms after typing, then reset to page 1
   useEffect(() => {
@@ -285,6 +288,9 @@ export default function AdminUsersPage() {
                         <button onClick={() => openStats(u.id)} className="text-xs text-teal-600 hover:underline">
                           Статистика
                         </button>
+                        <button onClick={() => setCardUserId(u.id)} className="text-xs text-indigo-600 hover:underline">
+                          Карточка
+                        </button>
                       </>
                     )}
                   </div>
@@ -469,6 +475,19 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+
+      {/* Карточка пользователя (прогресс по курсам) */}
+      {cardUserId !== null && (() => {
+        const u = users.find((x) => x.id === cardUserId);
+        const label = u ? (u.full_name ? `${u.full_name} (${u.login})` : u.login) : '';
+        return (
+          <UserProgressDrawer
+            userId={cardUserId}
+            userLabel={label}
+            onClose={() => setCardUserId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

@@ -16,6 +16,28 @@ export interface GuestConfig {
   course_ids: number[];
 }
 
+export interface CourseTaskProgress {
+  task_title: string;
+  completed: boolean;
+  completed_at: string | null;
+}
+
+export interface CourseProgressBlock {
+  course_id: number;
+  course_title: string;
+  passed: number;
+  total: number;
+  tasks: CourseTaskProgress[];
+}
+
+export interface UserCourseProgressDetail {
+  user_id: number;
+  total_tasks: number;
+  total_passed: number;
+  last_online: string | null;
+  courses: CourseProgressBlock[];
+}
+
 export interface SupportMessage {
   id: number;
   sender: 'student' | 'manager';
