@@ -47,6 +47,7 @@ services:
       TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-}
       TBANK_PASSWORD: ${TBANK_PASSWORD:-}
       TBANK_NOTIFICATION_BASE_URL: ${TBANK_NOTIFICATION_BASE_URL:-https://itpractikum.sflearning.ru}
+      COURSE_PRICE: ${COURSE_PRICE:-299000}
     depends_on:
       postgres:
         condition: service_healthy

@@ -76,20 +76,53 @@ async def test_payment_init_course_not_found(client: AsyncClient, student_header
 
 
 @pytest.mark.asyncio
-async def test_payment_init_course_no_price(client: AsyncClient, admin_headers, student_headers):
+async def test_payment_init_course_no_price_uses_default(
+    client: AsyncClient, admin_headers, student_headers
+):
+    """Если у курса нет цены, используется глобальный COURSE_PRICE из настроек."""
     course = await client.post(
         ADMIN_COURSES,
         json={"title": "Без цены", "status": "published"},
         headers=admin_headers,
     )
     cid = course.json()["id"]
-    with patch("app.api.payments.settings") as mock_settings:
+
+    mock_tbank_response = {
+        "Success": True,
+        "PaymentURL": "https://securepay.tinkoff.ru/pay/default_price",
+        "PaymentId": "99999",
+        "OrderId": f"order_{cid}_1_1000",
+        "Amount": 299000,
+        "Status": "NEW",
+    }
+
+    with patch("app.api.payments.settings") as mock_settings, \
+         patch("app.services.payment_service.settings") as mock_svc_settings, \
+         patch("app.services.payment_service.httpx.AsyncClient") as mock_client_cls:
+
         mock_settings.TBANK_TERMINAL_KEY = "terminal123"
         mock_settings.TBANK_PASSWORD = "secret"
+        mock_settings.COURSE_PRICE = 299000
+        mock_svc_settings.TBANK_TERMINAL_KEY = "terminal123"
+        mock_svc_settings.TBANK_PASSWORD = "secret"
+        mock_svc_settings.FRONTEND_URL = "https://example.com"
+        mock_svc_settings.TBANK_NOTIFICATION_BASE_URL = "https://example.com"
+
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = mock_tbank_response
+        mock_resp.raise_for_status = MagicMock()
+        mock_http = AsyncMock()
+        mock_http.__aenter__ = AsyncMock(return_value=mock_http)
+        mock_http.__aexit__ = AsyncMock(return_value=False)
+        mock_http.post = AsyncMock(return_value=mock_resp)
+        mock_client_cls.return_value = mock_http
+
         resp = await client.post(
             "/api/payments/init", json={"course_id": cid}, headers=student_headers
         )
-    assert resp.status_code == 400
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["amount"] == 299000
 
 
 @pytest.mark.asyncio

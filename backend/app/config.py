@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     TBANK_PASSWORD: str = ""
     # Базовый URL для NotificationURL (обычно совпадает с публичным адресом бэкенда)
     TBANK_NOTIFICATION_BASE_URL: str = "https://itpractikum.sflearning.ru"
+    # Глобальная цена курса в копейках (используется если у курса не задана цена)
+    COURSE_PRICE: int = 299000
     # Email-алерты о вопросах поддержки (Enkod). Список получателей через запятую.
     SUPPORT_ALERT_EMAILS: str = "osipow.1997@gmail.com,support@sf.education"
     # messageId шаблона письма в Enkod (0 = алерты отключены, пока шаблон не создан)

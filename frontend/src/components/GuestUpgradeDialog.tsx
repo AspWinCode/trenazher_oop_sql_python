@@ -4,15 +4,10 @@ import { paymentsApi } from '../api';
 interface Props {
   courseId: number;
   courseTitle: string;
-  coursePrice: number | null;
   onClose: () => void;
 }
 
-function formatPrice(kopecks: number): string {
-  return `${(kopecks / 100).toLocaleString('ru-RU')} ₽`;
-}
-
-export default function GuestUpgradeDialog({ courseId, courseTitle, coursePrice, onClose }: Props) {
+export default function GuestUpgradeDialog({ courseId, courseTitle, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,20 +36,16 @@ export default function GuestUpgradeDialog({ courseId, courseTitle, coursePrice,
           Вы прошли демо-версию курса!
         </h2>
         <p className="text-surface-500 text-sm mb-6">
-          Отличная работа. В полном курсе«{courseTitle}» вас ждут десятки задач
+          Отличная работа. В полном курсе «{courseTitle}» вас ждут десятки задач
           с нарастающей сложностью и сохранение всего прогресса.
         </p>
 
         <button
           onClick={handleBuy}
-          disabled={loading || !coursePrice}
+          disabled={loading}
           className="w-full btn-primary py-3 text-base font-semibold rounded-xl mb-3 disabled:opacity-60"
         >
-          {loading
-            ? 'Переход к оплате...'
-            : coursePrice
-            ? `Купить полный курс — ${formatPrice(coursePrice)}`
-            : 'Цена не указана'}
+          {loading ? 'Переход к оплате...' : 'Купить полный курс →'}
         </button>
 
         {error && (

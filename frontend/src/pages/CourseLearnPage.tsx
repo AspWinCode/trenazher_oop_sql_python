@@ -390,7 +390,7 @@ export default function CourseLearnPage() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [upgradeDialogShown, setUpgradeDialogShown] = useState(false);
 
-  const { setCourseData, setSelectedTaskId, clear, courseTitle, coursePrice } = useCourseLearnStore();
+  const { setCourseData, setSelectedTaskId, clear, courseTitle } = useCourseLearnStore();
   const selectedTaskId = searchParams.get('task') ? Number(searchParams.get('task')) : null;
 
   const reloadCourseData = useCallback(() => {
@@ -523,12 +523,12 @@ export default function CourseLearnPage() {
             <p className="text-surface-400 text-sm mt-1">
               В гостевом режиме открыты только первые задачи курса.
             </p>
-            {coursePrice && courseId && (
+            {courseId && (
               <button
                 onClick={() => setShowUpgradeDialog(true)}
                 className="mt-4 btn-primary px-6 py-2.5 rounded-xl text-sm font-semibold"
               >
-                Купить полный курс — {(coursePrice / 100).toLocaleString('ru-RU')} ₽
+                Купить полный курс →
               </button>
             )}
           </div>
@@ -558,7 +558,6 @@ export default function CourseLearnPage() {
         <GuestUpgradeDialog
           courseId={Number(courseId)}
           courseTitle={courseTitle ?? ''}
-          coursePrice={coursePrice}
           onClose={() => setShowUpgradeDialog(false)}
         />
       )}

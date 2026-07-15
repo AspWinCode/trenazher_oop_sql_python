@@ -57,8 +57,8 @@ async def payment_init(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Курс не найден")
-    if course.price is None or course.price <= 0:
-        raise HTTPException(status_code=400, detail="Для этого курса не настроена цена")
+
+    amount = course.price if (course.price and course.price > 0) else settings.COURSE_PRICE
 
     order_id = generate_order_id(current_user.id, body.course_id)
     customer_key = str(current_user.id) if not current_user.is_guest else None
@@ -66,7 +66,7 @@ async def payment_init(
     try:
         tbank_resp = await init_payment(
             order_id=order_id,
-            amount=course.price,
+            amount=amount,
             course_title=course.title,
             customer_key=customer_key,
         )
@@ -78,7 +78,7 @@ async def payment_init(
         order_id=order_id,
         user_id=current_user.id,
         course_id=body.course_id,
-        amount=course.price,
+        amount=amount,
         status=OrderStatus.pending,
         tbank_payment_id=str(tbank_resp.get("PaymentId", "")),
     )
@@ -88,7 +88,7 @@ async def payment_init(
     return PaymentInitResponse(
         payment_url=tbank_resp["PaymentURL"],
         order_id=order_id,
-        amount=course.price,
+        amount=amount,
     )
 
 
