@@ -31,6 +31,7 @@ class CourseAdminUpdate(BaseModel):
     cover_image_url: Optional[str] = None
     status: Optional[CourseStatus] = None
     sort_order: Optional[int] = None
+    price: Optional[int] = Field(default=None, ge=0)  # копейки
 
 
 class CourseAdminOut(BaseModel):
@@ -42,6 +43,7 @@ class CourseAdminOut(BaseModel):
     cover_image_url: Optional[str] = None
     status: CourseStatus
     sort_order: int
+    price: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     archived_at: Optional[datetime] = None

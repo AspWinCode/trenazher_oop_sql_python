@@ -65,6 +65,7 @@ class CourseOut(BaseModel):
     title: str
     description: Optional[str]
     status: CourseStatus
+    price: Optional[int] = None  # копейки
     created_at: datetime
 
     model_config = {"from_attributes": True}

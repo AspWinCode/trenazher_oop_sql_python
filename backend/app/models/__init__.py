@@ -21,6 +21,7 @@ from app.models.user import User, UserRole, UserStatus
 from app.models.user_login_event import UserLoginEvent
 from app.models.user_course_progress import UserCourseProgress
 from app.models.user_course_enrollment import UserCourseEnrollment
+from app.models.order import Order, OrderStatus
 from app.models.user_course_node_task_progress import (
     NodeTaskProgressStatus,
     UserCourseNodeTaskProgress,
@@ -68,4 +69,6 @@ __all__ = [
     "UserLoginEvent",
     "SupportThread",
     "SupportMessage",
+    "Order",
+    "OrderStatus",
 ]

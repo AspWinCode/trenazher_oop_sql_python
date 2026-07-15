@@ -93,8 +93,15 @@ export interface Course {
   title: string;
   description: string | null;
   status: 'draft' | 'published' | 'archived';
+  price: number | null;  // копейки
   created_at: string;
   modules?: Module[];
+}
+
+export interface PaymentInitResponse {
+  payment_url: string;
+  order_id: string;
+  amount: number;
 }
 
 export interface Module {

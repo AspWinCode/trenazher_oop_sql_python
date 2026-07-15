@@ -13,6 +13,7 @@ import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
 import SubmissionDetailLink from '../components/SubmissionDetailLink';
 import TestResultCard from '../components/TestResultCard';
+import GuestUpgradeDialog from '../components/GuestUpgradeDialog';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useCourseLearnStore, type CourseSidebarItem } from '../store/courseLearn';
@@ -66,6 +67,8 @@ function TaskSolver({
   onNext,
   onPrev,
   onSolved,
+  isLastDemoTask,
+  onLastDemoTaskSubmitted,
 }: {
   taskId: string;
   taskNumber: number;
@@ -73,6 +76,8 @@ function TaskSolver({
   onNext: () => void;
   onPrev: () => void;
   onSolved?: () => void;
+  isLastDemoTask?: boolean;
+  onLastDemoTaskSubmitted?: () => void;
 }) {
   const {
     task, code, setCode, history, hints, loading,
@@ -98,6 +103,13 @@ function TaskSolver({
       onSolved();
     }
   }, [submission?.status, submission?.verdict, onSolved]);
+
+  // Показываем диалог покупки после любого сабмита на последней демо-задаче
+  useEffect(() => {
+    if (isLastDemoTask && submission?.status === 'finished' && onLastDemoTaskSubmitted) {
+      onLastDemoTaskSubmitted();
+    }
+  }, [isLastDemoTask, submission?.status, onLastDemoTaskSubmitted]);
 
   if (loading)
     return (
@@ -375,8 +387,10 @@ export default function CourseLearnPage() {
   const isGuest = useAuthStore((s) => s.user?.is_guest ?? false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeDialogShown, setUpgradeDialogShown] = useState(false);
 
-  const { setCourseData, setSelectedTaskId, clear } = useCourseLearnStore();
+  const { setCourseData, setSelectedTaskId, clear, courseTitle, coursePrice } = useCourseLearnStore();
   const selectedTaskId = searchParams.get('task') ? Number(searchParams.get('task')) : null;
 
   const reloadCourseData = useCallback(() => {
@@ -432,7 +446,7 @@ export default function CourseLearnPage() {
         const taskItems = items.filter((i) => i.kind === 'task');
         const completed = taskItems.filter((i) => i.status === 'completed').length;
 
-        setCourseData(id, course.title, items, completed, taskItems.length);
+        setCourseData(id, course.title, items, completed, taskItems.length, course.price ?? null);
 
         // Авто-выбор первой задачи (только при первой загрузке)
         if (reloadTrigger === 0 && !searchParams.get('task') && taskItems.length > 0 && taskItems[0].taskId) {
@@ -458,6 +472,22 @@ export default function CourseLearnPage() {
   );
   const currentIndex = taskItems.findIndex((t) => t.taskId === selectedTaskId);
   const selectedLocked = currentIndex >= 0 && !!taskItems[currentIndex]?.locked;
+
+  // Последняя незаблокированная задача (для триггера диалога)
+  const lastAllowedIndex = useMemo(() => {
+    if (!isGuest) return -1;
+    let last = -1;
+    taskItems.forEach((t, i) => { if (!t.locked) last = i; });
+    return last;
+  }, [taskItems, isGuest]);
+  const isLastDemoTask = isGuest && currentIndex !== -1 && currentIndex === lastAllowedIndex;
+
+  const handleLastDemoTaskSubmitted = useCallback(() => {
+    setUpgradeDialogShown((prev) => {
+      if (!prev) setShowUpgradeDialog(true);
+      return true;
+    });
+  }, []);
 
   const selectTask = useCallback(
     (taskId: number) => {
@@ -488,12 +518,19 @@ export default function CourseLearnPage() {
       {selectedTaskId && selectedLocked ? (
         <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
           <span className="text-5xl">🔒</span>
-          <div>
+          <div className="max-w-sm">
             <p className="font-semibold text-surface-600 text-lg">Задача недоступна в демо-режиме</p>
-            <p className="text-surface-400 text-sm mt-1 max-w-md">
+            <p className="text-surface-400 text-sm mt-1">
               В гостевом режиме открыты только первые задачи курса.
-              Зарегистрируйтесь, чтобы решать все задачи и сохранять прогресс.
             </p>
+            {coursePrice && courseId && (
+              <button
+                onClick={() => setShowUpgradeDialog(true)}
+                className="mt-4 btn-primary px-6 py-2.5 rounded-xl text-sm font-semibold"
+              >
+                Купить полный курс — {(coursePrice / 100).toLocaleString('ru-RU')} ₽
+              </button>
+            )}
           </div>
         </div>
       ) : selectedTaskId ? (
@@ -505,6 +542,8 @@ export default function CourseLearnPage() {
           onNext={goNext}
           onPrev={goPrev}
           onSolved={reloadCourseData}
+          isLastDemoTask={isLastDemoTask}
+          onLastDemoTaskSubmitted={handleLastDemoTaskSubmitted}
         />
       ) : (
         <div className="flex flex-col items-center justify-center h-full gap-3 text-surface-400">
@@ -513,6 +552,15 @@ export default function CourseLearnPage() {
             {taskItems.length === 0 ? 'В курсе пока нет задач' : 'Выберите задачу в списке слева'}
           </p>
         </div>
+      )}
+
+      {showUpgradeDialog && courseId && (
+        <GuestUpgradeDialog
+          courseId={Number(courseId)}
+          courseTitle={courseTitle ?? ''}
+          coursePrice={coursePrice}
+          onClose={() => setShowUpgradeDialog(false)}
+        />
       )}
     </div>
   );

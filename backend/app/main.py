@@ -70,6 +70,7 @@ from app.api import auth, users, courses, tasks, submissions, progress, personal
 from app.api import ws, contests, ratings, achievements  # noqa: E402
 from app.api import admin_courses, course_student, platform_settings  # noqa: E402
 from app.api import getcourse, admin_metrics, support  # noqa: E402
+from app.api import payments  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(admin_courses.router, prefix="/api", tags=["Admin Courses"])
@@ -88,6 +89,7 @@ app.include_router(platform_settings.router, prefix="/api", tags=["Platform Sett
 app.include_router(getcourse.router, prefix="/api/getcourse", tags=["GetCourse"])
 app.include_router(admin_metrics.router, prefix="/api", tags=["Admin Metrics"])
 app.include_router(support.router, prefix="/api", tags=["Support"])
+app.include_router(payments.router, prefix="/api", tags=["Payments"])
 
 
 @app.get("/api/health")

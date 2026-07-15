@@ -1,5 +1,5 @@
 import api from './client';
-import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig, PlatformMetrics, SupportThread, SupportMessage, AdminSupportThread, AdminSupportThreadDetail, UserCourseProgressDetail } from '../types';
+import type { Course, Module, Submodule, Task, Submission, Progress, User, PersonalLink, TaskHint, GuestConfig, PlatformMetrics, SupportThread, SupportMessage, AdminSupportThread, AdminSupportThreadDetail, UserCourseProgressDetail, PaymentInitResponse } from '../types';
 
 export const authApi = {
   login: (login: string, password: string) =>
@@ -257,4 +257,10 @@ export const achievementsApi = {
   my: () => api.get<any[]>('/achievements/my'),
   profile: (userId: number) => api.get<any>(`/achievements/profile/${userId}`),
   seed: () => api.post('/achievements/seed'),
+};
+
+export const paymentsApi = {
+  config: () => api.get<{ enabled: boolean }>('/payments/config'),
+  initPayment: (course_id: number) =>
+    api.post<PaymentInitResponse>('/payments/init', { course_id }),
 };

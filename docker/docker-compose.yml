@@ -44,6 +44,9 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-https://itpractikum.sflearning.ru}
       SUPPORT_ALERT_EMAILS: ${SUPPORT_ALERT_EMAILS:-osipow.1997@gmail.com,support@sf.education}
       ENKOD_SUPPORT_MESSAGE_ID: ${ENKOD_SUPPORT_MESSAGE_ID:-0}
+      TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-}
+      TBANK_PASSWORD: ${TBANK_PASSWORD:-}
+      TBANK_NOTIFICATION_BASE_URL: ${TBANK_NOTIFICATION_BASE_URL:-https://itpractikum.sflearning.ru}
     depends_on:
       postgres:
         condition: service_healthy

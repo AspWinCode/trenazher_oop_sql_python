@@ -15,6 +15,7 @@ export interface CourseSidebarItem {
 interface CourseLearnStore {
   courseId: number | null;
   courseTitle: string | null;
+  coursePrice: number | null;
   sidebarItems: CourseSidebarItem[];
   selectedTaskId: number | null;
   completedCount: number;
@@ -25,6 +26,7 @@ interface CourseLearnStore {
     items: CourseSidebarItem[],
     completed: number,
     total: number,
+    price?: number | null,
   ) => void;
   setSelectedTaskId: (id: number | null) => void;
   clear: () => void;
@@ -33,17 +35,19 @@ interface CourseLearnStore {
 export const useCourseLearnStore = create<CourseLearnStore>((set) => ({
   courseId: null,
   courseTitle: null,
+  coursePrice: null,
   sidebarItems: [],
   selectedTaskId: null,
   completedCount: 0,
   totalCount: 0,
-  setCourseData: (courseId, courseTitle, sidebarItems, completedCount, totalCount) =>
-    set({ courseId, courseTitle, sidebarItems, completedCount, totalCount }),
+  setCourseData: (courseId, courseTitle, sidebarItems, completedCount, totalCount, coursePrice = null) =>
+    set({ courseId, courseTitle, sidebarItems, completedCount, totalCount, coursePrice }),
   setSelectedTaskId: (selectedTaskId) => set({ selectedTaskId }),
   clear: () =>
     set({
       courseId: null,
       courseTitle: null,
+      coursePrice: null,
       sidebarItems: [],
       selectedTaskId: null,
       completedCount: 0,

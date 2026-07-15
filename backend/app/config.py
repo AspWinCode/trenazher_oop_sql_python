@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     # GetCourse webhook secret (оставь пустым чтобы отключить проверку)
     GETCOURSE_WEBHOOK_SECRET: str = ""
+    # Т-Банк эквайринг (оставь пустым чтобы отключить платежи)
+    TBANK_TERMINAL_KEY: str = ""
+    TBANK_PASSWORD: str = ""
+    # Базовый URL для NotificationURL (обычно совпадает с публичным адресом бэкенда)
+    TBANK_NOTIFICATION_BASE_URL: str = "https://itpractikum.sflearning.ru"
     # Email-алерты о вопросах поддержки (Enkod). Список получателей через запятую.
     SUPPORT_ALERT_EMAILS: str = "osipow.1997@gmail.com,support@sf.education"
     # messageId шаблона письма в Enkod (0 = алерты отключены, пока шаблон не создан)

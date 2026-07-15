@@ -25,6 +25,7 @@ class Course(Base):
     cover_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     status: Mapped[CourseStatus] = mapped_column(Enum(CourseStatus), default=CourseStatus.draft)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    price: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # копейки
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
