@@ -44,6 +44,7 @@ async def init_payment(
     amount: int,
     course_title: str,
     customer_key: Optional[str] = None,
+    user_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Вызывает /v2/Init и возвращает ответ Т-Банка.
     amount — в копейках."""
@@ -61,6 +62,23 @@ async def init_payment(
     }
     if customer_key:
         params["CustomerKey"] = customer_key
+
+    if user_email:
+        params["Email"] = user_email
+
+    params["Receipt"] = {
+        "Email": user_email or "support@itpractikum.ru",
+        "Phone": "+79991234567",
+        "Items": [
+            {
+                "Name": course_title[:255],
+                "Price": amount,
+                "Quantity": 1,
+                "Amount": amount,
+                "Tax": "none",
+            }
+        ],
+    }
 
     params["Token"] = _make_token(params)
 

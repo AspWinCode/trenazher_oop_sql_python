@@ -69,6 +69,7 @@ async def payment_init(
             amount=amount,
             course_title=course.title,
             customer_key=customer_key,
+            user_email=current_user.email,
         )
     except Exception as exc:
         logger.exception("Ошибка инициирования платежа")
