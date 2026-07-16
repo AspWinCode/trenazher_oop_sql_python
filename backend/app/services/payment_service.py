@@ -66,7 +66,7 @@ async def init_payment(
     if user_email:
         params["Email"] = user_email
 
-    params["Receipt"] = {
+    receipt = {
         "Email": user_email or "support@itpractikum.ru",
         "Phone": "+79991234567",
         "Taxation": "usn_income",
@@ -84,6 +84,7 @@ async def init_payment(
     }
 
     params["Token"] = _make_token(params)
+    params["Receipt"] = receipt
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(TBANK_INIT_URL, json=params)
