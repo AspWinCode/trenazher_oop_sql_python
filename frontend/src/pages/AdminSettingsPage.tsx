@@ -216,6 +216,30 @@ export default function AdminSettingsPage() {
       </div>
 
       <GuestModeSettings />
+
+      <div className="card max-w-lg mt-6">
+        <h2 className="text-lg font-semibold mb-4">Цена курсов</h2>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-dark-700 mb-1.5">
+            Цена полного курса (₽)
+          </label>
+          <div className="text-xs text-surface-400 mb-2">
+            Цена по умолчанию для всех курсов, если у конкретного курса не установлена своя цена.
+          </div>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={299990 / 100}
+            disabled
+            className="input w-full opacity-60 cursor-not-allowed"
+          />
+          <p className="text-xs text-surface-400 mt-2">
+            Цена сейчас установлена в переменной окружения COURSE_PRICE. Для изменения отредактируйте .env на сервере.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
