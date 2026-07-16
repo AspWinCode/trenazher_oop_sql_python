@@ -19,9 +19,10 @@ def _get_redis():
     try:
         import redis
         r = redis.from_url(settings.REDIS_URL, decode_responses=True)
-        r.ping()
+        r.ping()  # Test the connection - may fail if read-only
         return r
-    except Exception:
+    except (ImportError, Exception):
+        # Redis unavailable, not writable, or connection error
         return None
 
 
@@ -49,9 +50,12 @@ def create_refresh_token(data: dict) -> str:
     # Store the valid JTI in Redis so old tokens become invalid after rotation
     r = _get_redis()
     if r:
-        user_id = data.get("sub", "unknown")
-        ttl = REFRESH_TOKEN_EXPIRE_DAYS * 86400
-        r.setex(f"refresh:jti:{user_id}", ttl, jti)
+        try:
+            user_id = data.get("sub", "unknown")
+            ttl = REFRESH_TOKEN_EXPIRE_DAYS * 86400
+            r.setex(f"refresh:jti:{user_id}", ttl, jti)
+        except Exception:
+            pass  # Redis write failed, continue without token revocation
     return token
 
 
