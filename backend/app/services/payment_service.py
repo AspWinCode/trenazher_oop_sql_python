@@ -69,13 +69,13 @@ async def init_payment(
     params["Receipt"] = {
         "Email": user_email or "support@itpractikum.ru",
         "Phone": "+79991234567",
+        "Taxation": "usn_income",
         "Items": [
             {
                 "Name": course_title[:255],
                 "Price": amount,
                 "Quantity": 1,
                 "Amount": amount,
-                "Tax": "no_tax",
             }
         ],
     }
