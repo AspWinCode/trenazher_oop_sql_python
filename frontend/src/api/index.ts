@@ -125,10 +125,10 @@ export interface CourseNodeTask {
 
 export const adminCoursesApi = {
   list: () => api.get<AdminCourse[]>('/admin/courses'),
-  create: (data: { title: string; description?: string; short_description?: string; cover_image_url?: string; status?: 'draft' | 'published' | 'archived'; sort_order?: number }) =>
+  create: (data: { title: string; description?: string; short_description?: string; cover_image_url?: string; status?: 'draft' | 'published' | 'archived'; sort_order?: number; price?: number }) =>
     api.post<AdminCourse>('/admin/courses', data),
   get: (id: number) => api.get<AdminCourse>(`/admin/courses/${id}`),
-  update: (id: number, data: Partial<{ title: string; description?: string; short_description?: string; cover_image_url?: string; status: 'draft' | 'published' | 'archived'; sort_order: number }>) =>
+  update: (id: number, data: Partial<{ title: string; description?: string; short_description?: string; cover_image_url?: string; status: 'draft' | 'published' | 'archived'; sort_order: number; price: number | null }>) =>
     api.patch<AdminCourse>(`/admin/courses/${id}`, data),
   archive: (id: number) => api.post(`/admin/courses/${id}/archive`),
   unarchive: (id: number) => api.post(`/admin/courses/${id}/unarchive`),
