@@ -28,7 +28,10 @@ async def guest_login(db: AsyncSession = Depends(get_db)):
     user = await create_guest_user(db)
     from app.services.activity_service import log_login
 
-    await log_login(db, user.id)
+    try:
+        await log_login(db, user.id)
+    except Exception:
+        pass
     access, refresh = create_token_pair(user.id, user.role.value)
     return TokenResponse(token=access, refresh_token=refresh, user=UserOut.model_validate(user))
 
