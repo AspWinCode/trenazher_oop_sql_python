@@ -270,7 +270,7 @@ export default function Sidebar() {
           </div>
           <button
             onClick={handleBuyCourse}
-            disabled={buyLoading || !courseId}
+            disabled={buyLoading}
             className="w-full bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
           >
             {buyLoading ? 'Переход...' : 'Купить полный курс'}
