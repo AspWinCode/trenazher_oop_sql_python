@@ -72,10 +72,13 @@ async def init_payment(
         "Taxation": "usn_income",
         "Items": [
             {
-                "Name": course_title[:255],
+                "Name": course_title[:128],
                 "Price": amount,
                 "Quantity": 1,
                 "Amount": amount,
+                "Tax": "none",
+                "PaymentMethod": "full_payment",
+                "PaymentObject": "service",
             }
         ],
     }
