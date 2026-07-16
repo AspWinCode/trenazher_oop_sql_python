@@ -75,7 +75,7 @@ async def init_payment(
                 "Price": amount,
                 "Quantity": 1,
                 "Amount": amount,
-                "Tax": "none",
+                "Tax": "no_tax",
             }
         ],
     }
