@@ -38,7 +38,6 @@ export default function CoursesPage() {
           <span className="text-base leading-none">🔓</span>
           <span>
             Вы в <span className="font-semibold">демо-режиме</span>. Доступна часть задач каждого курса.
-            Для полного доступа и сохранения прогресса зарегистрируйтесь.
           </span>
         </div>
       )}
