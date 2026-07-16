@@ -256,7 +256,7 @@ export default function Sidebar() {
       )}
 
       {/* Карточка покупки для гостя */}
-      {isGuest && (
+      {isGuest && isCourseMode && (
         <div className="mx-3 mb-2 rounded-xl bg-dark-800 border border-dark-600 p-3">
           <div className="text-xs text-surface-400 mb-1">
             {totalCount > 0 ? (
