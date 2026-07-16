@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: platform
-      POSTGRES_PASSWORD: platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: platform
     ports:
       - "127.0.0.1:5432:5432"
@@ -32,8 +32,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://platform:platform@postgres:5432/platform
-      SYNC_DATABASE_URL: postgresql://platform:platform@postgres:5432/platform
+      DATABASE_URL: postgresql+asyncpg://platform:${POSTGRES_PASSWORD}@postgres:5432/platform
+      SYNC_DATABASE_URL: postgresql://platform:${POSTGRES_PASSWORD}@postgres:5432/platform
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY}
       ADMIN_LOGIN: ${ADMIN_LOGIN:-admin}
@@ -151,7 +151,7 @@ services:
     ports:
       - "9187:9187"
     environment:
-      DATA_SOURCE_NAME: "postgresql://platform:platform@postgres:5432/platform?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://platform:${POSTGRES_PASSWORD}@postgres:5432/platform?sslmode=disable"
     depends_on:
       postgres:
         condition: service_healthy
