@@ -111,6 +111,7 @@ export interface AdminCourse {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  price: number | null;
 }
 
 export interface CourseNodeTask {

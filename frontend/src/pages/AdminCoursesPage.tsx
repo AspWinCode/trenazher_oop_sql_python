@@ -11,14 +11,16 @@ export default function AdminCoursesPage() {
     description: string;
     short_description: string;
     status: AdminCourse['status'];
-  }>({ title: '', description: '', short_description: '', status: 'draft' });
+    price: number | null;
+  }>({ title: '', description: '', short_description: '', status: 'draft', price: null });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<{
     title: string;
     description: string;
     short_description: string;
     status: AdminCourse['status'];
-  }>({ title: '', description: '', short_description: '', status: 'draft' });
+    price: number | null;
+  }>({ title: '', description: '', short_description: '', status: 'draft', price: null });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -42,8 +44,9 @@ export default function AdminCoursesPage() {
         description: createForm.description || undefined,
         short_description: createForm.short_description || undefined,
         status: createForm.status,
+        price: createForm.price || undefined,
       });
-      setCreateForm({ title: '', description: '', short_description: '', status: 'draft' });
+      setCreateForm({ title: '', description: '', short_description: '', status: 'draft', price: null });
       setShowCreate(false);
       load();
     } catch (e: any) {
@@ -68,6 +71,7 @@ export default function AdminCoursesPage() {
         description: editForm.description || undefined,
         short_description: editForm.short_description || undefined,
         status: editForm.status,
+        price: editForm.price || undefined,
       });
       setEditingId(null);
       load();
@@ -140,7 +144,7 @@ export default function AdminCoursesPage() {
       {showCreate && (
         <form onSubmit={handleCreateCourse} className="card mb-6 space-y-4">
           <h2 className="font-semibold">Новый курс</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Название</label>
               <input
@@ -160,6 +164,18 @@ export default function AdminCoursesPage() {
                 <option value="draft">Черновик</option>
                 <option value="published">Опубликован</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Цена (₽)</label>
+              <input
+                className="input w-full"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0"
+                value={createForm.price ? createForm.price / 100 : ''}
+                onChange={(e) => setCreateForm({ ...createForm, price: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+              />
             </div>
           </div>
           <div>
@@ -213,6 +229,7 @@ export default function AdminCoursesPage() {
                           description: c.description || '',
                           short_description: c.short_description || '',
                           status: c.status,
+                          price: c.price || null,
                         });
                       }}
                       className="btn-secondary btn-sm"
@@ -241,7 +258,7 @@ export default function AdminCoursesPage() {
 
             {editingId === c.id && (
               <form onSubmit={handleUpdateCourse} className="mt-4 p-4 bg-surface-50 rounded-lg space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Название</label>
                     <input
@@ -261,6 +278,18 @@ export default function AdminCoursesPage() {
                       <option value="draft">Черновик</option>
                       <option value="published">Опубликован</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Цена (₽)</label>
+                    <input
+                      className="input w-full"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      value={editForm.price ? editForm.price / 100 : ''}
+                      onChange={(e) => setEditForm({ ...editForm, price: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                    />
                   </div>
                 </div>
                 <div>
