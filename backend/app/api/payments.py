@@ -21,6 +21,18 @@ from app.services.payment_service import generate_order_id, init_payment, verify
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+_SF_PREFIX = 'Предоставление доступа к Платформе SF Education v.1.1. и интерактивному тренажеру'
+
+def _receipt_name(course_title: str) -> str:
+    t = course_title.lower()
+    if 'python' in t and 'sql' in t:
+        return f'{_SF_PREFIX} "Python + SQL"'
+    if 'python' in t:
+        return f'{_SF_PREFIX} "Python"'
+    if 'sql' in t:
+        return f'{_SF_PREFIX} "SQL"'
+    return course_title
+
 
 # ── Схемы ─────────────────────────────────────────────────────────────────────
 
@@ -70,6 +82,7 @@ async def payment_init(
             course_title=course.title,
             customer_key=customer_key,
             user_email=current_user.email,
+            receipt_name=_receipt_name(course.title),
         )
     except Exception as exc:
         logger.exception("Ошибка инициирования платежа")
