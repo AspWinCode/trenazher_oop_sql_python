@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { courseStudentApi, coursesApi } from '../api';
+import { courseStudentApi, coursesApi, paymentsApi } from '../api';
 import type { CourseProgressStats } from '../api';
 import type { Course } from '../types';
 import { useAuthStore } from '../store/auth';
@@ -10,6 +10,19 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [progressMap, setProgressMap] = useState<Record<number, CourseProgressStats>>({});
   const [loading, setLoading] = useState(true);
+  const [buyLoading, setBuyLoading] = useState(false);
+
+  const handleBuy = async () => {
+    const firstCourse = courses[0];
+    if (!firstCourse) return;
+    setBuyLoading(true);
+    try {
+      const { data } = await paymentsApi.initPayment(firstCourse.id);
+      window.location.href = data.payment_url;
+    } catch {
+      setBuyLoading(false);
+    }
+  };
 
   useEffect(() => {
     coursesApi.list()
@@ -34,11 +47,20 @@ export default function CoursesPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Курсы</h1>
       {isGuest && (
-        <div className="mb-6 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 flex items-start gap-2">
-          <span className="text-base leading-none">🔓</span>
-          <span>
-            Вы в <span className="font-semibold">демо-режиме</span>. Доступна часть задач каждого курса.
-          </span>
+        <div className="mb-6 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-base leading-none shrink-0">🔒</span>
+            <span>
+              Вы в <span className="font-semibold">демо-режиме</span>. Доступна часть задач каждого курса. Для полного доступа и сохранения прогресса вы можете оплатить доступ.
+            </span>
+          </div>
+          <button
+            onClick={handleBuy}
+            disabled={buyLoading || courses.length === 0}
+            className="shrink-0 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+          >
+            {buyLoading ? 'Переход...' : 'Оплатить'}
+          </button>
         </div>
       )}
       {courses.length === 0 ? (
