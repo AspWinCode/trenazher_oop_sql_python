@@ -1,28 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { courseStudentApi, coursesApi, paymentsApi } from '../api';
+import { courseStudentApi, coursesApi } from '../api';
 import type { CourseProgressStats } from '../api';
 import type { Course } from '../types';
 import { useAuthStore } from '../store/auth';
+import PaymentModal from '../components/PaymentModal';
 
 export default function CoursesPage() {
   const isGuest = useAuthStore((s) => s.user?.is_guest ?? false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [progressMap, setProgressMap] = useState<Record<number, CourseProgressStats>>({});
   const [loading, setLoading] = useState(true);
-  const [buyLoading, setBuyLoading] = useState(false);
-
-  const handleBuy = async () => {
-    const firstCourse = courses[0];
-    if (!firstCourse) return;
-    setBuyLoading(true);
-    try {
-      const { data } = await paymentsApi.initPayment(firstCourse.id);
-      window.location.href = data.payment_url;
-    } catch {
-      setBuyLoading(false);
-    }
-  };
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
     coursesApi.list()
@@ -55,11 +44,11 @@ export default function CoursesPage() {
             </span>
           </div>
           <button
-            onClick={handleBuy}
-            disabled={buyLoading || courses.length === 0}
+            onClick={() => setShowPaymentModal(true)}
+            disabled={courses.length === 0}
             className="shrink-0 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
           >
-            {buyLoading ? 'Переход...' : 'Оплатить'}
+            Оплатить
           </button>
         </div>
       )}
@@ -104,6 +93,13 @@ export default function CoursesPage() {
             );
           })}
         </div>
+      )}
+
+      {showPaymentModal && (
+        <PaymentModal
+          courses={courses}
+          onClose={() => setShowPaymentModal(false)}
+        />
       )}
     </div>
   );
