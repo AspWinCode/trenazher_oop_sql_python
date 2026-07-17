@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { useCourseLearnStore } from '../store/courseLearn';
-import { platformSettingsApi, supportApi, paymentsApi } from '../api';
+import { platformSettingsApi, supportApi } from '../api';
 import { SupportSocketClient } from '../services/realtime/supportSocket';
 
 const SUPPORT_ICON = 'M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 20l.8-3.6A7.94 7.94 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z';
@@ -89,17 +89,6 @@ export default function Sidebar() {
     clear: clearCourse,
   } = useCourseLearnStore();
 
-  const [buyLoading, setBuyLoading] = useState(false);
-  const handleBuyCourse = async () => {
-    if (!courseId) return;
-    setBuyLoading(true);
-    try {
-      const { data } = await paymentsApi.initPayment(courseId);
-      window.location.href = data.payment_url;
-    } catch {
-      setBuyLoading(false);
-    }
-  };
 
   const isCourseMode = !!courseId;
 
@@ -253,29 +242,6 @@ export default function Sidebar() {
             </>
           )}
         </nav>
-      )}
-
-      {/* Карточка покупки для гостя */}
-      {isGuest && isCourseMode && (
-        <div className="mx-3 mb-2 rounded-xl bg-dark-800 border border-dark-600 p-3">
-          <div className="text-xs text-surface-400 mb-1">
-            {totalCount > 0 ? (
-              <span>Демо: <span className="text-white font-medium">{totalCount}</span> из всего курса</span>
-            ) : (
-              'Демо-режим'
-            )}
-          </div>
-          <div className="text-xs text-surface-300 mb-2.5 leading-snug">
-            Полный курс открывает все задачи и сохраняет прогресс
-          </div>
-          <button
-            onClick={handleBuyCourse}
-            disabled={buyLoading}
-            className="w-full bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded-lg transition-colors"
-          >
-            {buyLoading ? 'Переход...' : 'Купить полный курс'}
-          </button>
-        </div>
       )}
 
       {/* Футер */}

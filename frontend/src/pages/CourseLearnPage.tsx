@@ -13,10 +13,11 @@ import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
 import SubmissionDetailLink from '../components/SubmissionDetailLink';
 import TestResultCard from '../components/TestResultCard';
-import GuestUpgradeDialog from '../components/GuestUpgradeDialog';
+import PaymentModal from '../components/PaymentModal';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useCourseLearnStore, type CourseSidebarItem } from '../store/courseLearn';
+import type { Course } from '../types';
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 
@@ -387,8 +388,9 @@ export default function CourseLearnPage() {
   const isGuest = useAuthStore((s) => s.user?.is_guest ?? false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [reloadTrigger, setReloadTrigger] = useState(0);
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [upgradeDialogShown, setUpgradeDialogShown] = useState(false);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
 
   const { setCourseData, setSelectedTaskId, clear, courseTitle } = useCourseLearnStore();
   const selectedTaskId = searchParams.get('task') ? Number(searchParams.get('task')) : null;
@@ -401,6 +403,13 @@ export default function CourseLearnPage() {
   useEffect(() => {
     return () => { clear(); };
   }, []);
+
+  // Список курсов нужен для PaymentModal
+  useEffect(() => {
+    if (isGuest) {
+      coursesApi.list().then(({ data }) => setAllCourses(data)).catch(() => {});
+    }
+  }, [isGuest]);
 
   // Загрузка курса + дерева + задач всех узлов
   useEffect(() => {
@@ -484,7 +493,7 @@ export default function CourseLearnPage() {
 
   const handleLastDemoTaskSubmitted = useCallback(() => {
     setUpgradeDialogShown((prev) => {
-      if (!prev) setShowUpgradeDialog(true);
+      if (!prev) setShowPaymentModal(true);
       return true;
     });
   }, []);
@@ -525,10 +534,10 @@ export default function CourseLearnPage() {
             </p>
             {courseId && (
               <button
-                onClick={() => setShowUpgradeDialog(true)}
+                onClick={() => setShowPaymentModal(true)}
                 className="mt-4 btn-primary px-6 py-2.5 rounded-xl text-sm font-semibold"
               >
-                Купить полный курс →
+                Получить полный доступ →
               </button>
             )}
           </div>
@@ -554,11 +563,35 @@ export default function CourseLearnPage() {
         </div>
       )}
 
-      {showUpgradeDialog && courseId && (
-        <GuestUpgradeDialog
-          courseId={Number(courseId)}
-          courseTitle={courseTitle ?? ''}
-          onClose={() => setShowUpgradeDialog(false)}
+      {/* Floating widget: демо-баннер справа снизу */}
+      {isGuest && (
+        <div className="fixed bottom-6 right-6 z-40 w-72 rounded-2xl bg-white border border-surface-200 shadow-xl p-4 flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-dark-800 leading-snug">Вы используете демо-версию</p>
+              <p className="text-xs text-surface-400 mt-0.5 leading-snug">
+                Получите полный доступ ко всем задачам и сохраняйте результаты обучения.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowPaymentModal(true)}
+            className="w-full bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+          >
+            Получить полный доступ →
+          </button>
+        </div>
+      )}
+
+      {showPaymentModal && (
+        <PaymentModal
+          courses={allCourses}
+          onClose={() => setShowPaymentModal(false)}
         />
       )}
     </div>
