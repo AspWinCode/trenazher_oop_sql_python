@@ -491,6 +491,14 @@ export default function CourseLearnPage() {
   }, [taskItems, isGuest]);
   const isLastDemoTask = isGuest && currentIndex !== -1 && currentIndex === lastAllowedIndex;
 
+  // Автооткрытие модалки при клике на заблокированную задачу
+  useEffect(() => {
+    if (selectedLocked) {
+      setShowPaymentModal(true);
+      setSearchParams((p) => { p.delete('task'); return p; });
+    }
+  }, [selectedLocked]);
+
   const handleLastDemoTaskSubmitted = useCallback(() => {
     setUpgradeDialogShown((prev) => {
       if (!prev) setShowPaymentModal(true);
@@ -524,25 +532,7 @@ export default function CourseLearnPage() {
 
   return (
     <div className="-mx-6 -my-6 lg:-mx-8 lg:-my-8 overflow-hidden bg-surface-50" style={{ height: 'calc(100vh - 0px)' }}>
-      {selectedTaskId && selectedLocked ? (
-        <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-6">
-          <span className="text-5xl">🔒</span>
-          <div className="max-w-sm">
-            <p className="font-semibold text-surface-600 text-lg">Задача недоступна в демо-режиме</p>
-            <p className="text-surface-400 text-sm mt-1">
-              В гостевом режиме открыты только первые задачи курса.
-            </p>
-            {courseId && (
-              <button
-                onClick={() => setShowPaymentModal(true)}
-                className="mt-4 btn-primary px-6 py-2.5 rounded-xl text-sm font-semibold"
-              >
-                Получить полный доступ →
-              </button>
-            )}
-          </div>
-        </div>
-      ) : selectedTaskId ? (
+      {selectedTaskId && !selectedLocked ? (
         <TaskSolver
           key={selectedTaskId}
           taskId={String(selectedTaskId)}
