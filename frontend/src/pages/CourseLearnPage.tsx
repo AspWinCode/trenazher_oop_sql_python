@@ -14,6 +14,7 @@ import VerdictBadge from '../components/VerdictBadge';
 import SubmissionDetailLink from '../components/SubmissionDetailLink';
 import TestResultCard from '../components/TestResultCard';
 import PaymentModal from '../components/PaymentModal';
+import PaymentInlinePage from '../components/PaymentInlinePage';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useCourseLearnStore, type CourseSidebarItem } from '../store/courseLearn';
@@ -491,14 +492,6 @@ export default function CourseLearnPage() {
   }, [taskItems, isGuest]);
   const isLastDemoTask = isGuest && currentIndex !== -1 && currentIndex === lastAllowedIndex;
 
-  // Автооткрытие модалки при клике на заблокированную задачу
-  useEffect(() => {
-    if (selectedLocked) {
-      setShowPaymentModal(true);
-      setSearchParams((p) => { p.delete('task'); return p; });
-    }
-  }, [selectedLocked]);
-
   const handleLastDemoTaskSubmitted = useCallback(() => {
     setUpgradeDialogShown((prev) => {
       if (!prev) setShowPaymentModal(true);
@@ -532,7 +525,9 @@ export default function CourseLearnPage() {
 
   return (
     <div className="-mx-6 -my-6 lg:-mx-8 lg:-my-8 overflow-hidden bg-surface-50" style={{ height: 'calc(100vh - 0px)' }}>
-      {selectedTaskId && !selectedLocked ? (
+      {selectedTaskId && selectedLocked ? (
+        <PaymentInlinePage courses={allCourses} />
+      ) : selectedTaskId ? (
         <TaskSolver
           key={selectedTaskId}
           taskId={String(selectedTaskId)}
