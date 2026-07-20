@@ -368,6 +368,135 @@
   .sf-payment-form__submit { transition: none !important; }
 }
 
+/* ── Floating demo-баннер ── */
+
+.sf-demo-banner {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  width: min(300px, calc(100vw - 48px));
+  padding: 17px;
+  border: 1px solid rgba(0, 131, 255, 0.22);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(0, 131, 255, 0.12), transparent 45%),
+    #ffffff;
+  color: #061b2c;
+  font-family: Inter, Arial, sans-serif;
+  box-shadow:
+    0 18px 50px rgba(6, 27, 44, 0.17),
+    0 4px 14px rgba(6, 27, 44, 0.08);
+  animation: sf-demo-banner-show 0.35s ease both;
+}
+
+.sf-demo-banner__icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 41px;
+  height: 41px;
+  border-radius: 11px;
+  background: #eaf4ff;
+  color: #0083ff;
+}
+
+.sf-demo-banner__icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.sf-demo-banner__content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sf-demo-banner__title {
+  margin: 1px 0 0;
+  color: #061b2c;
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.sf-demo-banner__text {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.sf-demo-banner__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 41px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #0083ff;
+  color: #ffffff;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 7px 18px rgba(0, 131, 255, 0.23);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.sf-demo-banner__button svg {
+  width: 17px;
+  height: 17px;
+  transition: transform 0.2s ease;
+}
+
+.sf-demo-banner__button:hover {
+  background: #0074e5;
+  box-shadow: 0 9px 22px rgba(0, 131, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.sf-demo-banner__button:hover svg {
+  transform: translateX(2px);
+}
+
+.sf-demo-banner__button:active { transform: translateY(0); }
+
+.sf-demo-banner__button:focus-visible {
+  outline: 3px solid rgba(0, 131, 255, 0.25);
+  outline-offset: 3px;
+}
+
+@keyframes sf-demo-banner-show {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .sf-demo-banner {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    border-radius: 14px;
+    padding: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-demo-banner { animation: none; }
+  .sf-demo-banner__button,
+  .sf-demo-banner__button svg { transition: none !important; }
+}
+
 @layer base {
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;

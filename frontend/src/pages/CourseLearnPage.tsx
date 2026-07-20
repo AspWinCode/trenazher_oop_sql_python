@@ -550,26 +550,30 @@ export default function CourseLearnPage() {
 
       {/* Floating widget: демо-баннер справа снизу */}
       {isGuest && (
-        <div className="fixed bottom-6 right-6 z-40 w-72 rounded-2xl bg-white border border-surface-200 shadow-xl p-4 flex flex-col gap-3">
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-dark-800 leading-snug">Вы используете демо-версию</p>
-              <p className="text-xs text-surface-400 mt-0.5 leading-snug">
-                Получите полный доступ ко всем задачам и сохраняйте результаты обучения.
-              </p>
-            </div>
+        <div className="sf-demo-banner">
+          <div className="sf-demo-banner__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="5" y="10" width="14" height="10" rx="3" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M8 10V7.8A4.2 4.2 0 0 1 16.4 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M12 14v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </div>
-          <button
-            onClick={() => setShowPaymentModal(true)}
-            className="w-full bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
-          >
-            Получить полный доступ →
-          </button>
+          <div className="sf-demo-banner__content">
+            <div className="sf-demo-banner__title">Вы используете демо-версию</div>
+            <div className="sf-demo-banner__text">
+              Получите полный доступ ко всем задачам и сохраняйте результаты обучения.
+            </div>
+            <button
+              type="button"
+              className="sf-demo-banner__button"
+              onClick={() => setShowPaymentModal(true)}
+            >
+              Получить полный доступ
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
