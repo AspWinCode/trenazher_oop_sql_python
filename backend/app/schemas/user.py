@@ -14,6 +14,7 @@ class UserCreate(BaseModel):
     role: UserRole = UserRole.student
     email: Optional[str] = None
     full_name: Optional[str] = None
+    getcourse_id: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -22,6 +23,7 @@ class UserUpdate(BaseModel):
     status: Optional[UserStatus] = None
     email: Optional[str] = None
     full_name: Optional[str] = None
+    getcourse_id: Optional[str] = None
 
 
 class UserOut(BaseModel):
@@ -31,6 +33,7 @@ class UserOut(BaseModel):
     status: UserStatus
     email: Optional[str] = None
     full_name: Optional[str] = None
+    getcourse_id: Optional[str] = None
     is_guest: bool = False
     created_at: datetime
     updated_at: datetime

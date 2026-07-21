@@ -114,6 +114,7 @@ async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db), _=De
         role=body.role,
         email=body.email or None,
         full_name=body.full_name or None,
+        getcourse_id=body.getcourse_id or None,
     )
     db.add(user)
     try:

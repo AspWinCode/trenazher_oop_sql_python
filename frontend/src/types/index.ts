@@ -5,6 +5,7 @@ export interface User {
   status: 'active' | 'blocked' | 'archived';
   email: string | null;
   full_name: string | null;
+  getcourse_id?: string | null;
   is_guest?: boolean;
   created_at: string;
   updated_at: string;

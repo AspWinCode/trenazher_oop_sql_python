@@ -32,7 +32,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ login: '', password: '', role: 'student', email: '', full_name: '' });
+  const [form, setForm] = useState({ login: '', password: '', role: 'student', email: '', full_name: '', getcourse_id: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [createdCredentials, setCreatedCredentials] = useState<{ login: string; password: string } | null>(null);
@@ -98,9 +98,10 @@ export default function AdminUsersPage() {
         role: form.role,
         email: form.email || undefined,
         full_name: form.full_name || undefined,
+        getcourse_id: form.getcourse_id || undefined,
       });
       setCreatedCredentials({ login: form.login, password: form.password });
-      setForm({ login: '', password: '', role: 'student', email: '', full_name: '' });
+      setForm({ login: '', password: '', role: 'student', email: '', full_name: '', getcourse_id: '' });
       setShowCreate(false);
       load();
     } catch (err: any) {
@@ -206,6 +207,10 @@ export default function AdminUsersPage() {
                 <option value="admin">Администратор</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">GetCourse ID</label>
+              <input className="input" value={form.getcourse_id} onChange={(e) => setForm({ ...form, getcourse_id: e.target.value })} placeholder="44193033" />
+            </div>
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <div className="flex gap-2">
@@ -245,6 +250,7 @@ export default function AdminUsersPage() {
             <tr className="bg-surface-50 text-left">
               <th className="px-4 py-3 font-medium">ID</th>
               <th className="px-4 py-3 font-medium">Логин / Имя</th>
+              <th className="px-4 py-3 font-medium">GC ID</th>
               <th className="px-4 py-3 font-medium">Email</th>
               <th className="px-4 py-3 font-medium">Роль</th>
               <th className="px-4 py-3 font-medium">Статус</th>
@@ -254,11 +260,11 @@ export default function AdminUsersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-surface-300">Загрузка...</td>
+                <td colSpan={7} className="px-4 py-8 text-center text-surface-300">Загрузка...</td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-surface-300">
+                <td colSpan={7} className="px-4 py-8 text-center text-surface-300">
                   {search ? 'Пользователи не найдены' : 'Нет пользователей'}
                 </td>
               </tr>
@@ -269,6 +275,7 @@ export default function AdminUsersPage() {
                   <div className="font-medium">{u.login}</div>
                   {u.full_name && <div className="text-xs text-surface-400">{u.full_name}</div>}
                 </td>
+                <td className="px-4 py-3 text-surface-400 text-xs font-mono">{u.getcourse_id || <span className="text-surface-200">—</span>}</td>
                 <td className="px-4 py-3 text-surface-400 text-xs">{u.email || <span className="text-surface-200">—</span>}</td>
                 <td className="px-4 py-3"><span className={u.role === 'admin' ? 'badge-blue' : 'badge-gray'}>{u.role}</span></td>
                 <td className="px-4 py-3"><span className={u.status === 'active' ? 'badge-green' : 'badge-red'}>{u.status}</span></td>

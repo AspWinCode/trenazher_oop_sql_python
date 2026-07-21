@@ -36,7 +36,7 @@ export const usersApi = {
   list: (params?: { page?: number; limit?: number; search?: string }) =>
     api.get<UsersListResponse>('/users', { params }),
   get: (id: number) => api.get<User>(`/users/${id}`),
-  create: (data: { login: string; password: string; role?: string; email?: string; full_name?: string }) => api.post<User>('/users', data),
+  create: (data: { login: string; password: string; role?: string; email?: string; full_name?: string; getcourse_id?: string }) => api.post<User>('/users', data),
   update: (id: number, data: Partial<User>) => api.put<User>(`/users/${id}`, data),
   resetPassword: (id: number, new_password: string) => api.post<User>(`/users/${id}/reset-password`, { new_password }),
   getEnrollments: (id: number) => api.get<CourseEnrollment[]>(`/users/${id}/enrollments`),
