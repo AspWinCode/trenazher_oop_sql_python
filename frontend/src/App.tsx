@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import GcAutoLogin from './components/GcAutoLogin';
 import LoginPage from './pages/LoginPage';
 import TaskPage from './pages/TaskPage';
 import TasksPage from './pages/TasksPage';
@@ -26,6 +27,7 @@ import GcAuthPage from './pages/GcAuthPage';
 
 export default function App() {
   return (
+    <GcAutoLogin>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/gc" element={<GcAuthPage />} />
@@ -53,5 +55,6 @@ export default function App() {
         <Route path="admin/support" element={<ProtectedRoute requireAdmin><AdminSupportPage /></ProtectedRoute>} />
       </Route>
     </Routes>
+    </GcAutoLogin>
   );
 }
