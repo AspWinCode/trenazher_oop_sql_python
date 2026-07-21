@@ -22,11 +22,13 @@ import CoursesPage from './pages/CoursesPage';
 import SubmissionDetailPage from './pages/SubmissionDetailPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentFailPage from './pages/PaymentFailPage';
+import GcAuthPage from './pages/GcAuthPage';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/gc" element={<GcAuthPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/shared/:token" element={<PersonalTaskPage />} />

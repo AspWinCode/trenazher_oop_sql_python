@@ -11,6 +11,8 @@ export const authApi = {
   changePassword: (old_password: string, new_password: string) =>
     api.post('/auth/change-password', { old_password, new_password }),
   activityPing: () => api.post('/auth/activity'),
+  getcourseLogin: (id: string) =>
+    api.get<{ token: string; refresh_token: string; user: User }>('/getcourse/login', { params: { id } }),
 };
 
 export const guestApi = {

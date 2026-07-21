@@ -7,6 +7,11 @@ GetCourse webhook — автоматическое управление дост
   email      — email (ключевой идентификатор)
   Course     — курс: "Python" | "SQL"
   Status     — "active" (дать доступ) | "disabled" (забрать доступ)
+  StudentId  — id пользователя в GetCourse (сохраняется в getcourse_id для автовхода)
+
+Автовход:
+  GET /api/getcourse/login?id=<StudentId> → выдаёт токены без пароля.
+  Фронт-ссылка: https://itpractikum.sflearning.ru/gc?id=<StudentId>
 
 Логика:
   Status=active:
@@ -25,6 +30,7 @@ URL для настройки в GetCourse:
   &email={object.email}
   &Course={object.Course}
   &Status={object.Status}
+  &StudentId={object.id}
 """
 from __future__ import annotations
 
@@ -45,7 +51,9 @@ from app.database import get_db
 from app.models.course import Course, CourseStatus
 from app.models.user import User, UserRole, UserStatus
 from app.models.user_course_enrollment import UserCourseEnrollment
-from app.services.auth_service import hash_password
+from app.schemas.auth import TokenResponse
+from app.schemas.user import UserOut
+from app.services.auth_service import create_token_pair, hash_password
 from app.services.email_service import send_welcome_email
 
 logger = logging.getLogger(__name__)
@@ -100,14 +108,24 @@ async def _get_or_create_user(
     email: str,
     first_name: str,
     last_name: str,
+    student_id: str = "",
 ) -> tuple[User, bool, str]:
     """
     Возвращает (user, is_new, plain_password).
     plain_password непустой только для новых пользователей.
+    Для существующего пользователя проставляет getcourse_id, если он ещё не задан.
     """
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     if user:
+        if student_id and not user.getcourse_id:
+            # Привязываем GetCourse ID к уже существующему аккаунту (если свободен).
+            clash = await db.execute(
+                select(User).where(User.getcourse_id == student_id, User.id != user.id)
+            )
+            if not clash.scalar_one_or_none():
+                user.getcourse_id = student_id
+                await db.flush()
         return user, False, ""
 
     full_name = " ".join(filter(None, [first_name.strip(), last_name.strip()])) or None
@@ -130,6 +148,7 @@ async def _get_or_create_user(
         status=UserStatus.active,
         email=email,
         full_name=full_name,
+        getcourse_id=student_id or None,
     )
     db.add(user)
     try:
@@ -185,6 +204,7 @@ async def _handle(
     course_param: str,
     status_param: str,
     access_token: str,
+    student_id: str = "",
 ) -> dict:
     # --- Проверка токена ---
     expected = settings.GETCOURSE_WEBHOOK_SECRET
@@ -220,7 +240,7 @@ async def _handle(
     # ──────────────────────────────────────────────
     if status_lower == "active":
         user, is_new, plain_password = await _get_or_create_user(
-            db, email, name, last_name
+            db, email, name, last_name, student_id.strip()
         )
 
         enrolled = await _enroll(db, user.id, course.id)
@@ -282,9 +302,10 @@ async def getcourse_webhook_get(
     email: str = Query(""),
     Course: str = Query(""),
     Status: str = Query(""),
+    StudentId: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _handle(db, Name, lastName, email, Course, Status, access_token)
+    return await _handle(db, Name, lastName, email, Course, Status, access_token, StudentId)
 
 
 @router.post("/webhook")
@@ -295,6 +316,35 @@ async def getcourse_webhook_post(
     email: str = Query(""),
     Course: str = Query(""),
     Status: str = Query(""),
+    StudentId: str = Query(""),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _handle(db, Name, lastName, email, Course, Status, access_token)
+    return await _handle(db, Name, lastName, email, Course, Status, access_token, StudentId)
+
+
+@router.get("/login", response_model=TokenResponse)
+async def getcourse_autologin(
+    id: str = Query(..., description="GetCourse StudentId"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Бесшовный вход по GetCourse StudentId — выдаёт токены без пароля.
+    Ссылка вида: FRONTEND_URL/gc?id=<StudentId>."""
+    student_id = id.strip()
+    if not student_id:
+        raise HTTPException(status_code=400, detail="Не указан id")
+
+    result = await db.execute(select(User).where(User.getcourse_id == student_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Пользователь с таким GetCourse ID не найден")
+    if user.status != UserStatus.active:
+        raise HTTPException(status_code=403, detail="Аккаунт заблокирован")
+
+    access, refresh = create_token_pair(user.id, user.role.value)
+    from app.services.activity_service import log_login
+
+    try:
+        await log_login(db, user.id)
+    except Exception:
+        pass
+    return TokenResponse(token=access, refresh_token=refresh, user=UserOut.model_validate(user))

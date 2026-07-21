@@ -21,6 +21,9 @@ pip-wheel-metadata/
 .env.*.local
 deploy/.env.prod
 
+# Персональные данные — выгрузки GetCourse (НЕ коммитить email пользователей)
+backend/scripts/getcourse_ids.csv
+
 # Test artifacts
 .pytest_cache/
 .coverage
