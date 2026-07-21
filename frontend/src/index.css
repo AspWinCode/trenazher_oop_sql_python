@@ -76,15 +76,15 @@
 .sf-payment-modal__close:focus-visible { outline: 3px solid rgba(255,255,255,0.35); outline-offset: 2px; }
 
 .sf-payment-modal__header {
-  padding: 20px 60px 18px 24px;
+  padding: 14px 60px 14px 20px;
   background: radial-gradient(circle at 90% 10%, rgba(0,131,255,0.28), transparent 38%), #061b2c;
   color: #ffffff;
 }
 .sf-payment-modal__label {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  margin-bottom: 9px;
+  min-height: 20px;
+  margin-bottom: 6px;
   padding: 4px 10px;
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 999px;
@@ -105,20 +105,20 @@
 }
 .sf-payment-modal__subtitle {
   max-width: 590px;
-  margin: 7px 0 0;
+  margin: 4px 0 0;
   color: rgba(255,255,255,0.72);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 /* ── Форма ── */
 
-.sf-payment-form { padding: 18px 24px 22px; }
+.sf-payment-form { padding: 14px 20px 16px; }
 .sf-payment-form__plans { min-width: 0; margin: 0; padding: 0; border: 0; }
-.sf-payment-form__section { margin-top: 16px; }
+.sf-payment-form__section { margin-top: 12px; }
 .sf-payment-form__section-title {
   display: block;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   padding: 0;
   color: #061b2c;
   font-size: 14px;
@@ -128,7 +128,7 @@
 
 /* ── Планы ── */
 
-.sf-payment-plans { display: grid; gap: 10px; }
+.sf-payment-plans { display: grid; gap: 7px; }
 .sf-payment-plan { position: relative; display: block; margin: 0; cursor: pointer; }
 .sf-payment-plan__radio {
   position: absolute;
@@ -141,8 +141,8 @@
   grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  min-height: 60px;
-  padding: 10px 14px;
+  min-height: 50px;
+  padding: 8px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 13px;
   background: #ffffff;
@@ -217,11 +217,11 @@
 }
 .sf-payment-field { display: block; min-width: 0; }
 .sf-payment-field:first-child { grid-column: 1 / -1; }
-.sf-payment-field__label { display: block; margin-bottom: 7px; color: #334155; font-size: 12px; font-weight: 650; line-height: 1.4; }
+.sf-payment-field__label { display: block; margin-bottom: 5px; color: #334155; font-size: 12px; font-weight: 650; line-height: 1.4; }
 .sf-payment-field__input {
   display: block;
   width: 100%;
-  height: 46px;
+  height: 40px;
   padding: 0 14px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
@@ -243,7 +243,7 @@
 
 /* ── Галочка согласия ── */
 
-.sf-payment-consent { margin-top: 12px; }
+.sf-payment-consent { margin-top: 10px; }
 .sf-payment-consent__label {
   display: flex;
   align-items: flex-start;
@@ -302,9 +302,9 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 44px;
-  margin-top: 14px;
-  padding: 10px 24px;
+  min-height: 40px;
+  margin-top: 10px;
+  padding: 9px 24px;
   border: 0;
   border-radius: 11px;
   background: #0083ff;
