@@ -93,7 +93,7 @@ export default function PaymentInlinePage({ courses }: Props) {
     setLoading(true);
     setFormError(null);
     try {
-      const { data } = await paymentsApi.initPayment(courseId);
+      const { data } = await paymentsApi.initPayment(courseId, { name, email, phone });
       window.location.href = data.payment_url;
     } catch {
       setFormError('Не удалось перейти к оплате. Попробуйте ещё раз.');

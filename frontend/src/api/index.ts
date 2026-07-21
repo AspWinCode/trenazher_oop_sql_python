@@ -264,6 +264,8 @@ export const achievementsApi = {
 
 export const paymentsApi = {
   config: () => api.get<{ enabled: boolean }>('/payments/config'),
-  initPayment: (course_id: number) =>
-    api.post<PaymentInitResponse>('/payments/init', { course_id }),
+  initPayment: (course_id: number, contact?: { name?: string; email?: string; phone?: string }) =>
+    api.post<PaymentInitResponse>('/payments/init', { course_id, ...contact }),
+  complete: (order_id: string) =>
+    api.get<{ token: string; refresh_token: string; user: User; course_id: number | null }>('/payments/complete', { params: { order_id } }),
 };

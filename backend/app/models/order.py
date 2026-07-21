@@ -29,6 +29,10 @@ class Order(Base):
     amount: Mapped[int] = mapped_column(Integer)  # копейки
     status: Mapped[OrderStatus] = mapped_column(Enum(OrderStatus), default=OrderStatus.pending)
     tbank_payment_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # Контакты покупателя из формы оплаты — по ним создаётся реальный аккаунт после оплаты.
+    buyer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    buyer_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    buyer_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -2,20 +2,24 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.getcourse import _enroll, _get_or_create_user
 from app.config import settings
 from app.database import get_db
 from app.middleware.auth_middleware import get_current_user
 from app.models.course import Course
 from app.models.order import Order, OrderStatus
-from app.models.user import User
+from app.models.user import User, UserStatus
 from app.models.user_course_enrollment import UserCourseEnrollment
+from app.schemas.user import UserOut
+from app.services.auth_service import create_token_pair
+from app.services.email_service import send_welcome_email
 from app.services.payment_service import generate_order_id, init_payment, verify_tbank_notification
 
 logger = logging.getLogger(__name__)
@@ -38,12 +42,22 @@ def _receipt_name(course_title: str) -> str:
 
 class PaymentInitRequest(BaseModel):
     course_id: int
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
 
 
 class PaymentInitResponse(BaseModel):
     payment_url: str
     order_id: str
     amount: int  # копейки
+
+
+class PaymentCompleteResponse(BaseModel):
+    token: str
+    refresh_token: str
+    user: UserOut
+    course_id: Optional[int] = None
 
 
 # ── Эндпоинты ─────────────────────────────────────────────────────────────────
@@ -95,6 +109,9 @@ async def payment_init(
         amount=amount,
         status=OrderStatus.pending,
         tbank_payment_id=str(tbank_resp.get("PaymentId", "")),
+        buyer_email=(body.email or "").strip().lower() or None,
+        buyer_name=(body.name or "").strip() or None,
+        buyer_phone=(body.phone or "").strip() or None,
     )
     db.add(order)
     # commit через get_db
@@ -127,29 +144,85 @@ async def payment_notify(
         return "OK"
 
     if status == "CONFIRMED":
-        order.status = OrderStatus.paid
         order.tbank_payment_id = tbank_payment_id
+        await _fulfill_order(db, order)
         logger.info("Tbank webhook: оплата подтверждена order_id=%s", order_id)
-
-        # Зачисляем на курс (только реальный пользователь, не гость)
-        if order.user_id and order.course_id:
-            user_result = await db.execute(select(User).where(User.id == order.user_id))
-            user = user_result.scalar_one_or_none()
-            if user and not user.is_guest:
-                existing = await db.execute(
-                    select(UserCourseEnrollment).where(
-                        UserCourseEnrollment.user_id == order.user_id,
-                        UserCourseEnrollment.course_id == order.course_id,
-                    )
-                )
-                if not existing.scalar_one_or_none():
-                    db.add(UserCourseEnrollment(
-                        user_id=order.user_id,
-                        course_id=order.course_id,
-                    ))
 
     elif status in ("REJECTED", "CANCELLED", "DEADLINE_EXPIRED"):
         order.status = OrderStatus.failed
         logger.info("Tbank webhook: платёж отклонён order_id=%s status=%s", order_id, status)
 
     return "OK"
+
+
+async def _fulfill_order(db: AsyncSession, order: Order) -> None:
+    """Проводит оплаченный заказ: помечает paid, создаёт/находит реального
+    пользователя (по email из формы), зачисляет на курс, шлёт письмо с доступом.
+    Идемпотентна — безопасно вызывать повторно (вебхук + страница успеха).
+    """
+    order.status = OrderStatus.paid
+    if not order.course_id:
+        return
+
+    target_user: Optional[User] = None
+
+    # 1) Есть email из формы оплаты → создаём/находим реальный аккаунт.
+    if order.buyer_email:
+        first_name = (order.buyer_name or "").strip()
+        target_user, is_new, plain_password = await _get_or_create_user(
+            db, order.buyer_email, first_name, "", ""
+        )
+        # Перепривязываем заказ с гостя на реальный аккаунт.
+        order.user_id = target_user.id
+        if is_new and plain_password:
+            try:
+                send_welcome_email(order.buyer_email, target_user.login, plain_password)
+            except Exception:
+                logger.exception("Не удалось отправить письмо о доступе order_id=%s", order.order_id)
+    else:
+        # 2) Email нет — работаем с текущим пользователем заказа, если он не гость.
+        if order.user_id:
+            res = await db.execute(select(User).where(User.id == order.user_id))
+            u = res.scalar_one_or_none()
+            if u and not u.is_guest:
+                target_user = u
+
+    if target_user is not None:
+        await _enroll(db, target_user.id, order.course_id)
+
+
+@router.get("/payments/complete", response_model=PaymentCompleteResponse)
+async def payment_complete(
+    order_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Вызывается страницей /payment/success после возврата с Т-Банка.
+    Если заказ оплачен — гарантирует аккаунт+доступ и выдаёт токены (автовход).
+    Пока заказ не подтверждён (вебхук ещё не пришёл) — 409, фронт повторит запрос.
+    """
+    result = await db.execute(select(Order).where(Order.order_id == order_id))
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    if order.status != OrderStatus.paid:
+        raise HTTPException(status_code=409, detail="Оплата ещё обрабатывается")
+
+    # Идемпотентно убеждаемся, что аккаунт и доступ созданы (если вебхук опоздал).
+    await _fulfill_order(db, order)
+
+    if not order.user_id:
+        raise HTTPException(status_code=422, detail="Не удалось определить аккаунт по заказу")
+
+    res = await db.execute(select(User).where(User.id == order.user_id))
+    user = res.scalar_one_or_none()
+    if user is None or user.status != UserStatus.active:
+        raise HTTPException(status_code=403, detail="Аккаунт недоступен")
+
+    access, refresh = create_token_pair(user.id, user.role.value)
+    return PaymentCompleteResponse(
+        token=access,
+        refresh_token=refresh,
+        user=UserOut.model_validate(user),
+        course_id=order.course_id,
+    )

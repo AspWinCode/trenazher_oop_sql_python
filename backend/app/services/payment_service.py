@@ -57,7 +57,7 @@ async def init_payment(
         "Amount": amount,
         "OrderId": order_id,
         "Description": (receipt_name or f"Покупка курса «{course_title}»")[:140],
-        "SuccessURL": f"{settings.FRONTEND_URL}/payment/success",
+        "SuccessURL": f"{settings.FRONTEND_URL}/payment/success?order_id={order_id}",
         "FailURL": f"{settings.FRONTEND_URL}/payment/fail",
         "NotificationURL": f"{settings.TBANK_NOTIFICATION_BASE_URL}/api/payments/notify",
     }
