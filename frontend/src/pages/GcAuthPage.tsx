@@ -20,11 +20,20 @@ export default function GcAuthPage() {
       return;
     }
 
+    // Необязательный deep-link на конкретную задачу: ?course=<id>&task=<id>
+    const courseId = (params.get('course') || '').trim();
+    const taskId = (params.get('task') || '').trim();
+    let target = '/courses';
+    if (/^\d+$/.test(courseId)) {
+      target = `/course/${courseId}`;
+      if (/^\d+$/.test(taskId)) target += `?task=${taskId}`;
+    }
+
     authApi
       .getcourseLogin(id)
       .then(({ data }) => {
         setAuth(data.token, data.refresh_token, data.user);
-        navigate('/courses', { replace: true });
+        navigate(target, { replace: true });
       })
       .catch((err) => {
         const detail = err?.response?.data?.detail;
