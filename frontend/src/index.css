@@ -378,7 +378,7 @@
   display: flex;
   align-items: flex-start;
   gap: 13px;
-  width: min(300px, calc(100vw - 48px));
+  width: min(340px, calc(100vw - 48px));
   padding: 17px;
   border: 1px solid rgba(0, 131, 255, 0.22);
   border-radius: 16px;
