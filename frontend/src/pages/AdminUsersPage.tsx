@@ -51,6 +51,11 @@ export default function AdminUsersPage() {
 
   const [cardUserId, setCardUserId] = useState<number | null>(null);
 
+  const [editUserId, setEditUserId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ login: '', full_name: '', email: '', getcourse_id: '', role: 'student', status: 'active' });
+  const [editError, setEditError] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
   // Debounce search: wait 400ms after typing, then reset to page 1
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -125,6 +130,42 @@ export default function AdminUsersPage() {
       setResetPassword('');
     } catch (err: any) {
       setResetError(err.response?.data?.detail || 'Ошибка');
+    }
+  };
+
+  const openEdit = (u: User) => {
+    setEditUserId(u.id);
+    setEditError('');
+    setEditForm({
+      login: u.login,
+      full_name: u.full_name || '',
+      email: u.email || '',
+      getcourse_id: u.getcourse_id || '',
+      role: u.role,
+      status: u.status,
+    });
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditError('');
+    if (!editUserId) return;
+    setEditSaving(true);
+    try {
+      await usersApi.update(editUserId, {
+        login: editForm.login,
+        full_name: editForm.full_name || null,
+        email: editForm.email || null,
+        getcourse_id: editForm.getcourse_id || null,
+        role: editForm.role as User['role'],
+        status: editForm.status as User['status'],
+      } as any);
+      setEditUserId(null);
+      load();
+    } catch (err: any) {
+      setEditError(err.response?.data?.detail || 'Ошибка сохранения');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -281,6 +322,9 @@ export default function AdminUsersPage() {
                 <td className="px-4 py-3"><span className={u.status === 'active' ? 'badge-green' : 'badge-red'}>{u.status}</span></td>
                 <td className="px-4 py-3">
                   <div className="flex gap-3 flex-wrap">
+                    <button onClick={() => openEdit(u)} className="text-xs text-blue-600 hover:underline">
+                      Редактировать
+                    </button>
                     <button onClick={() => toggleStatus(u)} className="text-xs text-primary-600 hover:underline">
                       {u.status === 'active' ? 'Заблокировать' : 'Разблокировать'}
                     </button>
@@ -373,6 +417,60 @@ export default function AdminUsersPage() {
           )}
         </div>
       </div>
+
+      {/* Модал редактирования пользователя */}
+      {editUserId !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Редактировать пользователя</h2>
+              <button onClick={() => setEditUserId(null)} className="text-surface-400 hover:text-dark-900 text-xl leading-none">×</button>
+            </div>
+            <form onSubmit={handleEdit} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Логин</label>
+                <input className="input" value={editForm.login} onChange={(e) => setEditForm({ ...editForm, login: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Имя</label>
+                <input className="input" value={editForm.full_name} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} placeholder="Иван Иванов" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input className="input" type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="student@example.com" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">GetCourse ID</label>
+                <input className="input" value={editForm.getcourse_id} onChange={(e) => setEditForm({ ...editForm, getcourse_id: e.target.value })} placeholder="44193033" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Роль</label>
+                  <select className="input" value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>
+                    <option value="student">Студент</option>
+                    <option value="admin">Администратор</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Статус</label>
+                  <select className="input" value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
+                    <option value="active">active</option>
+                    <option value="blocked">blocked</option>
+                    <option value="archived">archived</option>
+                  </select>
+                </div>
+              </div>
+              {editError && <div className="text-red-600 text-sm">{editError}</div>}
+              <div className="flex gap-2 pt-2">
+                <button type="submit" className="btn-primary btn-sm flex-1" disabled={editSaving}>
+                  {editSaving ? 'Сохранение...' : 'Сохранить'}
+                </button>
+                <button type="button" onClick={() => setEditUserId(null)} className="btn-secondary btn-sm flex-1">Отмена</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Модал сброса пароля */}
       {resetUserId !== null && (

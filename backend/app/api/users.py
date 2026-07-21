@@ -138,7 +138,19 @@ async def update_user(user_id: int, body: UserUpdate, db: AsyncSession = Depends
         dup = await db.execute(select(User).where(User.email == body.email))
         if dup.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Email already exists")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    if body.getcourse_id and body.getcourse_id != user.getcourse_id:
+        dup = await db.execute(
+            select(User).where(User.getcourse_id == body.getcourse_id, User.id != user_id)
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="GetCourse ID уже привязан к другому пользователю")
+    updates = body.model_dump(exclude_unset=True)
+    # Пустые строки email/getcourse_id трактуем как очистку поля (None) для сохранения уникальности.
+    if "email" in updates and not updates["email"]:
+        updates["email"] = None
+    if "getcourse_id" in updates and not updates["getcourse_id"]:
+        updates["getcourse_id"] = None
+    for field, value in updates.items():
         setattr(user, field, value)
     await db.flush()
     await db.refresh(user)
