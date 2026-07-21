@@ -39,7 +39,7 @@
 .sf-payment-modal__dialog {
   position: relative;
   z-index: 1;
-  width: min(760px, 100%);
+  width: min(640px, 100%);
   max-height: calc(100vh - 48px);
   overflow-x: hidden;
   overflow-y: auto;
@@ -76,16 +76,16 @@
 .sf-payment-modal__close:focus-visible { outline: 3px solid rgba(255,255,255,0.35); outline-offset: 2px; }
 
 .sf-payment-modal__header {
-  padding: 31px 70px 29px 32px;
+  padding: 20px 60px 18px 24px;
   background: radial-gradient(circle at 90% 10%, rgba(0,131,255,0.28), transparent 38%), #061b2c;
   color: #ffffff;
 }
 .sf-payment-modal__label {
   display: inline-flex;
   align-items: center;
-  min-height: 27px;
-  margin-bottom: 13px;
-  padding: 5px 11px;
+  min-height: 24px;
+  margin-bottom: 9px;
+  padding: 4px 10px;
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 999px;
   background: rgba(255,255,255,0.1);
@@ -98,24 +98,24 @@
 .sf-payment-modal__title {
   margin: 0;
   color: #ffffff;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 750;
   line-height: 1.2;
   letter-spacing: -0.025em;
 }
 .sf-payment-modal__subtitle {
   max-width: 590px;
-  margin: 10px 0 0;
+  margin: 7px 0 0;
   color: rgba(255,255,255,0.72);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* ── Форма ── */
 
-.sf-payment-form { padding: 29px 32px 31px; }
+.sf-payment-form { padding: 18px 24px 22px; }
 .sf-payment-form__plans { min-width: 0; margin: 0; padding: 0; border: 0; }
-.sf-payment-form__section { margin-top: 26px; }
+.sf-payment-form__section { margin-top: 16px; }
 .sf-payment-form__section-title {
   display: block;
   margin: 0 0 12px;
@@ -140,9 +140,9 @@
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 13px;
-  min-height: 78px;
-  padding: 14px 16px;
+  gap: 10px;
+  min-height: 60px;
+  padding: 10px 14px;
   border: 1px solid #e2e8f0;
   border-radius: 13px;
   background: #ffffff;
@@ -243,7 +243,7 @@
 
 /* ── Галочка согласия ── */
 
-.sf-payment-consent { margin-top: 18px; }
+.sf-payment-consent { margin-top: 12px; }
 .sf-payment-consent__label {
   display: flex;
   align-items: flex-start;
@@ -302,9 +302,9 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 50px;
-  margin-top: 21px;
-  padding: 13px 24px;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 10px 24px;
   border: 0;
   border-radius: 11px;
   background: #0083ff;
@@ -436,7 +436,8 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  width: 100%;
+  width: calc(100% + 41px + 13px);
+  margin-left: calc(-41px - 13px);
   min-height: 41px;
   margin-top: 12px;
   padding: 10px 14px;

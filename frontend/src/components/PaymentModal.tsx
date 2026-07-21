@@ -268,9 +268,6 @@ export default function PaymentModal({ courses, onClose }: Props) {
             <span className="sf-payment-form__spinner" aria-hidden="true" />
           </button>
 
-          <p className="sf-payment-form__notice">
-            Нажимая кнопку «Оплатить», вы переходите на защищённую страницу платёжного сервиса.
-          </p>
         </form>
       </div>
     </div>,
