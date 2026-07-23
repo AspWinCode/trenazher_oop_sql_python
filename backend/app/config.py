@@ -35,6 +35,18 @@ class Settings(BaseSettings):
     TBANK_NOTIFICATION_BASE_URL: str = "https://itpractikum.sflearning.ru"
     # Глобальная цена курса в копейках (используется если у курса не задана цена)
     COURSE_PRICE: int = 299000
+    # amoCRM (оставь токен/поддомен пустыми чтобы отключить интеграцию)
+    AMOCRM_SUBDOMAIN: str = ""            # sfcourses.amocrm.ru
+    AMOCRM_ACCESS_TOKEN: str = ""         # долгосрочный токен
+    AMOCRM_PIPELINE_ID: int = 1327579
+    AMOCRM_STATUS_NEW: int = 21444364     # этап «Новый лид»
+    AMOCRM_STATUS_WON: int = 142          # этап «Успешно реализовано»
+    AMOCRM_FIELD_COURSE: int = 1308290    # Курс (текст)
+    AMOCRM_FIELD_PROJECT: int = 712994    # PROJECT (текст)
+    AMOCRM_FIELD_PRODUCT_ID: int = 1308362  # ID Продукта
+    AMOCRM_FIELD_ORDER_ID: int = 1313682    # ID заказа
+    AMOCRM_PROJECT_NAME: str = "ITPractikum"
+
     # Email-алерты о вопросах поддержки (Enkod). Список получателей через запятую.
     SUPPORT_ALERT_EMAILS: str = "osipow.1997@gmail.com,support@sf.education"
     # messageId шаблона письма в Enkod (0 = алерты отключены, пока шаблон не создан)

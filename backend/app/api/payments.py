@@ -18,6 +18,7 @@ from app.models.order import Order, OrderStatus
 from app.models.user import User, UserStatus
 from app.models.user_course_enrollment import UserCourseEnrollment
 from app.schemas.user import UserOut
+from app.services import amocrm_service
 from app.services.auth_service import create_token_pair
 from app.services.email_service import send_welcome_email
 from app.services.payment_service import (
@@ -108,6 +109,26 @@ async def payment_init(
         logger.exception("Ошибка инициирования платежа")
         raise HTTPException(status_code=502, detail=str(exc))
 
+    buyer_email = (body.email or "").strip().lower() or None
+    buyer_name = (body.name or "").strip() or None
+    buyer_phone = (body.phone or "").strip() or None
+
+    # Событие «сделал заказ» → создаём сделку в amoCRM (best-effort, не ломает оплату).
+    amocrm_lead_id: Optional[int] = None
+    try:
+        amocrm_lead_id = await amocrm_service.create_lead(
+            name=f"Заказ {order_id} — {course.title}",
+            price_rub=amount // 100,
+            course_title=course.title,
+            course_id=body.course_id,
+            order_ref=order_id,
+            buyer_name=buyer_name or "",
+            email=buyer_email or "",
+            phone=buyer_phone or "",
+        )
+    except Exception:
+        logger.exception("amoCRM: не удалось создать сделку order_id=%s", order_id)
+
     order = Order(
         order_id=order_id,
         user_id=current_user.id,
@@ -115,9 +136,10 @@ async def payment_init(
         amount=amount,
         status=OrderStatus.pending,
         tbank_payment_id=str(tbank_resp.get("PaymentId", "")),
-        buyer_email=(body.email or "").strip().lower() or None,
-        buyer_name=(body.name or "").strip() or None,
-        buyer_phone=(body.phone or "").strip() or None,
+        buyer_email=buyer_email,
+        buyer_name=buyer_name,
+        buyer_phone=buyer_phone,
+        amocrm_lead_id=amocrm_lead_id,
     )
     db.add(order)
     # commit через get_db
@@ -166,6 +188,7 @@ async def _fulfill_order(db: AsyncSession, order: Order) -> None:
     пользователя (по email из формы), зачисляет на курс, шлёт письмо с доступом.
     Идемпотентна — безопасно вызывать повторно (вебхук + страница успеха).
     """
+    was_paid = order.status == OrderStatus.paid
     order.status = OrderStatus.paid
     # Фиксируем поля заказа в локальных — дальше идут запросы, которые могут «протухлить» объект.
     course_id = order.course_id
@@ -173,6 +196,12 @@ async def _fulfill_order(db: AsyncSession, order: Order) -> None:
     buyer_name = (order.buyer_name or "").strip()
     order_ref = order.order_id
     existing_user_id = order.user_id
+    amocrm_lead_id = order.amocrm_lead_id
+
+    # Событие «оплатил» → переводим сделку в «Успешно реализовано» (один раз, best-effort).
+    if not was_paid and amocrm_lead_id:
+        await amocrm_service.mark_lead_won(amocrm_lead_id)
+
     if not course_id:
         return
 

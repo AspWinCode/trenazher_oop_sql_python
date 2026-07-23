@@ -33,6 +33,7 @@ class Order(Base):
     buyer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     buyer_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     buyer_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    amocrm_lead_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

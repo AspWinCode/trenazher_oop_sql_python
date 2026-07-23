@@ -24,6 +24,7 @@ import SubmissionDetailPage from './pages/SubmissionDetailPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentFailPage from './pages/PaymentFailPage';
 import GcAuthPage from './pages/GcAuthPage';
+import AmoRedirectPage from './pages/AmoRedirectPage';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/gc" element={<GcAuthPage />} />
+      <Route path="/amocrm/redirect" element={<AmoRedirectPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/shared/:token" element={<PersonalTaskPage />} />
