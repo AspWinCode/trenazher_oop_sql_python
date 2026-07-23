@@ -73,6 +73,8 @@ jobs:
           ADMIN_PASSWORD=ci-admin-password
           JUDGER_INTERNAL_TOKEN=ci-judger-token
           CORS_ORIGINS=http://localhost:3000
+          POSTGRES_PASSWORD=ci-postgres-password
+          REDIS_PASSWORD=ci-redis-password
           E2E_HEALTH_TIMEOUT=180
           EOF
 
