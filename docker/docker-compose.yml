@@ -51,6 +51,8 @@ services:
       TBANK_PASSWORD: ${TBANK_PASSWORD:-}
       TBANK_NOTIFICATION_BASE_URL: ${TBANK_NOTIFICATION_BASE_URL:-https://itpractikum.sflearning.ru}
       COURSE_PRICE: ${COURSE_PRICE:-299000}
+      AMOCRM_SUBDOMAIN: ${AMOCRM_SUBDOMAIN:-}
+      AMOCRM_ACCESS_TOKEN: ${AMOCRM_ACCESS_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
