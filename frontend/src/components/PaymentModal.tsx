@@ -106,6 +106,7 @@ export default function PaymentModal({ courses, onClose }: Props) {
     setFormError(null);
     try {
       const { data } = await paymentsApi.initPayment(courseId, { name, email, phone });
+      localStorage.setItem('pending_order_id', data.order_id);
       window.location.href = data.payment_url;
     } catch {
       setFormError('Не удалось перейти к оплате. Попробуйте ещё раз.');

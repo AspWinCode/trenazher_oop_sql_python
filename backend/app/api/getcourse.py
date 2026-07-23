@@ -234,6 +234,9 @@ async def _handle(
     course = await _find_course(db, course_param)
     if not course:
         return {"status": "error", "reason": f"course_not_found: {course_param}"}
+    # Фиксируем скаляры сразу — дальше идут операции, которые могут «протухлить» объект.
+    course_id = course.id
+    course_title = course.title
 
     # ──────────────────────────────────────────────
     #  STATUS = active → выдаём доступ
@@ -242,31 +245,32 @@ async def _handle(
         user, is_new, plain_password = await _get_or_create_user(
             db, email, name, last_name, student_id.strip()
         )
+        user_login = user.login
 
-        enrolled = await _enroll(db, user.id, course.id)
+        enrolled = await _enroll(db, user.id, course_id)
 
         if is_new:
-            sent = send_welcome_email(email, user.login, plain_password)
+            sent = send_welcome_email(email, user_login, plain_password)
             logger.info(
                 "GetCourse webhook: CREATED user=%s course=%s email_sent=%s",
-                user.login, course.title, sent,
+                user_login, course_title, sent,
             )
             return {
                 "status": "created",
-                "login": user.login,
-                "course": course.title,
+                "login": user_login,
+                "course": course_title,
                 "email_sent": sent,
             }
         else:
             action = "enrolled" if enrolled else "already_enrolled"
             logger.info(
                 "GetCourse webhook: EXISTING user=%s course=%s action=%s",
-                user.login, course.title, action,
+                user_login, course_title, action,
             )
             return {
                 "status": "exists",
-                "login": user.login,
-                "course": course.title,
+                "login": user_login,
+                "course": course_title,
                 "action": action,
             }
 
@@ -278,16 +282,17 @@ async def _handle(
     if not user:
         logger.warning("GetCourse webhook: DISABLE — user not found: %s", email)
         return {"status": "not_found"}
+    user_login = user.login
 
-    removed = await _unenroll(db, user.id, course.id)
+    removed = await _unenroll(db, user.id, course_id)
     logger.info(
         "GetCourse webhook: DISABLED user=%s course=%s removed=%s",
-        user.login, course.title, removed,
+        user_login, course_title, removed,
     )
     return {
         "status": "disabled",
-        "login": user.login,
-        "course": course.title,
+        "login": user_login,
+        "course": course_title,
         "removed": removed,
     }
 

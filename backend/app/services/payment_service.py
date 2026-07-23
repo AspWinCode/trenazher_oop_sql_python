@@ -13,6 +13,10 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 TBANK_INIT_URL = "https://securepay.tinkoff.ru/v2/Init"
+TBANK_GETSTATE_URL = "https://securepay.tinkoff.ru/v2/GetState"
+
+# Статусы Т-Банка, означающие успешную оплату.
+PAID_STATUSES = ("CONFIRMED", "AUTHORIZED")
 
 
 def _make_token(params: Dict[str, Any]) -> str:
@@ -97,3 +101,24 @@ async def init_payment(
         raise RuntimeError(f"Ошибка Т-Банка: {data.get('Message', 'unknown')}")
 
     return data
+
+
+async def get_payment_state(payment_id: str) -> Dict[str, Any]:
+    """Запрашивает у Т-Банка текущий статус платежа (/v2/GetState)."""
+    if not settings.TBANK_TERMINAL_KEY or not settings.TBANK_PASSWORD:
+        raise RuntimeError("Платёжные ключи не настроены")
+
+    params: Dict[str, Any] = {
+        "TerminalKey": settings.TBANK_TERMINAL_KEY,
+        "PaymentId": str(payment_id),
+    }
+    params["Token"] = _make_token(params)
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(TBANK_GETSTATE_URL, json=params)
+        resp.raise_for_status()
+        return resp.json()
+
+
+def is_paid_status(status: str) -> bool:
+    return (status or "").upper() in PAID_STATUSES

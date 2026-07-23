@@ -11,7 +11,9 @@ export default function PaymentSuccessPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const orderId = params.get('order_id');
+  // order_id приходит в query (SuccessURL), но Т-Банк может исказить параметр —
+  // поэтому дублируем через localStorage, сохранённый перед редиректом на оплату.
+  const orderId = params.get('order_id') || localStorage.getItem('pending_order_id');
 
   const [phase, setPhase] = useState<'working' | 'done' | 'timeout'>('working');
   const started = useRef(false);
@@ -33,6 +35,7 @@ export default function PaymentSuccessPage() {
       try {
         const { data } = await paymentsApi.complete(orderId);
         if (cancelled) return;
+        localStorage.removeItem('pending_order_id');
         setAuth(data.token, data.refresh_token, data.user);
         setPhase('done');
         const target = data.course_id ? `/course/${data.course_id}` : '/courses';
