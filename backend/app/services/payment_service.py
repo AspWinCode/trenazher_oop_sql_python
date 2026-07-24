@@ -74,7 +74,7 @@ async def init_payment(
     receipt = {
         "Email": user_email or "support@itpractikum.ru",
         "Phone": "+79991234567",
-        "Taxation": "usn_income",
+        "Taxation": "osn",
         "Items": [
             {
                 "Name": (receipt_name or course_title)[:128],
