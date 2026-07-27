@@ -96,22 +96,26 @@ async def payment_init(
     order_id = generate_order_id(current_user.id, body.course_id)
     customer_key = str(current_user.id) if not current_user.is_guest else None
 
+    buyer_email = (body.email or "").strip().lower() or None
+    buyer_name = (body.name or "").strip() or None
+    buyer_phone = (body.phone or "").strip() or None
+
+    # Полная формулировка услуги — и в чек (позиция), и в поле «Курс» amoCRM.
+    service_name = _receipt_name(course.title)
+
     try:
         tbank_resp = await init_payment(
             order_id=order_id,
             amount=amount,
             course_title=course.title,
             customer_key=customer_key,
-            user_email=current_user.email,
-            receipt_name=_receipt_name(course.title),
+            # Email покупателя из формы → ОФД пришлёт фискальный чек на этот адрес.
+            user_email=buyer_email or current_user.email,
+            receipt_name=service_name,
         )
     except Exception as exc:
         logger.exception("Ошибка инициирования платежа")
         raise HTTPException(status_code=502, detail=str(exc))
-
-    buyer_email = (body.email or "").strip().lower() or None
-    buyer_name = (body.name or "").strip() or None
-    buyer_phone = (body.phone or "").strip() or None
 
     # Событие «сделал заказ» → создаём сделку в amoCRM (best-effort, не ломает оплату).
     amocrm_lead_id: Optional[int] = None
@@ -119,7 +123,7 @@ async def payment_init(
         amocrm_lead_id = await amocrm_service.create_lead(
             name=f"Заказ {order_id} — {course.title}",
             price_rub=amount // 100,
-            course_title=course.title,
+            course_title=service_name,
             course_id=body.course_id,
             order_ref=order_id,
             buyer_name=buyer_name or "",
