@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { progressApi, submissionsApi, tasksApi } from '../../../api';
+import { useAuthStore } from '../../../store/auth';
 import type { Submission, Task, TaskHint } from '../../../types';
 
 const DEFAULT_PLACEHOLDERS: Record<string, string> = {
@@ -12,11 +13,14 @@ function resolveInitialCode(taskType: string): string {
   return DEFAULT_PLACEHOLDERS[taskType] || '# Ваше решение\n';
 }
 
-function storageKey(taskId: number) {
-  return `code_task_${taskId}`;
+// Черновик привязан к пользователю — иначе код, написанный в демо (гостем),
+// подхватывался бы для той же задачи после входа в реальный аккаунт.
+function storageKey(userId: number | undefined, taskId: number) {
+  return `code_task_${userId ?? 'anon'}_${taskId}`;
 }
 
 export function useTaskData(taskId?: string) {
+  const userId = useAuthStore((s) => s.user?.id);
   const [task, setTask] = useState<Task | null>(null);
   const [code, setCode] = useState('');
   const [history, setHistory] = useState<Submission[]>([]);
@@ -45,24 +49,24 @@ export function useTaskData(taskId?: string) {
     setCode(newCode);
     if (taskId) {
       try {
-        localStorage.setItem(storageKey(Number(taskId)), newCode);
+        localStorage.setItem(storageKey(userId, Number(taskId)), newCode);
         setDraftSavedAt(new Date());
       } catch {}
     }
-  }, [taskId]);
+  }, [taskId, userId]);
 
   const clearDraft = useCallback(() => {
     if (taskId) {
-      try { localStorage.removeItem(storageKey(Number(taskId))); } catch {}
+      try { localStorage.removeItem(storageKey(userId, Number(taskId))); } catch {}
       if (task) setCode(resolveInitialCode(task.task_type));
       setDraftSavedAt(null);
     }
-  }, [taskId, task]);
+  }, [taskId, userId, task]);
 
   const hasDraft = useCallback(() => {
     if (!taskId) return false;
-    try { return localStorage.getItem(storageKey(Number(taskId))) !== null; } catch { return false; }
-  }, [taskId]);
+    try { return localStorage.getItem(storageKey(userId, Number(taskId))) !== null; } catch { return false; }
+  }, [taskId, userId]);
 
   useEffect(() => {
     if (!taskId) {
@@ -82,7 +86,7 @@ export function useTaskData(taskId?: string) {
       .then(({ data }) => {
         setTask(data);
         try {
-          const saved = localStorage.getItem(storageKey(id));
+          const saved = localStorage.getItem(storageKey(userId, id));
           setCode(saved ?? resolveInitialCode(data.task_type));
         } catch {
           setCode(resolveInitialCode(data.task_type));
@@ -92,7 +96,7 @@ export function useTaskData(taskId?: string) {
 
     refreshHistory(id);
     refreshHints(id);
-  }, [taskId, refreshHistory, refreshHints]);
+  }, [taskId, userId, refreshHistory, refreshHints]);
 
   return {
     task,
