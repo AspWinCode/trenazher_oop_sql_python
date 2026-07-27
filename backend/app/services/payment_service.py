@@ -68,9 +68,9 @@ async def init_payment(
     if customer_key:
         params["CustomerKey"] = customer_key
 
-    if user_email:
-        params["Email"] = user_email
-
+    # Email покупателя кладём ТОЛЬКО в чек (Receipt.Email) — оттуда ОФД шлёт чек.
+    # В корень запроса Email не добавляем: он попадает в расчёт подписи (Token),
+    # которую Т-Банк по нему не проверяет → иначе ошибка 204 «Неверный токен».
     receipt = {
         "Email": user_email or "support@itpractikum.ru",
         "Phone": "+79991234567",
