@@ -121,7 +121,7 @@ async def payment_init(
     amocrm_lead_id: Optional[int] = None
     try:
         amocrm_lead_id = await amocrm_service.create_lead(
-            name=f"Заказ {order_id} — {course.title}",
+            name=f"Заказ {order_id} — {service_name}",
             price_rub=amount // 100,
             course_title=service_name,
             course_id=body.course_id,
