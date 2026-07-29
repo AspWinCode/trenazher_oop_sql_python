@@ -19,8 +19,15 @@ function storageKey(userId: number | undefined, taskId: number) {
   return `code_task_${userId ?? 'anon'}_${taskId}`;
 }
 
+// Старый (до-пользовательский) ключ. Под ним лежат черновики, сохранённые до
+// перехода на ключ с userId — их нужно один раз перенести, а не потерять.
+function legacyStorageKey(taskId: number) {
+  return `code_task_${taskId}`;
+}
+
 export function useTaskData(taskId?: string) {
   const userId = useAuthStore((s) => s.user?.id);
+  const isGuest = useAuthStore((s) => s.user?.is_guest ?? false);
   const [task, setTask] = useState<Task | null>(null);
   const [code, setCode] = useState('');
   const [history, setHistory] = useState<Submission[]>([]);
@@ -86,7 +93,17 @@ export function useTaskData(taskId?: string) {
       .then(({ data }) => {
         setTask(data);
         try {
-          const saved = localStorage.getItem(storageKey(userId, id));
+          const key = storageKey(userId, id);
+          let saved = localStorage.getItem(key);
+          // Разовый перенос черновика со старого ключа (для реальных аккаунтов) —
+          // чтобы код, сохранённый до привязки ключа к пользователю, не «пропал».
+          if (saved === null && userId != null && !isGuest) {
+            const legacy = localStorage.getItem(legacyStorageKey(id));
+            if (legacy !== null) {
+              saved = legacy;
+              try { localStorage.setItem(key, legacy); } catch {}
+            }
+          }
           setCode(saved ?? resolveInitialCode(data.task_type));
         } catch {
           setCode(resolveInitialCode(data.task_type));
@@ -96,7 +113,7 @@ export function useTaskData(taskId?: string) {
 
     refreshHistory(id);
     refreshHints(id);
-  }, [taskId, userId, refreshHistory, refreshHints]);
+  }, [taskId, userId, isGuest, refreshHistory, refreshHints]);
 
   return {
     task,
