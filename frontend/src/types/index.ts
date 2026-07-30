@@ -137,6 +137,8 @@ export interface TaskTest {
   expected_output: string | null;
   verification_sql: string | null;
   test_files: TestFile[] | null;
+  example_input?: string | null;
+  example_output?: string | null;
   weight: number;
   order_index: number;
 }

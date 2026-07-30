@@ -22,6 +22,9 @@ class TaskTest(Base):
     input_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     expected_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     verification_sql: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Витринный пример для студента (нужен там, где expected_output — код теста и скрыт)
+    example_input: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    example_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # List of {"name": str, "content": str} — extra files written to sandbox workspace
     test_files: Mapped[Optional[List[Any]]] = mapped_column(JSON, nullable=True)
     weight: Mapped[float] = mapped_column(Float, default=1.0)

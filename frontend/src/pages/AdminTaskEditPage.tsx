@@ -48,12 +48,12 @@ export default function AdminTaskEditPage() {
   const [hints, setHints] = useState<TaskHint[]>([]);
 
   // новый тест (форма)
-  const [newTest, setNewTest] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [] as TestFile[] });
+  const [newTest, setNewTest] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [] as TestFile[], example_input: '', example_output: '' });
   const [addingTest, setAddingTest] = useState(false);
 
   // редактирование теста
   const [editingTestId, setEditingTestId] = useState<number | null>(null);
-  const [editingTestData, setEditingTestData] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [] as TestFile[] });
+  const [editingTestData, setEditingTestData] = useState({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [] as TestFile[], example_input: '', example_output: '' });
 
   // новая подсказка (форма)
   const [newHint, setNewHint] = useState({ hint_level: 1, unlock_attempts: 3, content: '' });
@@ -117,7 +117,7 @@ export default function AdminTaskEditPage() {
     setError(null);
     try {
       await tasksApi.addTest(task.id, newTest);
-      setNewTest({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [] });
+      setNewTest({ test_type: 'public', input_data: '', expected_output: '', verification_sql: '', test_files: [], example_input: '', example_output: '' });
       setAddingTest(false);
       await loadTask();
     } catch (e: any) {
@@ -129,7 +129,7 @@ export default function AdminTaskEditPage() {
 
   const handleEditTest = (t: TaskTest) => {
     setEditingTestId(t.id);
-    setEditingTestData({ test_type: t.test_type, input_data: t.input_data || '', expected_output: t.expected_output || '', verification_sql: t.verification_sql || '', test_files: t.test_files || [] });
+    setEditingTestData({ test_type: t.test_type, input_data: t.input_data || '', expected_output: t.expected_output || '', verification_sql: t.verification_sql || '', test_files: t.test_files || [], example_input: t.example_input || '', example_output: t.example_output || '' });
   };
 
   const handleSaveTest = async () => {
@@ -391,6 +391,36 @@ export default function AdminTaskEditPage() {
                 />
               </div>
 
+              {/* Пример для студента — только для задач, где expected_output скрыт (код теста / эталонный SQL) */}
+              {(taskType === 'python_oop' || taskType === 'python_numpy' || taskType === 'sql_query') && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-primary-200 pt-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">
+                      Пример входа <span className="text-surface-400 font-normal">(виден студенту, если тест public)</span>
+                    </label>
+                    <textarea
+                      className="input w-full font-mono text-sm"
+                      rows={3}
+                      value={newTest.example_input}
+                      onChange={(e) => setNewTest({ ...newTest, example_input: e.target.value })}
+                      placeholder={"month_1 = [1, 2, 0]\nmonth_2 = [0, 1, 3]"}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">
+                      Пример выхода <span className="text-surface-400 font-normal">(виден студенту, если тест public)</span>
+                    </label>
+                    <textarea
+                      className="input w-full font-mono text-sm"
+                      rows={3}
+                      value={newTest.example_output}
+                      onChange={(e) => setNewTest({ ...newTest, example_output: e.target.value })}
+                      placeholder={"(array([1, 3, 3]), 7)"}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Verification SQL — только для SQL-задач */}
               {taskType === 'sql_query' && (
                 <div>
@@ -509,9 +539,22 @@ export default function AdminTaskEditPage() {
                     </td>
                     <td className="px-3 py-2">
                       {editingTestId === t.id ? (
-                        <textarea className="input w-full font-mono text-xs" rows={4} value={editingTestData.expected_output} onChange={e => setEditingTestData({ ...editingTestData, expected_output: e.target.value })} />
+                        <div className="space-y-1">
+                          <textarea className="input w-full font-mono text-xs" rows={4} value={editingTestData.expected_output} onChange={e => setEditingTestData({ ...editingTestData, expected_output: e.target.value })} />
+                          {(taskType === 'python_oop' || taskType === 'python_numpy' || taskType === 'sql_query') && (
+                            <>
+                              <input className="input w-full font-mono text-xs" placeholder="Пример входа (студенту)" value={editingTestData.example_input} onChange={e => setEditingTestData({ ...editingTestData, example_input: e.target.value })} />
+                              <input className="input w-full font-mono text-xs" placeholder="Пример выхода (студенту)" value={editingTestData.example_output} onChange={e => setEditingTestData({ ...editingTestData, example_output: e.target.value })} />
+                            </>
+                          )}
+                        </div>
                       ) : (
-                        <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">{t.expected_output || '—'}</pre>
+                        <div>
+                          <pre className="text-xs font-mono bg-surface-50 rounded p-1 max-w-xs overflow-auto whitespace-pre-wrap">{t.expected_output || '—'}</pre>
+                          {(t.example_input || t.example_output) && (
+                            <div className="text-[11px] text-primary-600 mt-0.5">пример для студента задан</div>
+                          )}
+                        </div>
                       )}
                     </td>
                     {taskType === 'sql_query' && (

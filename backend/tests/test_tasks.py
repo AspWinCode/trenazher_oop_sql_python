@@ -85,6 +85,27 @@ async def test_add_and_delete_test(client: AsyncClient, admin_headers):
 
 
 @pytest.mark.asyncio
+async def test_example_io_roundtrip(client: AsyncClient, admin_headers):
+    create = await client.post("/api/tasks", json={
+        "title": "NumPy example", "task_type": "python_numpy", "runner_type": "pytest_runner",
+        "tests": [{
+            "test_type": "public",
+            "expected_output": "import numpy as np\nfrom solution import solve\ndef test_1(): pass",
+            "example_input": "month_1 = [1, 2, 0]\nmonth_2 = [0, 1, 3]",
+            "example_output": "(array([1, 3, 3]), 7)",
+        }],
+    }, headers=admin_headers)
+    assert create.status_code == 201
+    tid = create.json()["id"]
+
+    resp = await client.get(f"/api/tasks/{tid}", headers=admin_headers)
+    assert resp.status_code == 200
+    test = resp.json()["tests"][0]
+    assert test["example_input"] == "month_1 = [1, 2, 0]\nmonth_2 = [0, 1, 3]"
+    assert test["example_output"] == "(array([1, 3, 3]), 7)"
+
+
+@pytest.mark.asyncio
 async def test_student_cannot_create_task(client: AsyncClient, student_headers):
     resp = await client.post("/api/tasks", json={
         "title": "X", "task_type": "python_io", "runner_type": "stdin_runner",

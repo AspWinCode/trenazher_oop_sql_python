@@ -129,6 +129,17 @@ function TaskSolver({
   const langMap: Record<string, string> = { sql_query: 'sql', cpp_io: 'cpp', js_io: 'javascript' };
   const lang = langMap[task.task_type] || 'python';
   const publicTests = task.tests?.filter((t) => t.test_type === 'public') ?? [];
+  // Для pytest/SQL задач expected_output — это код теста (скрыт), поэтому берём витринные example_*.
+  const isCodeTest = task.task_type === 'python_oop'
+    || task.task_type === 'python_numpy'
+    || task.task_type === 'sql_query';
+  const examples = publicTests
+    .map((t) => ({
+      id: t.id,
+      input: isCodeTest ? t.example_input : t.input_data,
+      output: isCodeTest ? t.example_output : t.expected_output,
+    }))
+    .filter((e) => e.input || e.output);
   const isCorrect = submission?.verdict === 'AC';
   const completedCount = history.filter((s) => s.verdict === 'AC').length;
 
@@ -177,31 +188,24 @@ function TaskSolver({
                 )}
               </div>
             )}
-            {publicTests.length > 0 && (
+            {examples.length > 0 && (
               <div className="space-y-3">
-                {publicTests.map((t) => {
-                  // For pytest/SQL tasks the expected_output is code — don't show it to students
-                  const isCodeTest = task.task_type === 'python_oop'
-                    || task.task_type === 'python_numpy'
-                    || task.task_type === 'sql_query';
-                  if (isCodeTest) return null;
-                  return (
-                    <div key={t.id} className="rounded-xl border border-surface-100 overflow-hidden text-sm">
-                      {t.input_data && (
-                        <div className="px-4 py-2.5 bg-surface-50 border-b border-surface-100">
-                          <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Input:</div>
-                          <code className="text-dark-700 font-mono whitespace-pre-wrap">{t.input_data}</code>
-                        </div>
-                      )}
-                      {t.expected_output && (
-                        <div className="px-4 py-2.5 bg-white">
-                          <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Output:</div>
-                          <code className="text-dark-700 font-mono whitespace-pre-wrap">{t.expected_output}</code>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {examples.map((e) => (
+                  <div key={e.id} className="rounded-xl border border-surface-100 overflow-hidden text-sm">
+                    {e.input && (
+                      <div className="px-4 py-2.5 bg-surface-50 border-b border-surface-100">
+                        <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Input:</div>
+                        <code className="text-dark-700 font-mono whitespace-pre-wrap">{e.input}</code>
+                      </div>
+                    )}
+                    {e.output && (
+                      <div className="px-4 py-2.5 bg-white">
+                        <div className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Sample Output:</div>
+                        <code className="text-dark-700 font-mono whitespace-pre-wrap">{e.output}</code>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
