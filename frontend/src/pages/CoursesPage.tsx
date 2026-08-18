@@ -5,6 +5,7 @@ import type { CourseProgressStats } from '../api';
 import type { Course } from '../types';
 import { useAuthStore } from '../store/auth';
 import PaymentModal from '../components/PaymentModal';
+import GuestWelcomeStep from '../features/onboarding/GuestWelcomeStep';
 
 export default function CoursesPage() {
   const isGuest = useAuthStore((s) => s.user?.is_guest ?? false);
@@ -57,7 +58,7 @@ export default function CoursesPage() {
           {isGuest ? 'Для гостевого режима пока не открыт ни один курс' : 'Курсы пока не добавлены'}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" data-tour="course-cards">
           {courses.map((c) => {
             const p = progressMap[c.id];
             const total = p?.total_tasks_count ?? 0;
@@ -101,6 +102,8 @@ export default function CoursesPage() {
           onClose={() => setShowPaymentModal(false)}
         />
       )}
+
+      {isGuest && <GuestWelcomeStep courses={courses} />}
     </div>
   );
 }
