@@ -16,6 +16,7 @@ interface Props {
 }
 
 type StepId =
+  | 'sidebar'
   | 'problem'
   | 'sample'
   | 'editor'
@@ -29,6 +30,7 @@ type StepId =
 type PendingSubmit = 'wrong-1' | 'wrong-2' | 'correct' | null;
 
 const STEP_TARGET: Record<StepId, string> = {
+  sidebar: 'sidebar',
   problem: 'condition',
   sample: 'sample',
   editor: 'editor',
@@ -52,7 +54,7 @@ function getTargetRect(name: string): Rect | null {
   if (!el || !el.isConnected) return null;
   const r = el.getBoundingClientRect();
   if (r.width <= 0 || r.height <= 0) return null;
-  const padding = 8;
+  const padding = name === 'sidebar' ? 0 : 8;
   const left = Math.max(4, r.left - padding);
   const top = Math.max(4, r.top - padding);
   const right = Math.min(window.innerWidth - 4, r.right + padding);
@@ -67,7 +69,7 @@ export default function GuestFirstTaskTour({
 }: Props) {
   const content = useMemo(() => getTourContent(task.task_type), [task.task_type]);
 
-  const [step, setStep] = useState<StepId>('problem');
+  const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
   const [typing, setTyping] = useState(false);
   const pendingRef = useRef<PendingSubmit>(null);
@@ -180,6 +182,15 @@ export default function GuestFirstTaskTour({
   }
 
   const panels: Partial<Record<StepId, { icon: string; title: string; body: string; actions: { id: string; label: string; primary?: boolean }[] }>> = {
+    sidebar: {
+      icon: '☰',
+      title: 'Список всех задач курса',
+      body: 'Слева расположен список всех задач. Задачи доступны сразу, поэтому необязательно идти строго по порядку. Некоторые задачи можно пропускать, а к уже решённым возвращаться, чтобы потренироваться ещё раз.',
+      actions: [
+        { id: 'sidebar-next', label: 'Перейти к первой задаче', primary: true },
+        { id: 'close', label: 'Закрыть помощника' },
+      ],
+    },
     problem: {
       icon: '1',
       title: 'Сначала прочитайте условие',
@@ -267,6 +278,9 @@ export default function GuestFirstTaskTour({
       case 'close':
         close();
         break;
+      case 'sidebar-next':
+        setStep('problem');
+        break;
       case 'next':
         setStep(step === 'problem' ? 'sample' : 'editor');
         break;
@@ -334,23 +348,23 @@ export default function GuestFirstTaskTour({
   }
 
   return (
-    <div className="fixed inset-0 z-[10050]" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
       {targetRect ? (
         <>
-          <div className="fixed bg-black/60" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, targetRect.top) }} />
-          <div className="fixed bg-black/60" style={{ top: targetRect.top, left: 0, width: Math.max(0, targetRect.left), height: targetRect.height }} />
-          <div className="fixed bg-black/60" style={{ top: targetRect.top, left: targetRect.left + targetRect.width, width: Math.max(0, window.innerWidth - targetRect.left - targetRect.width), height: targetRect.height }} />
-          <div className="fixed bg-black/60" style={{ top: targetRect.top + targetRect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - targetRect.top - targetRect.height) }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, targetRect.top) }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: 0, width: Math.max(0, targetRect.left), height: targetRect.height }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: targetRect.left + targetRect.width, width: Math.max(0, window.innerWidth - targetRect.left - targetRect.width), height: targetRect.height }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top + targetRect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - targetRect.top - targetRect.height) }} />
           <div
             className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none transition-all duration-150"
             style={{ top: targetRect.top, left: targetRect.left, width: targetRect.width, height: targetRect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
           />
         </>
       ) : (
-        <div className="fixed inset-0 bg-black/60" />
+        <div className="fixed inset-0 bg-black/60 pointer-events-auto" />
       )}
 
-      <div className="card fixed shadow-xl" style={{ ...panelStyle, zIndex: 10000 }}>
+      <div className="card fixed shadow-xl pointer-events-auto" style={{ ...panelStyle, zIndex: 10000 }}>
         <div className="flex items-start gap-3">
           <div className="shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center font-bold">
             {activePanel.icon}

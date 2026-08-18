@@ -10,16 +10,23 @@ interface Rect {
   height: number;
 }
 
+// Подсвечиваем реально занятую детьми область, а не весь grid-контейнер —
+// иначе при 2 карточках в 3-колоночной сетке рамка захватывает пустое место справа.
 function getTargetRect(name: string): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
-  const r = el.getBoundingClientRect();
-  if (r.width <= 0 || r.height <= 0) return null;
+  const children = Array.from(el.children) as HTMLElement[];
+  const rects = (children.length > 0 ? children : [el]).map((c) => c.getBoundingClientRect());
+  const left0 = Math.min(...rects.map((r) => r.left));
+  const top0 = Math.min(...rects.map((r) => r.top));
+  const right0 = Math.max(...rects.map((r) => r.right));
+  const bottom0 = Math.max(...rects.map((r) => r.bottom));
+  if (right0 - left0 <= 0 || bottom0 - top0 <= 0) return null;
   const padding = 10;
-  const left = Math.max(4, r.left - padding);
-  const top = Math.max(4, r.top - padding);
-  const right = Math.min(window.innerWidth - 4, r.right + padding);
-  const bottom = Math.min(window.innerHeight - 4, r.bottom + padding);
+  const left = Math.max(4, left0 - padding);
+  const top = Math.max(4, top0 - padding);
+  const right = Math.min(window.innerWidth - 4, right0 + padding);
+  const bottom = Math.min(window.innerHeight - 4, bottom0 + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
 }
@@ -66,13 +73,14 @@ export default function GuestWelcomeStep({ courses }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[10050]" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
       {rect ? (
         <>
-          <div className="fixed bg-black/60" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, rect.top) }} />
-          <div className="fixed bg-black/60" style={{ top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height }} />
-          <div className="fixed bg-black/60" style={{ top: rect.top, left: rect.left + rect.width, width: Math.max(0, window.innerWidth - rect.left - rect.width), height: rect.height }} />
-          <div className="fixed bg-black/60" style={{ top: rect.top + rect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - rect.top - rect.height) }} />
+          {/* Затемняем всё, кроме подсвеченной области — она остаётся кликабельной насквозь. */}
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, rect.top) }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: rect.left + rect.width, width: Math.max(0, window.innerWidth - rect.left - rect.width), height: rect.height }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top + rect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - rect.top - rect.height) }} />
           <div
             className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
             style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
@@ -85,11 +93,11 @@ export default function GuestWelcomeStep({ courses }: Props) {
           </div>
         </>
       ) : (
-        <div className="fixed inset-0 bg-black/60" />
+        <div className="fixed inset-0 bg-black/60 pointer-events-auto" />
       )}
 
       <div
-        className="card fixed shadow-xl"
+        className="card fixed shadow-xl pointer-events-auto"
         style={{ left: 16, right: 16, bottom: 16, maxWidth: 520, margin: '0 auto', zIndex: 10000 }}
       >
         <div className="flex items-start gap-3">
