@@ -106,6 +106,10 @@ export default function GuestFirstTaskTour({
   const [typing, setTyping] = useState(false);
   // Сабмит, который уже обработан туром — чтобы не реагировать на него повторно.
   const lastHandledSubmissionId = useRef<number | null>(submission?.id ?? null);
+  // Ждём, пока после 2-й неверной попытки реально подгрузится подсказка,
+  // прежде чем показывать шаг «hint» — иначе он на миг ссылается на ещё
+  // не отрисованный блок.
+  const [awaitingHint, setAwaitingHint] = useState(false);
 
   const close = useCallback(() => {
     onFinish();
@@ -123,8 +127,22 @@ export default function GuestFirstTaskTour({
     if (!content) return;
     const targetName = STEP_TARGET[step];
     const fallbackStep = SKIP_IF_TARGET_MISSING[step];
+    let scrolledIntoView = false;
 
-    const update = () => setRect(getTargetRect(targetName));
+    const update = () => {
+      const el = document.querySelector(`[data-tour="${targetName}"]`) as HTMLElement | null;
+      // Прокручиваем к цели один раз, как только она появится в DOM —
+      // иначе спотлайт и панель считаются от элемента, скрытого за краем экрана.
+      if (el && !scrolledIntoView && targetName !== 'sidebar') {
+        scrolledIntoView = true;
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        } catch {
+          el.scrollIntoView();
+        }
+      }
+      setRect(getTargetRect(targetName));
+    };
     update();
     const interval = window.setInterval(update, 200);
     window.addEventListener('resize', update);
@@ -166,13 +184,27 @@ export default function GuestFirstTaskTour({
     if (kind === 'wrong-1') {
       setStep('wrong-result');
     } else if (kind === 'wrong-2') {
-      // Показываем шаг с подсказкой независимо от того, успела ли она уже
-      // подгрузиться к этому моменту — сама карточка появится следом.
-      setStep('hint');
+      setAwaitingHint(true);
     } else if (kind === 'correct') {
       setStep(submission.verdict === 'AC' ? 'success' : 'wrong-result');
     }
   }, [step, submission?.id, submission?.status, submission?.verdict]);
+
+  // Переходим на шаг с подсказкой, только когда она реально появилась
+  // (или спустя разумный таймаут — например, если подсказки отключены).
+  useEffect(() => {
+    if (!awaitingHint) return;
+    if (hints.length > 0) {
+      setAwaitingHint(false);
+      setStep('hint');
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      setAwaitingHint(false);
+      setStep('hint');
+    }, 4000);
+    return () => window.clearTimeout(timeout);
+  }, [awaitingHint, hints.length]);
 
   if (!content) return null;
 
@@ -358,9 +390,17 @@ export default function GuestFirstTaskTour({
     }
   }
 
-  const waiting = Boolean(SUBMIT_STEP_KIND[step]) && Boolean(submission) && submission?.status !== 'finished';
+  const waitingSubmission = Boolean(SUBMIT_STEP_KIND[step]) && Boolean(submission) && submission?.status !== 'finished';
+  const waiting = waitingSubmission || awaitingHint;
   const activePanel = waiting
-    ? { icon: '↻', title: 'Проверяем решение', body: 'Система запускает код на открытом и скрытых тестах. Подождите немного.', actions: [{ id: 'close', label: 'Закрыть помощника' }] }
+    ? {
+        icon: '↻',
+        title: awaitingHint ? 'Готовим подсказку' : 'Проверяем решение',
+        body: awaitingHint
+          ? 'Система подбирает подсказку для этой задачи. Секунду…'
+          : 'Система запускает код на открытом и скрытых тестах. Подождите немного.',
+        actions: [{ id: 'close', label: 'Закрыть помощника' }],
+      }
     : panels[step];
 
   if (!activePanel) return null;
