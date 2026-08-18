@@ -87,6 +87,20 @@ export default function GuestFirstTaskTour({
 }: Props) {
   const content = useMemo(() => getTourContent(task), [task]);
 
+  // Есть ли у задачи витринный пример входа/выхода — если нет, шаг
+  // «Пример» вообще не показываем, а не тихо скипаем его через таймаут.
+  const hasSample = useMemo(() => {
+    const isCodeTest = task.task_type === 'python_oop'
+      || task.task_type === 'python_numpy'
+      || task.task_type === 'sql_query';
+    return (task.tests ?? []).some((t) => {
+      if (t.test_type !== 'public') return false;
+      const input = isCodeTest ? t.example_input : t.input_data;
+      const output = isCodeTest ? t.example_output : t.expected_output;
+      return Boolean(input || output);
+    });
+  }, [task]);
+
   const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
   const [typing, setTyping] = useState(false);
@@ -319,7 +333,7 @@ export default function GuestFirstTaskTour({
         setStep('problem');
         break;
       case 'next':
-        setStep(step === 'problem' ? 'sample' : 'editor');
+        setStep(step === 'problem' && hasSample ? 'sample' : 'editor');
         break;
       case 'write-wrong':
         handleWriteWrongCode();
