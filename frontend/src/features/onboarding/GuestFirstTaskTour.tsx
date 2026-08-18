@@ -25,7 +25,8 @@ type StepId =
   | 'submit-wrong-2'
   | 'hint'
   | 'submit-correct'
-  | 'success';
+  | 'success'
+  | 'try-yourself';
 
 type PendingSubmit = 'wrong-1' | 'wrong-2' | 'correct' | null;
 
@@ -40,6 +41,14 @@ const STEP_TARGET: Record<StepId, string> = {
   hint: 'hints',
   'submit-correct': 'submit',
   success: 'result',
+  'try-yourself': 'editor',
+};
+
+// Некоторые блоки (пример входа/выхода, подсказки) рендерятся только если для
+// задачи есть соответствующие данные. Если целевой элемент не появляется —
+// не блокируем гостя, а сами перескакиваем на следующий осмысленный шаг.
+const SKIP_IF_TARGET_MISSING: Partial<Record<StepId, StepId>> = {
+  sample: 'editor',
 };
 
 interface Rect {
@@ -67,14 +76,13 @@ export default function GuestFirstTaskTour({
   task, code, setCode, submission, submitting, submitSolution,
   hints, showHints, setShowHints, onFinish,
 }: Props) {
-  const content = useMemo(() => getTourContent(task.task_type), [task.task_type]);
+  const content = useMemo(() => getTourContent(task), [task]);
 
   const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
   const [typing, setTyping] = useState(false);
   const pendingRef = useRef<PendingSubmit>(null);
   const [pending, setPending] = useState<PendingSubmit>(null);
-  const hintsBeforeSecondAttempt = useRef(0);
 
   const close = useCallback(() => {
     onFinish();
@@ -84,6 +92,7 @@ export default function GuestFirstTaskTour({
   useEffect(() => {
     if (!content) return;
     const targetName = STEP_TARGET[step];
+    const fallbackStep = SKIP_IF_TARGET_MISSING[step];
 
     const update = () => setRect(getTargetRect(targetName));
     update();
@@ -91,10 +100,19 @@ export default function GuestFirstTaskTour({
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
 
+    // Если у задачи нет данных для этого блока (например, нет примера
+    // входа/выхода), не ждём его вечно — переходим дальше сами.
+    const skipTimer = fallbackStep
+      ? window.setTimeout(() => {
+          if (!getTargetRect(targetName)) setStep(fallbackStep);
+        }, 1800)
+      : undefined;
+
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
+      if (skipTimer) window.clearTimeout(skipTimer);
     };
   }, [step, content]);
 
@@ -116,12 +134,9 @@ export default function GuestFirstTaskTour({
     if (kind === 'wrong-1') {
       setStep('wrong-result');
     } else if (kind === 'wrong-2') {
-      if (hints.length > hintsBeforeSecondAttempt.current) {
-        setStep('hint');
-      } else {
-        // Подсказка не открылась (например, изменена настройка unlock_attempts) — не блокируем гостя.
-        setStep('hint');
-      }
+      // Показываем шаг с подсказкой независимо от того, успела ли она уже
+      // подгрузиться к этому моменту — сама карточка появится следом.
+      setStep('hint');
     } else if (kind === 'correct') {
       setStep(submission.verdict === 'AC' ? 'success' : 'wrong-result');
     }
@@ -170,7 +185,6 @@ export default function GuestFirstTaskTour({
 
   function handleSubmit(kind: PendingSubmit) {
     if (submitting || pending) return;
-    if (kind === 'wrong-2') hintsBeforeSecondAttempt.current = hints.length;
     pendingRef.current = kind;
     setPending(kind);
     submitSolution(task.id, code);
@@ -178,7 +192,7 @@ export default function GuestFirstTaskTour({
 
   function handleApplyHint() {
     setCode(content!.correctCode);
-    setStep('submit-correct');
+    setStep(content!.canAutoSolve ? 'submit-correct' : 'try-yourself');
   }
 
   const panels: Partial<Record<StepId, { icon: string; title: string; body: string; actions: { id: string; label: string; primary?: boolean }[] }>> = {
@@ -271,6 +285,14 @@ export default function GuestFirstTaskTour({
         { id: 'close', label: 'Продолжить работу', primary: true },
       ],
     },
+    'try-yourself': {
+      icon: '✓',
+      title: 'Дальше — ваша очередь',
+      body: 'Мы показали, как добавить сортировку в запрос. Доработайте решение под условия именно этой задачи и отправьте его на проверку — вы уже знаете, как это работает.',
+      actions: [
+        { id: 'close', label: 'Понял, попробую сам', primary: true },
+      ],
+    },
   };
 
   function handleAction(id: string) {
@@ -315,34 +337,64 @@ export default function GuestFirstTaskTour({
   if (!activePanel) return null;
 
   const panelWidth = 420;
-  let panelStyle: React.CSSProperties = { position: 'fixed', left: 16, right: 16, bottom: 16, width: 'auto' };
+  let panelStyle: React.CSSProperties = { position: 'fixed', left: 16, right: 16, bottom: 16, width: 'auto', maxHeight: '60vh', overflowY: 'auto' };
 
   if (targetRect && window.innerWidth > 760) {
     const gap = 16;
     const margin = 12;
     const spaceRight = window.innerWidth - targetRect.left - targetRect.width;
+    const spaceLeft = targetRect.left;
     const spaceBelow = window.innerHeight - targetRect.top - targetRect.height;
+    const spaceAbove = targetRect.top;
+    const clampX = (left: number) => Math.min(Math.max(margin, left), window.innerWidth - panelWidth - margin);
+    const clampTop = (top: number) => Math.min(Math.max(margin, top), window.innerHeight - margin - 160);
 
+    // Приоритет: справа → слева → снизу → сверху → прижать к углу.
+    // Панель никогда не должна закрывать саму подсвеченную область.
     if (spaceRight >= panelWidth + gap + margin) {
       panelStyle = {
         position: 'fixed',
         left: targetRect.left + targetRect.width + gap,
-        top: Math.min(Math.max(margin, targetRect.top), window.innerHeight - 260 - margin),
+        top: clampTop(targetRect.top),
         width: panelWidth,
+        maxHeight: window.innerHeight - margin * 2,
+        overflowY: 'auto',
       };
-    } else if (spaceBelow >= 220) {
+    } else if (spaceLeft >= panelWidth + gap + margin) {
       panelStyle = {
         position: 'fixed',
-        left: Math.min(Math.max(margin, targetRect.left), window.innerWidth - panelWidth - margin),
+        left: targetRect.left - panelWidth - gap,
+        top: clampTop(targetRect.top),
+        width: panelWidth,
+        maxHeight: window.innerHeight - margin * 2,
+        overflowY: 'auto',
+      };
+    } else if (spaceBelow >= 200) {
+      panelStyle = {
+        position: 'fixed',
+        left: clampX(targetRect.left),
         top: targetRect.top + targetRect.height + gap,
         width: panelWidth,
+        maxHeight: Math.max(160, spaceBelow - gap - margin),
+        overflowY: 'auto',
+      };
+    } else if (spaceAbove >= 200) {
+      panelStyle = {
+        position: 'fixed',
+        left: clampX(targetRect.left),
+        bottom: window.innerHeight - targetRect.top + gap,
+        width: panelWidth,
+        maxHeight: Math.max(160, spaceAbove - gap - margin),
+        overflowY: 'auto',
       };
     } else {
       panelStyle = {
         position: 'fixed',
-        left: Math.max(margin, window.innerWidth - panelWidth - margin),
+        left: clampX(window.innerWidth - panelWidth - margin),
         bottom: margin,
         width: panelWidth,
+        maxHeight: '50vh',
+        overflowY: 'auto',
       };
     }
   }
@@ -389,14 +441,14 @@ export default function GuestFirstTaskTour({
           {typing ? 'Помощник печатает код в редакторе…' : activePanel.body}
         </div>
 
-        <div className="mt-4 ml-12 flex flex-wrap gap-2">
+        <div className="mt-4 ml-12 flex gap-2">
           {activePanel.actions.map((a) => (
             <button
               key={a.id}
               type="button"
               disabled={typing || waiting}
               onClick={() => handleAction(a.id)}
-              className={a.primary ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
+              className={`flex-1 justify-center ${a.primary ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}`}
             >
               {a.label}
             </button>
