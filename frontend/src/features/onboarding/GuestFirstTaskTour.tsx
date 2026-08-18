@@ -334,7 +334,7 @@ export default function GuestFirstTaskTour({
   }
 
   return (
-    <div className="fixed inset-0 z-[9999]" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[10050]" role="dialog" aria-modal="true">
       {targetRect ? (
         <>
           <div className="fixed bg-black/60" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, targetRect.top) }} />
