@@ -28,7 +28,16 @@ type StepId =
   | 'success'
   | 'try-yourself';
 
-type PendingSubmit = 'wrong-1' | 'wrong-2' | 'correct' | null;
+type SubmitKind = 'wrong-1' | 'wrong-2' | 'correct';
+
+// К какой попытке относится сабмит, определяем по текущему шагу тура —
+// это позволяет реагировать на отправку решения независимо от того,
+// была ли нажата кнопка тура или настоящая кнопка «Отправить решение».
+const SUBMIT_STEP_KIND: Partial<Record<StepId, SubmitKind>> = {
+  'submit-wrong-1': 'wrong-1',
+  'submit-wrong-2': 'wrong-2',
+  'submit-correct': 'correct',
+};
 
 const STEP_TARGET: Record<StepId, string> = {
   sidebar: 'sidebar',
@@ -81,12 +90,19 @@ export default function GuestFirstTaskTour({
   const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
   const [typing, setTyping] = useState(false);
-  const pendingRef = useRef<PendingSubmit>(null);
-  const [pending, setPending] = useState<PendingSubmit>(null);
+  // Сабмит, который уже обработан туром — чтобы не реагировать на него повторно.
+  const lastHandledSubmissionId = useRef<number | null>(submission?.id ?? null);
 
   const close = useCallback(() => {
     onFinish();
   }, [onFinish]);
+
+  // Скрываем плавающий баннер демо-режима, пока идёт тур — он перекрывает
+  // подсвечиваемые блоки (как это было и в исходном скрипте-гиде).
+  useEffect(() => {
+    document.body.classList.add('guest-tour-active');
+    return () => document.body.classList.remove('guest-tour-active');
+  }, []);
 
   // Пересчитываем позицию спотлайта под текущий шаг.
   useEffect(() => {
@@ -122,14 +138,16 @@ export default function GuestFirstTaskTour({
     }
   }, [step, hints.length, showHints, setShowHints]);
 
-  // Ждём завершения проверки решения и решаем, куда переходить дальше.
+  // Реагируем на завершение проверки, только если сейчас идёт «сабмит-шаг»
+  // тура — независимо от того, какая кнопка («тур» или настоящая на
+  // странице) запустила отправку решения.
   useEffect(() => {
-    if (!pending) return;
-    if (submission?.status !== 'finished') return;
+    const kind = SUBMIT_STEP_KIND[step];
+    if (!kind) return;
+    if (!submission || submission.status !== 'finished') return;
+    if (submission.id === lastHandledSubmissionId.current) return;
 
-    const kind = pending;
-    pendingRef.current = null;
-    setPending(null);
+    lastHandledSubmissionId.current = submission.id;
 
     if (kind === 'wrong-1') {
       setStep('wrong-result');
@@ -140,8 +158,7 @@ export default function GuestFirstTaskTour({
     } else if (kind === 'correct') {
       setStep(submission.verdict === 'AC' ? 'success' : 'wrong-result');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submission?.status, submission?.verdict, pending]);
+  }, [step, submission?.id, submission?.status, submission?.verdict]);
 
   if (!content) return null;
 
@@ -183,10 +200,8 @@ export default function GuestFirstTaskTour({
     setStep('submit-wrong-1');
   }
 
-  function handleSubmit(kind: PendingSubmit) {
-    if (submitting || pending) return;
-    pendingRef.current = kind;
-    setPending(kind);
+  function handleSubmit() {
+    if (submitting) return;
     submitSolution(task.id, code);
   }
 
@@ -310,26 +325,26 @@ export default function GuestFirstTaskTour({
         handleWriteWrongCode();
         break;
       case 'submit-wrong-1':
-        handleSubmit('wrong-1');
+        handleSubmit();
         break;
       case 'continue-after-wrong':
         setStep('submit-wrong-2');
         break;
       case 'submit-wrong-2':
-        handleSubmit('wrong-2');
+        handleSubmit();
         break;
       case 'apply-hint':
         handleApplyHint();
         break;
       case 'submit-correct':
-        handleSubmit('correct');
+        handleSubmit();
         break;
       default:
         break;
     }
   }
 
-  const waiting = Boolean(pending);
+  const waiting = Boolean(SUBMIT_STEP_KIND[step]) && Boolean(submission) && submission?.status !== 'finished';
   const activePanel = waiting
     ? { icon: '↻', title: 'Проверяем решение', body: 'Система запускает код на открытом и скрытых тестах. Подождите немного.', actions: [{ id: 'close', label: 'Закрыть помощника' }] }
     : panels[step];

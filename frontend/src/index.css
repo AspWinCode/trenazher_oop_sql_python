@@ -370,6 +370,11 @@
 
 /* ── Floating demo-баннер ── */
 
+/* Пока идёт гид по платформе, баннер прячем — он перекрывает подсвечиваемые блоки. */
+body.guest-tour-active .sf-demo-banner {
+  display: none !important;
+}
+
 .sf-demo-banner {
   position: fixed;
   right: 24px;
