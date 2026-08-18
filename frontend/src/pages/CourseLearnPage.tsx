@@ -19,6 +19,9 @@ import { useTaskData } from '../features/task/hooks/useTaskData';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useCourseLearnStore, type CourseSidebarItem } from '../store/courseLearn';
 import type { Course } from '../types';
+import GuestFirstTaskTour from '../features/onboarding/GuestFirstTaskTour';
+import { useTourSeen } from '../features/onboarding/useTourSeen';
+import { GUEST_TOUR_ENABLED, TOUR_TASK_TYPES } from '../features/onboarding/tourContent';
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +74,7 @@ function TaskSolver({
   onSolved,
   isLastDemoTask,
   onLastDemoTaskSubmitted,
+  isGuest,
 }: {
   taskId: string;
   taskNumber: number;
@@ -80,6 +84,7 @@ function TaskSolver({
   onSolved?: () => void;
   isLastDemoTask?: boolean;
   onLastDemoTaskSubmitted?: () => void;
+  isGuest?: boolean;
 }) {
   const {
     task, code, setCode, history, hints, loading,
@@ -91,6 +96,8 @@ function TaskSolver({
     refreshHistory,
     refreshHints,
   });
+
+  const { tourSeen, markTourSeen } = useTourSeen();
 
   const [saveFlash, setSaveFlash] = useState(false);
   const handleSave = useCallback(() => {
@@ -166,7 +173,7 @@ function TaskSolver({
           {/* ── Левая колонка: условие + примеры + подсказки + история ── */}
           <div className="space-y-4">
             {task.description && (
-              <div className="prose prose-sm max-w-none">
+              <div className="prose prose-sm max-w-none" data-tour="condition">
                 <Markdown content={task.description} />
               </div>
             )}
@@ -189,7 +196,7 @@ function TaskSolver({
               </div>
             )}
             {examples.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-3" data-tour="sample">
                 {examples.map((e) => (
                   <div key={e.id} className="rounded-xl border border-surface-100 overflow-hidden text-sm">
                     {e.input && (
@@ -210,7 +217,7 @@ function TaskSolver({
             )}
 
             {hints.length > 0 && (
-              <div>
+              <div data-tour="hints">
                 <button
                   onClick={() => setShowHints(!showHints)}
                   className="text-sm text-primary-500 hover:text-primary-600 font-medium"
@@ -260,7 +267,7 @@ function TaskSolver({
           {/* ── Правая колонка: редактор с кнопкой + результат ── */}
           <div className="space-y-3">
             {/* Редактор */}
-            <div className="rounded-xl border border-surface-200 overflow-hidden shadow-sm">
+            <div className="rounded-xl border border-surface-200 overflow-hidden shadow-sm" data-tour="editor">
               <div className="px-4 py-2.5 bg-dark-900 text-white text-sm font-medium flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span>Напишите программу{lang !== 'python' ? ` (${lang})` : ''}</span>
@@ -299,6 +306,7 @@ function TaskSolver({
                   {saveFlash ? '✓ Сохранено' : 'Сохранить'}
                 </button>
                 <button
+                  data-tour="submit"
                   onClick={() => submitSolution(task.id, code)}
                   disabled={submitting}
                   className="btn-primary flex-1"
@@ -317,7 +325,7 @@ function TaskSolver({
 
             {/* Результат проверки */}
             {submission && (
-              <div className={`rounded-xl border p-4 text-sm ${
+              <div data-tour="result" className={`rounded-xl border p-4 text-sm ${
                 isCorrect
                   ? 'border-accent-300 bg-accent-50'
                   : submission.status !== 'finished'
@@ -383,6 +391,22 @@ function TaskSolver({
           </button>
         </div>
       </div>
+
+      {GUEST_TOUR_ENABLED && isGuest && taskNumber === 1 && !tourSeen
+        && TOUR_TASK_TYPES.includes(task.task_type) && (
+          <GuestFirstTaskTour
+            task={task}
+            code={code}
+            setCode={setCode}
+            submission={submission}
+            submitting={submitting}
+            submitSolution={submitSolution}
+            hints={hints}
+            showHints={showHints}
+            setShowHints={setShowHints}
+            onFinish={markTourSeen}
+          />
+      )}
     </div>
   );
 }
@@ -542,6 +566,7 @@ export default function CourseLearnPage() {
           onSolved={reloadCourseData}
           isLastDemoTask={isLastDemoTask}
           onLastDemoTaskSubmitted={handleLastDemoTaskSubmitted}
+          isGuest={isGuest}
         />
       ) : (
         <div className="flex flex-col items-center justify-center h-full gap-3 text-surface-400">
