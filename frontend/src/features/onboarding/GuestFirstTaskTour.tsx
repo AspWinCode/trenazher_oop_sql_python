@@ -20,6 +20,7 @@ interface Props {
 type StepId =
   | 'sidebar'
   | 'problem'
+  | 'schema'
   | 'sample'
   | 'editor'
   | 'submit-wrong-1'
@@ -44,6 +45,7 @@ const SUBMIT_STEP_KIND: Partial<Record<StepId, SubmitKind>> = {
 const STEP_TARGET: Record<StepId, string> = {
   sidebar: 'sidebar',
   problem: 'condition',
+  schema: 'schema',
   sample: 'sample',
   editor: 'editor',
   'submit-wrong-1': 'submit',
@@ -53,13 +55,6 @@ const STEP_TARGET: Record<StepId, string> = {
   'submit-correct': 'submit',
   success: 'result',
   'try-yourself': 'editor',
-};
-
-// Некоторые блоки (пример входа/выхода, подсказки) рендерятся только если для
-// задачи есть соответствующие данные. Если целевой элемент не появляется —
-// не блокируем гостя, а сами перескакиваем на следующий осмысленный шаг.
-const SKIP_IF_TARGET_MISSING: Partial<Record<StepId, StepId>> = {
-  sample: 'editor',
 };
 
 interface Rect {
@@ -114,6 +109,20 @@ export default function GuestFirstTaskTour({
   }, [task]);
   const hasSample = sampleValue !== null;
 
+  // У SQL-задач есть блок «Структура базы данных» — для него отдельный шаг тура.
+  const hasSchema = task.task_type === 'sql_query' && Boolean(task.sql_schema);
+
+  // Порядок вводных шагов: одни только для SQL (schema), другие — только
+  // если у задачи есть витринный пример (sample). Собираем цепочку заранее,
+  // чтобы кнопка «Понял, идём дальше» вела на следующий реально существующий шаг.
+  const infoFlow = useMemo<StepId[]>(() => {
+    const flow: StepId[] = ['problem'];
+    if (hasSchema) flow.push('schema');
+    if (hasSample) flow.push('sample');
+    flow.push('editor');
+    return flow;
+  }, [hasSchema, hasSample]);
+
   const userId = useAuthStore((s) => s.user?.id);
 
   const [step, setStep] = useState<StepId>('sidebar');
@@ -151,7 +160,6 @@ export default function GuestFirstTaskTour({
   useEffect(() => {
     if (!content) return;
     const targetName = STEP_TARGET[step];
-    const fallbackStep = SKIP_IF_TARGET_MISSING[step];
     let scrolledIntoView = false;
 
     const update = () => {
@@ -173,19 +181,10 @@ export default function GuestFirstTaskTour({
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
 
-    // Если у задачи нет данных для этого блока (например, нет примера
-    // входа/выхода), не ждём его вечно — переходим дальше сами.
-    const skipTimer = fallbackStep
-      ? window.setTimeout(() => {
-          if (!getTargetRect(targetName)) setStep(fallbackStep);
-        }, 1800)
-      : undefined;
-
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
-      if (skipTimer) window.clearTimeout(skipTimer);
     };
   }, [step, content]);
 
@@ -300,6 +299,15 @@ export default function GuestFirstTaskTour({
         { id: 'close', label: 'Дальше сам разберусь' },
       ],
     },
+    schema: {
+      icon: '2',
+      title: 'Посмотрите структуру базы',
+      body: content.schemaExplanation ?? '',
+      actions: [
+        { id: 'next', label: 'Понял, идём дальше', primary: true },
+        { id: 'close', label: 'Дальше сам разберусь' },
+      ],
+    },
     sample: {
       icon: '2',
       title: 'Это пример входных и выходных данных',
@@ -332,7 +340,7 @@ export default function GuestFirstTaskTour({
     'wrong-result': {
       icon: '5',
       title: 'Проверка показала ошибку',
-      body: 'Здесь отображается, как отработал ваш код. Слева показан <strong>результат программы</strong>, а справа — <strong>результат, который ожидала система</strong>. Если хотя бы у одного теста указан статус «Неверно», задача пока не решена.',
+      body: content.wrongResultExplanation,
       actions: [
         { id: 'continue-after-wrong', label: 'Понял, давай продолжим', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -391,9 +399,11 @@ export default function GuestFirstTaskTour({
       case 'sidebar-next':
         setStep('problem');
         break;
-      case 'next':
-        setStep(step === 'problem' && hasSample ? 'sample' : 'editor');
+      case 'next': {
+        const idx = infoFlow.indexOf(step);
+        setStep(idx >= 0 && idx < infoFlow.length - 1 ? infoFlow[idx + 1] : 'editor');
         break;
+      }
       case 'write-wrong':
         handleWriteWrongCode();
         break;

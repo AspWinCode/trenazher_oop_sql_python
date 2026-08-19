@@ -179,7 +179,7 @@ function TaskSolver({
             )}
 
             {task.task_type === 'sql_query' && (task.sql_schema || task.sql_seed) && (
-              <div className="card">
+              <div className="card" data-tour="schema">
                 <h2 className="text-sm font-semibold text-dark-700 mb-3">Структура базы данных</h2>
                 {task.sql_schema && (
                   <div className="mb-3">
