@@ -98,7 +98,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
       <div
         className="card fixed shadow-xl pointer-events-auto"
-        style={{ left: 16, right: 16, bottom: 16, maxWidth: 520, margin: '0 auto', zIndex: 10000 }}
+        style={{ left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', zIndex: 10000 }}
       >
         <div className="flex items-start gap-3">
           <div className="shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center font-bold">
@@ -128,16 +128,16 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
         <div className="mt-4 ml-12 flex flex-wrap gap-2">
           {pythonCourse && (
-            <button type="button" onClick={() => pick(pythonCourse)} className="btn-primary btn-sm">
+            <button type="button" onClick={() => pick(pythonCourse)} className="btn-primary btn-sm whitespace-nowrap">
               Перейти к Python
             </button>
           )}
           {sqlCourse && (
-            <button type="button" onClick={() => pick(sqlCourse)} className="btn-secondary btn-sm">
+            <button type="button" onClick={() => pick(sqlCourse)} className="btn-secondary btn-sm whitespace-nowrap">
               Перейти к SQL
             </button>
           )}
-          <button type="button" onClick={skip} className="btn-secondary btn-sm">
+          <button type="button" onClick={skip} className="btn-secondary btn-sm whitespace-nowrap">
             Разобраться самостоятельно
           </button>
         </div>

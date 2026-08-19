@@ -260,7 +260,7 @@ export default function GuestFirstTaskTour({
     sidebar: {
       icon: '☰',
       title: 'Список всех задач курса',
-      body: 'Слева расположен список всех задач. Задачи доступны сразу, поэтому необязательно идти строго по порядку. Некоторые задачи можно пропускать, а к уже решённым возвращаться, чтобы потренироваться ещё раз.',
+      body: 'Слева расположен список всех задач. <strong>Задачи доступны сразу</strong>, поэтому необязательно идти строго по порядку. Некоторые задачи можно пропускать, а к уже решённым возвращаться, чтобы потренироваться ещё раз.',
       actions: [
         { id: 'sidebar-next', label: 'Перейти к первой задаче', primary: true },
         { id: 'close', label: 'Закрыть помощника' },
@@ -269,7 +269,7 @@ export default function GuestFirstTaskTour({
     problem: {
       icon: '1',
       title: 'Сначала прочитайте условие',
-      body: 'Здесь описано, какую задачу должен решить ваш код: что поступает на вход программы и какой результат нужно вывести.',
+      body: 'Здесь описано, <strong>какую задачу должен решить ваш код</strong>: что поступает на вход программы и какой результат нужно вывести.',
       actions: [
         { id: 'next', label: 'Понял, идём дальше', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -278,7 +278,7 @@ export default function GuestFirstTaskTour({
     sample: {
       icon: '2',
       title: 'Это пример входных и выходных данных',
-      body: 'Такие данные система передаст вашему коду на вход. Программа должна вернуть результат именно в том виде, который указан в условии.',
+      body: 'Такие данные система передаст вашему коду на вход. Программа должна вернуть результат <strong>именно в том виде</strong>, который указан в условии.',
       actions: [
         { id: 'next', label: 'Понял, идём дальше', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -296,7 +296,7 @@ export default function GuestFirstTaskTour({
     'submit-wrong-1': {
       icon: '4',
       title: 'Отправим решение на проверку',
-      body: 'Нажмите «Отправить решение»: система выполнит программу на нескольких тестах и покажет результат.',
+      body: 'Нажмите <strong>«Отправить решение»</strong>: система выполнит программу на нескольких тестах и покажет результат.',
       actions: [
         { id: 'submit-wrong-1', label: 'Отправить решение', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -314,7 +314,7 @@ export default function GuestFirstTaskTour({
     'submit-wrong-2': {
       icon: '6',
       title: 'Отправим решение ещё раз',
-      body: 'Дополнительные подсказки открываются после нескольких неверных попыток. Нажмите «Отправить решение» ещё раз.',
+      body: 'Первый вариант не прошёл проверку. На платформе дополнительные подсказки появляются после <strong>2-й, 4-й и 6-й неверной попытки</strong>. Нажмите «Отправить решение» ещё раз, чтобы увидеть первую подсказку.',
       actions: [
         { id: 'submit-wrong-2', label: 'Отправить решение ещё раз', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -332,7 +332,7 @@ export default function GuestFirstTaskTour({
     'submit-correct': {
       icon: '8',
       title: 'Код исправлен — проверим снова',
-      body: 'Мы исправили код по подсказке. Отправьте решение ещё раз и посмотрите на результат.',
+      body: 'Мы исправили код по подсказке. Теперь <strong>отправьте решение ещё раз</strong> и посмотрите на результат.',
       actions: [
         { id: 'submit-correct', label: 'Отправить исправленный код', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -405,7 +405,7 @@ export default function GuestFirstTaskTour({
 
   if (!activePanel) return null;
 
-  const panelWidth = 420;
+  const panelWidth = 480;
   let panelStyle: React.CSSProperties = { position: 'fixed', left: 16, right: 16, bottom: 16, width: 'auto', maxHeight: '60vh', overflowY: 'auto' };
 
   if (targetRect && window.innerWidth > 760) {
@@ -506,9 +506,16 @@ export default function GuestFirstTaskTour({
           </button>
         </div>
 
-        <div className="mt-3 ml-12 text-sm text-surface-500 leading-relaxed">
-          {typing ? 'Помощник печатает код в редакторе…' : activePanel.body}
-        </div>
+        {typing ? (
+          <div className="mt-3 ml-12 text-sm text-surface-500 leading-relaxed">
+            Помощник печатает код в редакторе…
+          </div>
+        ) : (
+          <div
+            className="mt-3 ml-12 text-sm text-surface-500 leading-relaxed [&_strong]:text-dark-700 [&_strong]:font-semibold"
+            dangerouslySetInnerHTML={{ __html: activePanel.body }}
+          />
+        )}
 
         <div className="mt-4 ml-12 flex gap-2">
           {activePanel.actions.map((a) => (
@@ -517,7 +524,7 @@ export default function GuestFirstTaskTour({
               type="button"
               disabled={typing || waiting}
               onClick={() => handleAction(a.id)}
-              className={`flex-1 justify-center ${a.primary ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}`}
+              className={`flex-1 justify-center whitespace-nowrap ${a.primary ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}`}
             >
               {a.label}
             </button>
