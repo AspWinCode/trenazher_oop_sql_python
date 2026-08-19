@@ -67,6 +67,13 @@ interface Rect {
   height: number;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function getTargetRect(name: string): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
@@ -87,19 +94,23 @@ export default function GuestFirstTaskTour({
 }: Props) {
   const content = useMemo(() => getTourContent(task), [task]);
 
-  // Есть ли у задачи витринный пример входа/выхода — если нет, шаг
-  // «Пример» вообще не показываем, а не тихо скипаем его через таймаут.
-  const hasSample = useMemo(() => {
+  // Витринный пример входа для задачи — если его нет, шаг «Пример» вообще
+  // не показываем (а не тихо скипаем его через таймаут); если есть —
+  // подставляем реальное значение в текст шага, а не общую формулировку.
+  const sampleValue = useMemo(() => {
     const isCodeTest = task.task_type === 'python_oop'
       || task.task_type === 'python_numpy'
       || task.task_type === 'sql_query';
-    return (task.tests ?? []).some((t) => {
+    const publicTest = (task.tests ?? []).find((t) => {
       if (t.test_type !== 'public') return false;
       const input = isCodeTest ? t.example_input : t.input_data;
       const output = isCodeTest ? t.example_output : t.expected_output;
       return Boolean(input || output);
     });
+    if (!publicTest) return null;
+    return (isCodeTest ? publicTest.example_input : publicTest.input_data) ?? null;
   }, [task]);
+  const hasSample = sampleValue !== null;
 
   const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
@@ -186,7 +197,7 @@ export default function GuestFirstTaskTour({
     } else if (kind === 'wrong-2') {
       setAwaitingHint(true);
     } else if (kind === 'correct') {
-      setStep(submission.verdict === 'AC' ? 'success' : 'wrong-result');
+      setStep(submission.verdict === 'AC' ? 'success' : 'try-yourself');
     }
   }, [step, submission?.id, submission?.status, submission?.verdict]);
 
@@ -253,7 +264,7 @@ export default function GuestFirstTaskTour({
 
   function handleApplyHint() {
     setCode(content!.correctCode);
-    setStep(content!.canAutoSolve ? 'submit-correct' : 'try-yourself');
+    setStep('submit-correct');
   }
 
   const panels: Partial<Record<StepId, { icon: string; title: string; body: string; actions: { id: string; label: string; primary?: boolean }[] }>> = {
@@ -278,7 +289,9 @@ export default function GuestFirstTaskTour({
     sample: {
       icon: '2',
       title: 'Это пример входных и выходных данных',
-      body: 'Такие данные система передаст вашему коду на вход. Программа должна вернуть результат <strong>именно в том виде</strong>, который указан в условии.',
+      body: sampleValue
+        ? `Значение <strong>${escapeHtml(sampleValue)}</strong> система передаст вашему коду на вход. Программа должна обработать эти данные и вернуть результат именно в том виде, который указан в условии задачи.`
+        : 'Такие данные система передаст вашему коду на вход. Программа должна вернуть результат именно в том виде, который указан в условии.',
       actions: [
         { id: 'next', label: 'Понял, идём дальше', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -305,7 +318,7 @@ export default function GuestFirstTaskTour({
     'wrong-result': {
       icon: '5',
       title: 'Проверка показала ошибку',
-      body: content.wrongExplanation,
+      body: 'Здесь отображается, как отработал ваш код. Слева показан <strong>результат программы</strong>, а справа — <strong>результат, который ожидала система</strong>. Если хотя бы у одного теста указан статус «Неверно», задача пока не решена.',
       actions: [
         { id: 'continue-after-wrong', label: 'Понял, давай продолжим', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -332,7 +345,7 @@ export default function GuestFirstTaskTour({
     'submit-correct': {
       icon: '8',
       title: 'Код исправлен — проверим снова',
-      body: 'Мы исправили код по подсказке. Теперь <strong>отправьте решение ещё раз</strong> и посмотрите на результат.',
+      body: content.correctExplanation,
       actions: [
         { id: 'submit-correct', label: 'Отправить исправленный код', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -349,7 +362,7 @@ export default function GuestFirstTaskTour({
     'try-yourself': {
       icon: '✓',
       title: 'Дальше — ваша очередь',
-      body: 'Мы показали, как добавить сортировку в запрос. Доработайте решение под условия именно этой задачи и отправьте его на проверку — вы уже знаете, как это работает.',
+      body: content.tryYourselfExplanation,
       actions: [
         { id: 'close', label: 'Понял, попробую сам', primary: true },
       ],
