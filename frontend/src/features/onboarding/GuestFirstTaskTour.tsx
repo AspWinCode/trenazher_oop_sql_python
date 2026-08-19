@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Submission, Task, TaskHint } from '../../types';
 import { getTourContent } from './tourContent';
+import { useAuthStore } from '../../store/auth';
+import { persistTourSeen } from './useTourSeen';
 
 interface Props {
   task: Task;
@@ -112,6 +114,8 @@ export default function GuestFirstTaskTour({
   }, [task]);
   const hasSample = sampleValue !== null;
 
+  const userId = useAuthStore((s) => s.user?.id);
+
   const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
   const [typing, setTyping] = useState(false);
@@ -125,6 +129,16 @@ export default function GuestFirstTaskTour({
   const close = useCallback(() => {
     onFinish();
   }, [onFinish]);
+
+  // Помечаем тур просмотренным сразу по факту успеха (не дожидаясь клика
+  // по кнопке закрытия) — если родительский компонент по какой-то причине
+  // перемонтирует тур, свежий экземпляр увидит актуальный флаг и не
+  // начнёт показ заново с первого шага.
+  useEffect(() => {
+    if (step === 'success') {
+      persistTourSeen(userId);
+    }
+  }, [step, userId]);
 
   // Скрываем плавающий баннер демо-режима, пока идёт тур — он перекрывает
   // подсвечиваемые блоки (как это было и в исходном скрипте-гиде).
