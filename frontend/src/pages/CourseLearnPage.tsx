@@ -492,8 +492,6 @@ export default function CourseLearnPage() {
         }
       })
       .catch(console.error);
-
-    return () => { if (reloadTrigger === 0) clear(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, reloadTrigger]);
 
