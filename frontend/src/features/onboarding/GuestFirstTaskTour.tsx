@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Submission, Task, TaskHint } from '../../types';
 import { getTourContent } from './tourContent';
 import { useAuthStore } from '../../store/auth';
@@ -128,6 +128,17 @@ export default function GuestFirstTaskTour({
   const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
   const [typing, setTyping] = useState(false);
+  // Реальная высота панели — нужна, чтобы не давать панели уехать нижним
+  // краем (кнопками) за пределы экрана, когда подсвеченный блок расположен
+  // в нижней части страницы. Захардкоженный запас в px тут не годится:
+  // высота панели сильно отличается между шагами (текст/число кнопок).
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelHeight, setPanelHeight] = useState(260);
+  useLayoutEffect(() => {
+    if (panelRef.current) {
+      setPanelHeight(panelRef.current.offsetHeight);
+    }
+  });
   // Сабмит, который уже обработан туром — чтобы не реагировать на него повторно.
   const lastHandledSubmissionId = useRef<number | null>(submission?.id ?? null);
   // Ждём, пока после 2-й неверной попытки реально подгрузится подсказка,
@@ -453,7 +464,7 @@ export default function GuestFirstTaskTour({
     const spaceBelow = window.innerHeight - targetRect.top - targetRect.height;
     const spaceAbove = targetRect.top;
     const clampX = (left: number) => Math.min(Math.max(margin, left), window.innerWidth - panelWidth - margin);
-    const clampTop = (top: number) => Math.min(Math.max(margin, top), window.innerHeight - margin - 160);
+    const clampTop = (top: number) => Math.min(Math.max(margin, top), window.innerHeight - margin - panelHeight);
 
     // Приоритет: справа → слева → снизу → сверху → прижать к углу.
     // Панель никогда не должна закрывать саму подсвеченную область.
@@ -522,7 +533,7 @@ export default function GuestFirstTaskTour({
         <div className="fixed inset-0 bg-black/60 pointer-events-auto" />
       )}
 
-      <div className="card fixed shadow-xl pointer-events-auto" style={{ ...panelStyle, zIndex: 10000 }}>
+      <div ref={panelRef} className="card fixed shadow-xl pointer-events-auto" style={{ ...panelStyle, zIndex: 10000 }}>
         <div className="flex items-start gap-3">
           <div className="shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center font-bold">
             {activePanel.icon}
