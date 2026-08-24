@@ -37,7 +37,7 @@ export default function CoursesPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Курсы</h1>
       {isGuest && (
-        <div className="mb-6 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 flex items-center justify-between gap-4">
+        <div className="mb-6 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <span className="text-base leading-none shrink-0">🔒</span>
             <span>

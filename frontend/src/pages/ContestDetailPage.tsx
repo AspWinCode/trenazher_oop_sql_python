@@ -65,7 +65,7 @@ export default function ContestDetailPage() {
   return (
     <div>
       <Link to="/contests" className="text-sm text-primary-600 hover:underline">&larr; Все соревнования</Link>
-      <div className="flex items-start justify-between mt-3 mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 mt-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold">{contest.title}</h1>
           {contest.description && <p className="text-surface-300 mt-1">{contest.description}</p>}
@@ -96,6 +96,7 @@ export default function ContestDetailPage() {
           {leaderboard.length === 0 ? (
             <p className="text-sm text-surface-300">Пока нет участников</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-surface-300">
@@ -116,6 +117,7 @@ export default function ContestDetailPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

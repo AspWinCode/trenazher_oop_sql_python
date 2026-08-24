@@ -153,14 +153,14 @@ function TaskSolver({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Топбар */}
-      <div className="shrink-0 px-6 py-3 border-b border-surface-100 bg-white flex items-center justify-between gap-4">
+      <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-surface-100 bg-white flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-sm font-semibold text-dark-700 truncate">{task.title}</span>
           <span className="badge-blue shrink-0">{task.task_type}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0 text-sm text-surface-400">
           {history.length > 0 && (
-            <span>{completedCount > 0 ? '✅' : '🔄'} {history.length} попыток</span>
+            <span className="hidden sm:inline">{completedCount > 0 ? '✅' : '🔄'} {history.length} попыток</span>
           )}
           <span className="text-surface-300">Задача {taskNumber} из {totalTasks}</span>
         </div>
@@ -168,7 +168,7 @@ function TaskSolver({
 
       {/* Основной контент */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-6 py-5 grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="px-4 sm:px-6 py-5 grid grid-cols-1 xl:grid-cols-2 gap-6">
 
           {/* ── Левая колонка: условие + примеры + подсказки + история ── */}
           <div className="space-y-4">
@@ -268,7 +268,7 @@ function TaskSolver({
           <div className="space-y-3">
             {/* Редактор */}
             <div className="rounded-xl border border-surface-200 overflow-hidden shadow-sm" data-tour="editor">
-              <div className="px-4 py-2.5 bg-dark-900 text-white text-sm font-medium flex items-center justify-between">
+              <div className="px-4 py-2.5 bg-dark-900 text-white text-sm font-medium flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <div className="flex items-center gap-3">
                   <span>Напишите программу{lang !== 'python' ? ` (${lang})` : ''}</span>
                   {draftSavedAt && (
@@ -293,7 +293,7 @@ function TaskSolver({
               </div>
               <CodeEditor value={code} onChange={setCode} language={lang} height="320px" />
               {/* Кнопки сохранения и отправки */}
-              <div className="px-4 py-3 bg-dark-800 border-t border-dark-700 flex items-center gap-3">
+              <div className="px-4 py-3 bg-dark-800 border-t border-dark-700 flex items-center gap-2 sm:gap-3 flex-wrap">
                 <button
                   type="button"
                   onClick={handleSave}
@@ -380,13 +380,13 @@ function TaskSolver({
       </div>
 
       {/* Нижняя панель — только навигация */}
-      <div className="shrink-0 px-6 py-3 border-t border-surface-100 bg-white flex items-center justify-between">
-        <span className="text-xs text-surface-400">Задача {taskNumber} из {totalTasks}</span>
-        <div className="flex items-center gap-2">
-          <button onClick={onPrev} disabled={taskNumber <= 1} className="btn-secondary btn-sm disabled:opacity-40">
+      <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-surface-100 bg-white flex items-center justify-between gap-2">
+        <span className="text-xs text-surface-400 hidden sm:inline">Задача {taskNumber} из {totalTasks}</span>
+        <div className="flex items-center gap-2 flex-1 sm:flex-none">
+          <button onClick={onPrev} disabled={taskNumber <= 1} className="btn-secondary btn-sm disabled:opacity-40 flex-1 sm:flex-none justify-center">
             ← Назад
           </button>
-          <button onClick={onNext} disabled={taskNumber >= totalTasks} className="btn-secondary btn-sm disabled:opacity-40">
+          <button onClick={onNext} disabled={taskNumber >= totalTasks} className="btn-secondary btn-sm disabled:opacity-40 flex-1 sm:flex-none justify-center">
             Вперёд →
           </button>
         </div>
@@ -550,7 +550,7 @@ export default function CourseLearnPage() {
     );
 
   return (
-    <div className="-mx-6 -my-6 lg:-mx-8 lg:-my-8 overflow-hidden bg-surface-50" style={{ height: 'calc(100vh - 0px)' }}>
+    <div className="-mx-4 -my-4 sm:-mx-6 sm:-my-6 lg:-mx-8 lg:-my-8 overflow-hidden bg-surface-50 h-[calc(100vh-3.5rem)] md:h-screen">
       {selectedTaskId && selectedLocked ? (
         <PaymentInlinePage courses={allCourses} />
       ) : selectedTaskId ? (

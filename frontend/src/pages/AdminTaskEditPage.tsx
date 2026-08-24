@@ -624,7 +624,7 @@ export default function AdminTaskEditPage() {
 
         {addingHint && (
           <form onSubmit={handleAddHint} className="border border-primary-200 rounded p-3 bg-primary-50 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium mb-1">Уровень подсказки</label>
                 <input

@@ -29,7 +29,7 @@ export default function ProgressPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Мой прогресс</h1>
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="card text-center">
           <div className="text-3xl font-bold text-primary-600">{solved.length}</div>
           <div className="text-sm text-surface-300 mt-1">Решено</div>
@@ -49,6 +49,7 @@ export default function ProgressPage() {
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-3 text-green-600">✓ Решённые задачи ({solved.length})</h2>
           <div className="card overflow-hidden p-0">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-surface-50 text-left">
@@ -76,6 +77,7 @@ export default function ProgressPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -85,6 +87,7 @@ export default function ProgressPage() {
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-3 text-yellow-600">⏳ В процессе ({inProgress.length})</h2>
           <div className="card overflow-hidden p-0">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-surface-50 text-left">
@@ -112,6 +115,7 @@ export default function ProgressPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -121,6 +125,7 @@ export default function ProgressPage() {
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-3 text-surface-400">📋 Доступные задачи ({available.length})</h2>
           <div className="card overflow-hidden p-0">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-surface-50 text-left">
@@ -141,6 +146,7 @@ export default function ProgressPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

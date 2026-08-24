@@ -26,6 +26,7 @@ export default function LeaderboardPage() {
         <div className="card text-center py-12 text-surface-300">Пока нет данных</div>
       ) : (
         <div className="card overflow-hidden p-0">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-50 text-left">
@@ -50,6 +51,7 @@ export default function LeaderboardPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

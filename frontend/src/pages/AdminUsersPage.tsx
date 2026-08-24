@@ -223,7 +223,7 @@ export default function AdminUsersPage() {
 
       {showCreate && (
         <form onSubmit={handleCreate} className="card mb-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Логин *</label>
               <input className="input" value={form.login} onChange={(e) => setForm({ ...form, login: e.target.value })} required />
@@ -286,6 +286,7 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="card overflow-hidden p-0">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface-50 text-left">
@@ -350,6 +351,7 @@ export default function AdminUsersPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Pagination */}
@@ -443,7 +445,7 @@ export default function AdminUsersPage() {
                 <label className="block text-sm font-medium mb-1">GetCourse ID</label>
                 <input className="input" value={editForm.getcourse_id} onChange={(e) => setEditForm({ ...editForm, getcourse_id: e.target.value })} placeholder="44193033" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Роль</label>
                   <select className="input" value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>
@@ -557,7 +559,7 @@ export default function AdminUsersPage() {
             {statsLoading ? (
               <div className="text-center py-4 text-surface-300">Загрузка...</div>
             ) : stats ? (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="text-center p-3 bg-green-50 rounded-xl border border-green-100">
                   <div className="text-2xl font-bold text-green-700">{stats.solved_tasks}</div>
                   <div className="text-xs text-green-600 mt-1">Решено задач</div>

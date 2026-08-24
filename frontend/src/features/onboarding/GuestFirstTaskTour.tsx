@@ -167,6 +167,16 @@ export default function GuestFirstTaskTour({
     return () => document.body.classList.remove('guest-tour-active');
   }, []);
 
+  // На мобильном сайдбар скрыт за гамбургером — на шаге «sidebar» просим
+  // Layout временно его раскрыть, чтобы подсветка указывала на видимый элемент.
+  useEffect(() => {
+    const isSidebarStep = STEP_TARGET[step] === 'sidebar';
+    window.dispatchEvent(new CustomEvent('guest-tour:sidebar', { detail: isSidebarStep }));
+    return () => {
+      if (isSidebarStep) window.dispatchEvent(new CustomEvent('guest-tour:sidebar', { detail: false }));
+    };
+  }, [step]);
+
   // Пересчитываем позицию спотлайта под текущий шаг.
   useEffect(() => {
     if (!content) return;

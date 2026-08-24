@@ -79,7 +79,7 @@ export default function AdminTasksPage() {
       </div>
       {showCreate && (
         <form onSubmit={handleCreate} className="card mb-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Название</label>
               <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
@@ -100,7 +100,7 @@ export default function AdminTasksPage() {
             <label className="block text-sm font-medium mb-1">Описание</label>
             <textarea className="input" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">ID подмодуля (необязательно)</label>
               <input className="input" type="number" value={form.submodule_id} onChange={(e) => setForm({ ...form, submodule_id: e.target.value })} />
@@ -111,7 +111,7 @@ export default function AdminTasksPage() {
             </div>
           </div>
           {form.task_type === 'sql_query' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">SQL Schema</label>
                 <textarea className="input font-mono text-sm" rows={4} value={form.sql_schema} onChange={(e) => setForm({ ...form, sql_schema: e.target.value })} />
@@ -128,7 +128,7 @@ export default function AdminTasksPage() {
               <button type="button" onClick={addTest} className="text-xs text-primary-600 hover:underline">+ Тест</button>
             </div>
             {form.tests.map((t, i) => (
-              <div key={i} className="grid grid-cols-3 gap-2 mb-2">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
                 <select className="input text-sm" value={t.test_type} onChange={(e) => { const tests = [...form.tests]; tests[i] = { ...t, test_type: e.target.value }; setForm({ ...form, tests }); }}>
                   <option value="public">Public</option>
                   <option value="hidden">Hidden</option>
@@ -144,7 +144,7 @@ export default function AdminTasksPage() {
               <button type="button" onClick={addHint} className="text-xs text-primary-600 hover:underline">+ Подсказка</button>
             </div>
             {form.hints.map((h, i) => (
-              <div key={i} className="grid grid-cols-3 gap-2 mb-2">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
                 <input className="input text-sm" type="number" placeholder="Уровень" value={h.hint_level} onChange={(e) => { const hints = [...form.hints]; hints[i] = { ...h, hint_level: parseInt(e.target.value) || 1 }; setForm({ ...form, hints }); }} />
                 <input className="input text-sm" type="number" placeholder="После N попыток" value={h.unlock_attempts} onChange={(e) => { const hints = [...form.hints]; hints[i] = { ...h, unlock_attempts: parseInt(e.target.value) || 0 }; setForm({ ...form, hints }); }} />
                 <textarea className="input text-sm" rows={2} placeholder="Текст подсказки" value={h.content} onChange={(e) => { const hints = [...form.hints]; hints[i] = { ...h, content: e.target.value }; setForm({ ...form, hints }); }} />
@@ -158,6 +158,7 @@ export default function AdminTasksPage() {
         </form>
       )}
       <div className="card overflow-hidden p-0">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface-50 text-left">
@@ -184,6 +185,7 @@ export default function AdminTasksPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

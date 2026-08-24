@@ -33,7 +33,7 @@ export default function AdminLinksPage() {
       </div>
       {showCreate && (
         <form onSubmit={handleCreate} className="card mb-6 space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Task ID</label>
               <input className="input" type="number" value={form.task_id} onChange={(e) => setForm({ ...form, task_id: e.target.value })} required />
@@ -54,6 +54,7 @@ export default function AdminLinksPage() {
         </form>
       )}
       <div className="card overflow-hidden p-0">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface-50 text-left">
@@ -78,6 +79,7 @@ export default function AdminLinksPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
