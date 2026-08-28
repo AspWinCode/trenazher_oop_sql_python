@@ -42,11 +42,11 @@ function StatusDot({ status }: { status?: 'not_started' | 'in_progress' | 'compl
 }
 
 interface SidebarProps {
-  open?: boolean;
-  onClose?: () => void;
+  // Вызывается после перехода по ссылке/выбора задачи — закрывает мобильный drawer.
+  onNavigate?: () => void;
 }
 
-export default function Sidebar({ open = false, onClose }: SidebarProps) {
+export default function Sidebar({ onNavigate }: SidebarProps) {
   const { user, token, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -99,7 +99,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
 
   // Закрываем мобильный drawer при переходе на другой маршрут.
   useEffect(() => {
-    onClose?.();
+    onNavigate?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
@@ -111,42 +111,18 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const handleSelectTask = (taskId: number) => {
     navigate(`/course/${courseId}?task=${taskId}`);
-    onClose?.();
+    onNavigate?.();
   };
 
   return (
-    <>
-      {/* Затемнение под мобильным выдвижным меню */}
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
-      <aside
-        data-tour="sidebar"
-        className={`w-64 bg-dark-900 text-white flex flex-col fixed inset-y-0 left-0 z-50 overflow-y-auto transform transition-transform duration-200 ease-out
-        ${open ? 'translate-x-0' : '-translate-x-full'}
-        md:translate-x-0 md:static md:sticky md:top-0 md:h-screen`}
-      >
+    <aside data-tour="sidebar" className="sf-sidebar w-64 bg-dark-900 text-white h-screen sticky top-0 flex flex-col overflow-y-auto">
       {/* Логотип */}
-      <div className="p-4 border-b border-dark-700 flex items-center justify-center relative">
+      <div className="p-4 border-b border-dark-700 flex items-center justify-center">
         {logoUrl ? (
           <img src={logoUrl} alt="Logo" className="max-h-12 object-contain" />
         ) : (
           <span className="text-lg font-bold text-white tracking-wide">Платформа</span>
         )}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Закрыть меню"
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-surface-300 hover:bg-dark-700 hover:text-white flex items-center justify-center md:hidden"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
 
       {isCourseMode ? (
@@ -289,7 +265,6 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           {isGuest ? 'Выйти из демо' : 'Выйти'}
         </button>
       </div>
-      </aside>
-    </>
+    </aside>
   );
 }

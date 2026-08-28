@@ -165,7 +165,7 @@ export default function TaskPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="card p-0 overflow-hidden">
+          <div className="sf-editor-card card p-0 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 bg-dark-800 text-white">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium">Решение</span>

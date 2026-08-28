@@ -99,6 +99,13 @@ function TaskSolver({
 
   const { tourSeen, markTourSeen } = useTourSeen();
 
+  // Помечаем html.sf-has-task, пока открыт решатель задачи — на мобильном
+  // это отключает внешние отступы страницы и растягивает вьюпорт на весь экран.
+  useEffect(() => {
+    document.documentElement.classList.add('sf-has-task');
+    return () => document.documentElement.classList.remove('sf-has-task');
+  }, []);
+
   const [saveFlash, setSaveFlash] = useState(false);
   const handleSave = useCallback(() => {
     setCode(code);
@@ -151,9 +158,9 @@ function TaskSolver({
   const completedCount = history.filter((s) => s.verdict === 'AC').length;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="sf-task-shell flex flex-col h-full overflow-hidden">
       {/* Топбар */}
-      <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-surface-100 bg-white flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      <div className="sf-task-header shrink-0 px-4 sm:px-6 py-3 border-b border-surface-100 bg-white flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-sm font-semibold text-dark-700 truncate">{task.title}</span>
           <span className="badge-blue shrink-0">{task.task_type}</span>
@@ -168,7 +175,7 @@ function TaskSolver({
 
       {/* Основной контент */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 sm:px-6 py-5 grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="sf-task-grid px-4 sm:px-6 py-5 grid grid-cols-1 xl:grid-cols-2 gap-6">
 
           {/* ── Левая колонка: условие + примеры + подсказки + история ── */}
           <div className="space-y-4">
@@ -267,8 +274,8 @@ function TaskSolver({
           {/* ── Правая колонка: редактор с кнопкой + результат ── */}
           <div className="space-y-3">
             {/* Редактор */}
-            <div className="rounded-xl border border-surface-200 overflow-hidden shadow-sm" data-tour="editor">
-              <div className="px-4 py-2.5 bg-dark-900 text-white text-sm font-medium flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <div className="sf-editor-card rounded-xl border border-surface-200 overflow-hidden shadow-sm" data-tour="editor">
+              <div className="sf-editor-toolbar px-4 py-2.5 bg-dark-900 text-white text-sm font-medium flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <div className="flex items-center gap-3">
                   <span>Напишите программу{lang !== 'python' ? ` (${lang})` : ''}</span>
                   {draftSavedAt && (
@@ -293,7 +300,7 @@ function TaskSolver({
               </div>
               <CodeEditor value={code} onChange={setCode} language={lang} height="320px" />
               {/* Кнопки сохранения и отправки */}
-              <div className="px-4 py-3 bg-dark-800 border-t border-dark-700 flex items-center gap-2 sm:gap-3 flex-wrap">
+              <div className="sf-editor-actions px-4 py-3 bg-dark-800 border-t border-dark-700 flex items-center gap-2 sm:gap-3 flex-wrap">
                 <button
                   type="button"
                   onClick={handleSave}
@@ -380,7 +387,7 @@ function TaskSolver({
       </div>
 
       {/* Нижняя панель — только навигация */}
-      <div className="shrink-0 px-4 sm:px-6 py-3 border-t border-surface-100 bg-white flex items-center justify-between gap-2">
+      <div className="sf-task-footer shrink-0 px-4 sm:px-6 py-3 border-t border-surface-100 bg-white flex items-center justify-between gap-2">
         <span className="text-xs text-surface-400 hidden sm:inline">Задача {taskNumber} из {totalTasks}</span>
         <div className="flex items-center gap-2 flex-1 sm:flex-none">
           <button onClick={onPrev} disabled={taskNumber <= 1} className="btn-secondary btn-sm disabled:opacity-40 flex-1 sm:flex-none justify-center">
@@ -550,7 +557,7 @@ export default function CourseLearnPage() {
     );
 
   return (
-    <div className="-mx-4 -my-4 sm:-mx-6 sm:-my-6 lg:-mx-8 lg:-my-8 overflow-hidden bg-surface-50 h-[calc(100vh-3.5rem)] md:h-screen">
+    <div className="sf-task-viewport -mx-4 -my-4 sm:-mx-6 sm:-my-6 lg:-mx-8 lg:-my-8 overflow-hidden bg-surface-50 h-[calc(100vh-3.5rem)] md:h-screen">
       {selectedTaskId && selectedLocked ? (
         <PaymentInlinePage courses={allCourses} />
       ) : selectedTaskId ? (

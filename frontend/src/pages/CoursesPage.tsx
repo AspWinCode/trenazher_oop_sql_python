@@ -37,7 +37,7 @@ export default function CoursesPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Курсы</h1>
       {isGuest && (
-        <div className="mb-6 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="sf-course-banner mb-6 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <span className="text-base leading-none shrink-0">🔒</span>
             <span>
@@ -58,7 +58,7 @@ export default function CoursesPage() {
           {isGuest ? 'Для гостевого режима пока не открыт ни один курс' : 'Курсы пока не добавлены'}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" data-tour="course-cards">
+        <div className="sf-course-cards grid gap-4 md:grid-cols-2 lg:grid-cols-3" data-tour="course-cards">
           {courses.map((c) => {
             const p = progressMap[c.id];
             const total = p?.total_tasks_count ?? 0;

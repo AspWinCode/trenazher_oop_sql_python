@@ -503,6 +503,196 @@ body.guest-tour-active .sf-demo-banner {
   .sf-demo-banner__button svg { transition: none !important; }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   МОБИЛЬНАЯ/ПЛАНШЕТНАЯ АДАПТАЦИЯ ОСНОВНОГО КАРКАСА (сайдбар + шапка)
+   ═══════════════════════════════════════════════════════════════ */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.sf-shell {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+
+.sf-sidebar {
+  width: 256px !important;
+  flex: 0 0 256px !important;
+  min-width: 0 !important;
+  transition:
+    margin-left .24s ease,
+    transform .24s ease,
+    width .24s ease,
+    flex-basis .24s ease;
+  z-index: 1001;
+}
+
+.sf-main {
+  min-width: 0 !important;
+  width: calc(100% - 256px);
+  transition: width .24s ease;
+}
+
+.sf-main > .max-w-7xl {
+  width: 100% !important;
+  max-width: 1600px !important;
+}
+
+/* ── Свёрнутый сайдбар — десктоп ── */
+
+.sf-shell.sf-sidebar-collapsed > .sf-sidebar {
+  margin-left: -256px !important;
+}
+
+.sf-shell.sf-sidebar-collapsed > .sf-main {
+  width: 100% !important;
+}
+
+/* ── Плавающая кнопка меню ── */
+
+#sf-sidebar-toggle {
+  position: fixed;
+  top: 12px;
+  left: 268px;
+  z-index: 1102;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 12px;
+  background: #111827;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+  cursor: pointer;
+  transition:
+    left .24s ease,
+    transform .15s ease,
+    background .15s ease;
+}
+#sf-sidebar-toggle:hover { background: #1f2937; }
+#sf-sidebar-toggle:active { transform: scale(.96); }
+#sf-sidebar-toggle svg { width: 21px; height: 21px; }
+
+/* ── Затемнение под мобильным меню ── */
+
+#sf-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, .46);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .22s ease, visibility .22s ease;
+}
+#sf-sidebar-overlay.sf-show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* ── Задача ── */
+
+.sf-task-grid { min-width: 0; }
+.sf-task-grid > * { min-width: 0; }
+.sf-editor-card { min-width: 0; }
+.sf-editor-card .monaco-editor { max-width: 100% !important; }
+
+/* ── Небольшие ноутбуки ── */
+
+@media (max-width: 1180px) and (min-width: 901px) {
+  .sf-sidebar { width: 220px !important; flex-basis: 220px !important; }
+  .sf-main { width: calc(100% - 220px); }
+  .sf-shell.sf-sidebar-collapsed > .sf-sidebar { margin-left: -220px !important; }
+}
+
+/* ── Условие + редактор в одну колонку ── */
+
+@media (max-width: 1279px) {
+  .sf-task-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* ── Мобильная версия ── */
+
+@media (max-width: 900px) {
+  .sf-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: min(86vw, 320px) !important;
+    max-width: 320px !important;
+    height: 100dvh !important;
+    flex-basis: auto !important;
+    margin-left: 0 !important;
+    transform: translateX(-103%);
+    box-shadow: 18px 0 45px rgba(15, 23, 42, .22);
+  }
+  .sf-shell.sf-mobile-open > .sf-sidebar { transform: translateX(0); }
+
+  .sf-main,
+  .sf-shell.sf-sidebar-collapsed > .sf-main {
+    width: 100% !important;
+  }
+
+  /* Обычные страницы: сверху оставляем место под кнопку меню. */
+  .sf-main > .max-w-7xl {
+    max-width: 100% !important;
+    padding: 68px 16px 20px !important;
+  }
+
+  /* Страница задачи: используем весь экран. */
+  html.sf-has-task .sf-main > .max-w-7xl { padding: 0 !important; }
+  html.sf-has-task .sf-task-viewport {
+    margin: 0 !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+  }
+
+  .sf-task-header {
+    min-height: 62px;
+    padding: 10px 14px 10px 64px !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 7px 12px !important;
+  }
+  .sf-task-header > div { min-width: 0; }
+
+  .sf-task-grid {
+    padding: 14px !important;
+    gap: 16px !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .sf-task-footer { padding: 10px 14px !important; gap: 8px !important; }
+
+  .sf-editor-toolbar,
+  .sf-editor-actions { flex-wrap: wrap !important; }
+  .sf-editor-actions > button { min-height: 40px; }
+
+  .sf-course-banner { flex-direction: column !important; align-items: stretch !important; }
+  .sf-course-banner > button { width: 100%; }
+  .sf-course-cards { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* ── Маленькие телефоны ── */
+
+@media (max-width: 520px) {
+  .sf-task-header .badge-blue,
+  .sf-task-header .badge-green { font-size: 11px !important; }
+
+  .sf-task-footer > span { display: none !important; }
+  .sf-task-footer > div { width: 100%; display: grid !important; grid-template-columns: 1fr 1fr; }
+  .sf-task-footer button { width: 100%; justify-content: center; }
+}
+
 @layer base {
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
