@@ -575,14 +575,14 @@ export default function GuestFirstTaskTour({
           />
         )}
 
-        <div className="mt-4 ml-12 flex gap-2">
+        <div className="mt-4 ml-12 flex flex-col sm:flex-row gap-2">
           {activePanel.actions.map((a) => (
             <button
               key={a.id}
               type="button"
               disabled={typing || waiting}
               onClick={() => handleAction(a.id)}
-              className={`flex-1 justify-center whitespace-nowrap ${a.primary ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}`}
+              className={`w-full sm:flex-1 justify-center whitespace-normal sm:whitespace-nowrap ${a.primary ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}`}
             >
               {a.label}
             </button>
