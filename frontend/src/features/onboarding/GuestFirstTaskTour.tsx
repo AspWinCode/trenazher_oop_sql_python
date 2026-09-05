@@ -190,7 +190,16 @@ export default function GuestFirstTaskTour({
       if (el && !scrolledIntoView && targetName !== 'sidebar') {
         scrolledIntoView = true;
         try {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          if (window.innerWidth <= 760) {
+            // На мобильном панель подсказки прижата к низу экрана и может
+            // занимать до 60% высоты — центрирование увело бы цель прямо
+            // под неё. Вместо этого подводим цель к верхней части экрана.
+            const targetTop = window.innerHeight * 0.1;
+            const delta = el.getBoundingClientRect().top - targetTop;
+            if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
+          } else {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          }
         } catch {
           el.scrollIntoView();
         }

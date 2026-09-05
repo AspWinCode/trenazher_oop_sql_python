@@ -48,7 +48,20 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
   useEffect(() => {
     if (!visible) return;
-    const update = () => setRect(getTargetRect('course-cards'));
+    let scrolledIntoView = false;
+    const update = () => {
+      const el = document.querySelector('[data-tour="course-cards"]');
+      // На мобильном панель прижата к низу экрана и может занимать заметную
+      // часть высоты — если карточки курсов расположены ниже верхней трети
+      // экрана, панель их закроет. Один раз подводим их повыше.
+      if (el && !scrolledIntoView && window.innerWidth <= 760) {
+        scrolledIntoView = true;
+        const targetTop = window.innerHeight * 0.12;
+        const delta = el.getBoundingClientRect().top - targetTop;
+        if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
+      }
+      setRect(getTargetRect('course-cards'));
+    };
     update();
     const interval = window.setInterval(update, 200);
     window.addEventListener('resize', update);
@@ -98,7 +111,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
       <div
         className="card fixed shadow-xl pointer-events-auto"
-        style={{ left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', zIndex: 10000 }}
+        style={{ left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10000 }}
       >
         <div className="flex items-start gap-3">
           <div className="shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center font-bold">
