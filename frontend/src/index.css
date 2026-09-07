@@ -628,6 +628,19 @@ body {
   .sf-task-grid { grid-template-columns: minmax(0, 1fr) !important; }
 }
 
+/* ── Вьюпорт задачи на десктопе/планшете (>900px) ──
+   .sf-task-viewport выходит из отступов .max-w-7xl через отрицательные
+   margin (-my-4/-my-6/-my-8), которые гасят ТОЛЬКО «родной» Tailwind-отступ
+   (p-4/p-6/p-8). Добавленный сверху padding-top:64px под кнопку меню они
+   не компенсируют — при h-screen (100vh) вьюпорт проваливается за нижний
+   край экрана ровно на разницу. Явно вычитаем её из высоты по брейкпоинтам. */
+@media (min-width: 901px) {
+  .sf-task-viewport { height: calc(100vh - 32px) !important; }
+}
+@media (min-width: 901px) and (max-width: 1023.98px) {
+  .sf-task-viewport { height: calc(100vh - 40px) !important; }
+}
+
 /* ── Мобильная версия ── */
 
 @media (max-width: 900px) {

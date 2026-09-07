@@ -10,10 +10,20 @@ const MENU_ICON = 'M4 7h16M4 12h16M4 17h16';
 const CLOSE_ICON = 'M6 6l12 12M18 6L6 18';
 const COLLAPSE_ICON = 'M14.5 6l-6 6 6 6';
 
-// Просим Monaco (automaticLayout: true) пересчитать раскладку после того,
-// как CSS-переход сайдбара (.24s) завершится — иначе редактор может
-// остаться со старой шириной контейнера.
+// Просим Monaco пересчитать раскладку после того, как CSS-переход сайдбара
+// (.24s) завершится — иначе редактор может остаться со старой шириной
+// контейнера. automaticLayout:true у самого редактора реагирует на resize
+// с задержкой (внутренний таймер), поэтому дополнительно дёргаем layout()
+// у всех активных инстансов напрямую — так же, как это делает monaco-editor
+// при явном вызове (window.monaco выставляется загрузчиком @monaco-editor/react).
 function relayoutEditors() {
+  try {
+    (window as unknown as { monaco?: { editor?: { getEditors?: () => { layout: () => void }[] } } })
+      .monaco?.editor?.getEditors?.()
+      .forEach((editor) => editor.layout());
+  } catch {
+    /* монако может быть ещё не загружен — тогда просто полагаемся на resize ниже */
+  }
   window.dispatchEvent(new Event('resize'));
 }
 
@@ -69,6 +79,36 @@ export default function Layout() {
     setMobileOpen(false);
     setTimeout(relayoutEditors, 260);
   };
+
+  // Esc закрывает мобильный drawer.
+  useEffect(() => {
+    if (!isMobile || !mobileOpen) return;
+    const onKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeMobile();
+    };
+    document.addEventListener('keydown', onKeydown);
+    return () => document.removeEventListener('keydown', onKeydown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, mobileOpen]);
+
+  // Клик на любую ссылку/кнопку внутри открытого мобильного сайдбара
+  // закрывает drawer сразу — не дожидаясь смены маршрута (например, для
+  // «Выйти», где сначала показывается confirm()).
+  useEffect(() => {
+    if (!isMobile || !mobileOpen) return;
+    const onDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const sidebarEl = document.querySelector('[data-tour="sidebar"]');
+      if (!target || !sidebarEl?.contains(target)) return;
+      const actionable = target.closest('a, button');
+      if (actionable && actionable.id !== 'sf-sidebar-toggle') {
+        setTimeout(closeMobile, 80);
+      }
+    };
+    document.addEventListener('click', onDocumentClick, true);
+    return () => document.removeEventListener('click', onDocumentClick, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, mobileOpen]);
 
   const handleToggle = () => {
     if (isMobile) setMobileOpen((v) => !v);
