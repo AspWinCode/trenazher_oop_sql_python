@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Course } from '../../types';
 import { useTourSeen } from './useTourSeen';
@@ -12,7 +12,8 @@ interface Rect {
 
 // Подсвечиваем реально занятую детьми область, а не весь grid-контейнер —
 // иначе при 2 карточках в 3-колоночной сетке рамка захватывает пустое место справа.
-function getTargetRect(name: string): Rect | null {
+// maxBottom обрезает рамку по видимой над панелью области (см. GuestFirstTaskTour).
+function getTargetRect(name: string, maxBottom: number = window.innerHeight - 4): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
   const children = Array.from(el.children) as HTMLElement[];
@@ -26,7 +27,7 @@ function getTargetRect(name: string): Rect | null {
   const left = Math.max(4, left0 - padding);
   const top = Math.max(4, top0 - padding);
   const right = Math.min(window.innerWidth - 4, right0 + padding);
-  const bottom = Math.min(window.innerHeight - 4, bottom0 + padding);
+  const bottom = Math.min(maxBottom, bottom0 + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
 }
@@ -40,6 +41,13 @@ export default function GuestWelcomeStep({ courses }: Props) {
   const { tourSeen, markTourSeen } = useTourSeen();
   const [dismissed, setDismissed] = useState(false);
   const [rect, setRect] = useState<Rect | null>(null);
+  // Высота панели — нужна, чтобы обрезать рамку подсветки по видимой
+  // над панелью области (панель прижата к низу на мобильном).
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelHeightRef = useRef(220);
+  useLayoutEffect(() => {
+    if (panelRef.current) panelHeightRef.current = panelRef.current.offsetHeight;
+  });
 
   const pythonCourse = useMemo(() => courses.find((c) => /python/i.test(c.title)), [courses]);
   const sqlCourse = useMemo(() => courses.find((c) => /sql/i.test(c.title)), [courses]);
@@ -60,7 +68,10 @@ export default function GuestWelcomeStep({ courses }: Props) {
         const delta = el.getBoundingClientRect().top - targetTop;
         if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
       }
-      setRect(getTargetRect('course-cards'));
+      const maxBottom = window.innerWidth <= 760
+        ? Math.max(80, window.innerHeight - 16 - panelHeightRef.current - 10)
+        : window.innerHeight - 4;
+      setRect(getTargetRect('course-cards', maxBottom));
     };
     update();
     const interval = window.setInterval(update, 200);
@@ -110,11 +121,12 @@ export default function GuestWelcomeStep({ courses }: Props) {
       )}
 
       <div
+        ref={panelRef}
         className="card fixed shadow-xl pointer-events-auto"
         style={{ left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10000 }}
       >
         <div className="flex items-start gap-3">
-          <div className="shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center font-bold">
+          <div className="hidden sm:flex shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 items-center justify-center font-bold">
             {'</>'}
           </div>
           <div className="min-w-0 flex-1">
@@ -133,24 +145,24 @@ export default function GuestWelcomeStep({ courses }: Props) {
           </button>
         </div>
 
-        <div className="mt-3 ml-12 text-sm text-surface-500 leading-relaxed">
+        <div className="mt-3 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug sm:leading-relaxed">
           Сейчас вам доступна демо-версия курсов Python и SQL: можно открыть часть практических задач
           и посмотреть, как устроено обучение. Выберите направление — дальше вы увидите, как открыть
           задачу, написать решение и проверить результат.
         </div>
 
-        <div className="mt-4 ml-12 flex flex-wrap gap-2">
+        <div className="mt-4 ml-0 sm:ml-12 flex flex-col sm:flex-row gap-2">
           {pythonCourse && (
-            <button type="button" onClick={() => pick(pythonCourse)} className="btn-primary btn-sm whitespace-nowrap">
+            <button type="button" onClick={() => pick(pythonCourse)} className="w-full sm:flex-1 justify-center btn-primary btn-sm whitespace-normal sm:whitespace-nowrap">
               Перейти к Python
             </button>
           )}
           {sqlCourse && (
-            <button type="button" onClick={() => pick(sqlCourse)} className="btn-secondary btn-sm whitespace-nowrap">
+            <button type="button" onClick={() => pick(sqlCourse)} className="w-full sm:flex-1 justify-center btn-secondary btn-sm whitespace-normal sm:whitespace-nowrap">
               Перейти к SQL
             </button>
           )}
-          <button type="button" onClick={skip} className="btn-secondary btn-sm whitespace-nowrap">
+          <button type="button" onClick={skip} className="w-full sm:flex-1 justify-center btn-secondary btn-sm whitespace-normal sm:whitespace-nowrap">
             Разобраться самостоятельно
           </button>
         </div>

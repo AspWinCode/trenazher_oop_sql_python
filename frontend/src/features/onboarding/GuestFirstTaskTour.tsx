@@ -71,7 +71,11 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;');
 }
 
-function getTargetRect(name: string): Rect | null {
+// maxBottom позволяет обрезать рамку подсветки по видимой области экрана —
+// на мобильном панель с подсказкой прижата к низу и может закрывать нижнюю
+// часть длинного блока; вместо рамки, уходящей под панель, показываем ровно
+// ту часть блока, что реально видна над панелью.
+function getTargetRect(name: string, maxBottom: number = window.innerHeight - 4): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
   const r = el.getBoundingClientRect();
@@ -80,7 +84,7 @@ function getTargetRect(name: string): Rect | null {
   const left = Math.max(4, r.left - padding);
   const top = Math.max(4, r.top - padding);
   const right = Math.min(window.innerWidth - 4, r.right + padding);
-  const bottom = Math.min(window.innerHeight - 4, r.bottom + padding);
+  const bottom = Math.min(maxBottom, r.bottom + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
 }
@@ -134,9 +138,15 @@ export default function GuestFirstTaskTour({
   // высота панели сильно отличается между шагами (текст/число кнопок).
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelHeight, setPanelHeight] = useState(260);
+  // Дублируем высоту панели в ref — она нужна внутри интервала пересчёта
+  // спотлайта (замыкание эффекта не пересоздаётся при каждом её изменении,
+  // а ref всегда отдаёт актуальное значение).
+  const panelHeightRef = useRef(260);
   useLayoutEffect(() => {
     if (panelRef.current) {
-      setPanelHeight(panelRef.current.offsetHeight);
+      const h = panelRef.current.offsetHeight;
+      setPanelHeight(h);
+      panelHeightRef.current = h;
     }
   });
   // Сабмит, который уже обработан туром — чтобы не реагировать на него повторно.
@@ -204,7 +214,12 @@ export default function GuestFirstTaskTour({
           el.scrollIntoView();
         }
       }
-      setRect(getTargetRect(targetName));
+      // На мобильном обрезаем рамку по границе панели — не даём ей уходить
+      // под неё, если блок выше, чем свободное место над панелью.
+      const maxBottom = window.innerWidth <= 760
+        ? Math.max(80, window.innerHeight - 16 - panelHeightRef.current - 10)
+        : window.innerHeight - 4;
+      setRect(getTargetRect(targetName, maxBottom));
     };
     update();
     const interval = window.setInterval(update, 200);
@@ -554,7 +569,7 @@ export default function GuestFirstTaskTour({
 
       <div ref={panelRef} className="card fixed shadow-xl pointer-events-auto" style={{ ...panelStyle, zIndex: 10000 }}>
         <div className="flex items-start gap-3">
-          <div className="shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center font-bold">
+          <div className="hidden sm:flex shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 items-center justify-center font-bold">
             {activePanel.icon}
           </div>
           <div className="min-w-0 flex-1">
@@ -574,17 +589,17 @@ export default function GuestFirstTaskTour({
         </div>
 
         {typing ? (
-          <div className="mt-3 ml-12 text-sm text-surface-500 leading-relaxed">
+          <div className="mt-3 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug sm:leading-relaxed">
             Помощник печатает код в редакторе…
           </div>
         ) : (
           <div
-            className="mt-3 ml-12 text-sm text-surface-500 leading-relaxed [&_strong]:text-dark-700 [&_strong]:font-semibold"
+            className="mt-3 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug sm:leading-relaxed [&_strong]:text-dark-700 [&_strong]:font-semibold"
             dangerouslySetInnerHTML={{ __html: activePanel.body }}
           />
         )}
 
-        <div className="mt-4 ml-12 flex flex-col sm:flex-row gap-2">
+        <div className="mt-4 ml-0 sm:ml-12 flex flex-col sm:flex-row gap-2">
           {activePanel.actions.map((a) => (
             <button
               key={a.id}
