@@ -71,10 +71,6 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;');
 }
 
-// maxBottom позволяет обрезать рамку подсветки по видимой области экрана —
-// на мобильном панель с подсказкой прижата к низу и может закрывать нижнюю
-// часть длинного блока; вместо рамки, уходящей под панель, показываем ровно
-// ту часть блока, что реально видна над панелью.
 function getTargetRect(name: string, maxBottom: number = window.innerHeight - 4): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
@@ -192,15 +188,25 @@ export default function GuestFirstTaskTour({
       const mobile = window.innerWidth <= 760;
       const marginTop = 12;
 
+      if (!mobile) {
+        setMobilePanelTop(null);
+      }
+
       // Прокручиваем к цели один раз, как только она появится в DOM —
       // иначе спотлайт и панель считаются от элемента, скрытого за краем
       // экрана. На мобильном подсвеченному блоку отдаём приоритет: подводим
-      // его верх к отступу сверху, панель встанет под ним (см. ниже).
+      // его верх к отступу сверху, а панель ставим сразу под ним — в
+      // координатах документа, так страница становится выше и просто
+      // скроллится целиком, без обрезки и без прокрутки внутри панели.
       if (el && !scrolledIntoView && targetName !== 'sidebar') {
         scrolledIntoView = true;
         try {
           if (mobile) {
-            const delta = el.getBoundingClientRect().top - marginTop;
+            const gap = 10;
+            const r = el.getBoundingClientRect();
+            const delta = r.top - marginTop;
+            const docTop = window.scrollY + delta + marginTop + r.height + gap;
+            setMobilePanelTop(docTop);
             if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
           } else {
             el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
@@ -210,24 +216,7 @@ export default function GuestFirstTaskTour({
         }
       }
 
-      if (mobile) {
-        const r = el ? el.getBoundingClientRect() : null;
-        // Панель встаёт прямо под подсвеченным блоком, но не сжимается
-        // меньше минимума — если блок не помещается целиком, лишнее
-        // обрезаем по границе панели (а не наоборот).
-        const gap = 10;
-        const marginBottom = 16;
-        const minPanelHeight = 170;
-        const maxPanelTop = window.innerHeight - marginBottom - minPanelHeight;
-        let panelTop = r ? r.bottom + gap : window.innerHeight * 0.5;
-        if (panelTop > maxPanelTop) panelTop = maxPanelTop;
-        panelTop = Math.max(marginTop, panelTop);
-        setMobilePanelTop(panelTop);
-        setRect(getTargetRect(targetName, panelTop - gap));
-      } else {
-        setMobilePanelTop(null);
-        setRect(getTargetRect(targetName));
-      }
+      setRect(getTargetRect(targetName));
     };
     update();
     const interval = window.setInterval(update, 200);
@@ -496,8 +485,11 @@ export default function GuestFirstTaskTour({
   if (!activePanel) return null;
 
   const panelWidth = 480;
+  // На мобильном (mobilePanelTop не null) панель — absolute в координатах
+  // документа: часть потока страницы сразу под подсвеченным блоком, без
+  // internal-скролла. Иначе — прежнее fixed-позиционирование.
   let panelStyle: React.CSSProperties = mobilePanelTop !== null
-    ? { position: 'fixed', left: 16, right: 16, top: mobilePanelTop, width: 'auto', maxHeight: `calc(100vh - ${mobilePanelTop}px - 16px)`, overflowY: 'auto' }
+    ? { position: 'absolute', left: 16, right: 16, top: mobilePanelTop, width: 'auto' }
     : { position: 'fixed', left: 16, right: 16, bottom: 16, width: 'auto', maxHeight: '60vh', overflowY: 'auto' };
 
   if (targetRect && window.innerWidth > 760) {
@@ -561,23 +553,28 @@ export default function GuestFirstTaskTour({
   }
 
   return (
-    <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
-      {targetRect ? (
-        <>
-          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, targetRect.top) }} />
-          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: 0, width: Math.max(0, targetRect.left), height: targetRect.height }} />
-          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: targetRect.left + targetRect.width, width: Math.max(0, window.innerWidth - targetRect.left - targetRect.width), height: targetRect.height }} />
-          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top + targetRect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - targetRect.top - targetRect.height) }} />
-          <div
-            className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none transition-all duration-150"
-            style={{ top: targetRect.top, left: targetRect.left, width: targetRect.width, height: targetRect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
-          />
-        </>
-      ) : (
-        <div className="fixed inset-0 bg-black/60 pointer-events-auto" />
-      )}
+    <>
+      <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
+        {targetRect ? (
+          <>
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, targetRect.top) }} />
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: 0, width: Math.max(0, targetRect.left), height: targetRect.height }} />
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: targetRect.left + targetRect.width, width: Math.max(0, window.innerWidth - targetRect.left - targetRect.width), height: targetRect.height }} />
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top + targetRect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - targetRect.top - targetRect.height) }} />
+            <div
+              className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none transition-all duration-150"
+              style={{ top: targetRect.top, left: targetRect.left, width: targetRect.width, height: targetRect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
+            />
+          </>
+        ) : (
+          <div className="fixed inset-0 bg-black/60 pointer-events-auto" />
+        )}
+      </div>
 
-      <div ref={panelRef} className="card fixed shadow-xl pointer-events-auto" style={{ ...panelStyle, zIndex: 10000 }}>
+      {/* Панель вынесена из фиксированной обёртки: на мобильном она absolute
+          в координатах документа и должна расти вместе с его высотой, а не
+          быть ограничена контейнером position:fixed (тот всегда = вьюпорту). */}
+      <div ref={panelRef} className="card shadow-xl pointer-events-auto" style={{ ...panelStyle, zIndex: 10060 }}>
         <div className="flex items-start gap-3">
           <div className="hidden sm:flex shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 items-center justify-center font-bold">
             {activePanel.icon}
@@ -623,6 +620,6 @@ export default function GuestFirstTaskTour({
           ))}
         </div>
       </div>
-    </div>
+    </>
   );
 }
