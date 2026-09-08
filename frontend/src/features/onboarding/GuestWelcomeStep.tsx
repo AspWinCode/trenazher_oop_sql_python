@@ -59,13 +59,21 @@ export default function GuestWelcomeStep({ courses }: Props) {
     let scrolledIntoView = false;
     const update = () => {
       const el = document.querySelector('[data-tour="course-cards"]');
-      // На мобильном панель прижата к низу экрана и может занимать заметную
-      // часть высоты — если карточки курсов расположены ниже верхней трети
-      // экрана, панель их закроет. Один раз подводим их повыше.
+      // На мобильном панель прижата к низу экрана — подбираем прокрутку так,
+      // чтобы нижний край карточек встал прямо над панелью: тогда карточки
+      // и панель одновременно целиком помещаются на экране (как будто чуть
+      // доскроллили вниз), а не перекрываются. Если карточек выше, чем есть
+      // места, — прижимаем верх блока к отступу сверху (остаток обрезается
+      // по границе панели в getTargetRect).
       if (el && !scrolledIntoView && window.innerWidth <= 760) {
         scrolledIntoView = true;
-        const targetTop = window.innerHeight * 0.12;
-        const delta = el.getBoundingClientRect().top - targetTop;
+        const marginTop = 12;
+        const gapAbovePanel = 10;
+        const availableBottom = window.innerHeight - 16 - panelHeightRef.current - gapAbovePanel;
+        const r = el.getBoundingClientRect();
+        let delta = r.bottom - availableBottom;
+        const maxDelta = r.top - marginTop;
+        if (delta > maxDelta) delta = maxDelta;
         if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
       }
       const maxBottom = window.innerWidth <= 760

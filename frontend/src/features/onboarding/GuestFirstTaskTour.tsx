@@ -201,11 +201,20 @@ export default function GuestFirstTaskTour({
         scrolledIntoView = true;
         try {
           if (window.innerWidth <= 760) {
-            // На мобильном панель подсказки прижата к низу экрана и может
-            // занимать до 60% высоты — центрирование увело бы цель прямо
-            // под неё. Вместо этого подводим цель к верхней части экрана.
-            const targetTop = window.innerHeight * 0.1;
-            const delta = el.getBoundingClientRect().top - targetTop;
+            // На мобильном панель подсказки прижата к низу экрана — вместо
+            // жёсткого «подвести цель к 10% от верха» подбираем прокрутку
+            // так, чтобы нижний край цели встал прямо над панелью — тогда
+            // блок и панель одновременно целиком помещаются на экране
+            // (пользователь как будто немного «доскроллил» вниз). Если блок
+            // выше, чем есть места, — прижимаем его верх к отступу сверху
+            // (остаток по-прежнему обрезается по границе панели ниже).
+            const marginTop = 12;
+            const gapAbovePanel = 10;
+            const availableBottom = window.innerHeight - 16 - panelHeightRef.current - gapAbovePanel;
+            const r = el.getBoundingClientRect();
+            let delta = r.bottom - availableBottom;
+            const maxDelta = r.top - marginTop;
+            if (delta > maxDelta) delta = maxDelta;
             if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
           } else {
             el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
