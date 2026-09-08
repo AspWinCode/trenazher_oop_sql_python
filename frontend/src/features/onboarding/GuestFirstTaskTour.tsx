@@ -132,23 +132,17 @@ export default function GuestFirstTaskTour({
   const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
   const [typing, setTyping] = useState(false);
-  // Реальная высота панели — нужна, чтобы не давать панели уехать нижним
-  // краем (кнопками) за пределы экрана, когда подсвеченный блок расположен
-  // в нижней части страницы. Захардкоженный запас в px тут не годится:
-  // высота панели сильно отличается между шагами (текст/число кнопок).
+  // Реальная высота панели — нужна для позиционирования на десктопе (панель
+  // рядом с целью, не должна вылезать за низ экрана).
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelHeight, setPanelHeight] = useState(260);
-  // Дублируем высоту панели в ref — она нужна внутри интервала пересчёта
-  // спотлайта (замыкание эффекта не пересоздаётся при каждом её изменении,
-  // а ref всегда отдаёт актуальное значение).
-  const panelHeightRef = useRef(260);
   useLayoutEffect(() => {
-    if (panelRef.current) {
-      const h = panelRef.current.offsetHeight;
-      setPanelHeight(h);
-      panelHeightRef.current = h;
-    }
+    if (panelRef.current) setPanelHeight(panelRef.current.offsetHeight);
   });
+  // На мобильном подсвеченному блоку отдаём приоритет по видимости — панель
+  // встаёт прямо под ним и подстраивается под оставшееся место (см. update()
+  // ниже). null = обычное позиционирование (десктоп/планшет).
+  const [mobilePanelTop, setMobilePanelTop] = useState<number | null>(null);
   // Сабмит, который уже обработан туром — чтобы не реагировать на него повторно.
   const lastHandledSubmissionId = useRef<number | null>(submission?.id ?? null);
   // Ждём, пока после 2-й неверной попытки реально подгрузится подсказка,
@@ -195,26 +189,18 @@ export default function GuestFirstTaskTour({
 
     const update = () => {
       const el = document.querySelector(`[data-tour="${targetName}"]`) as HTMLElement | null;
+      const mobile = window.innerWidth <= 760;
+      const marginTop = 12;
+
       // Прокручиваем к цели один раз, как только она появится в DOM —
-      // иначе спотлайт и панель считаются от элемента, скрытого за краем экрана.
+      // иначе спотлайт и панель считаются от элемента, скрытого за краем
+      // экрана. На мобильном подсвеченному блоку отдаём приоритет: подводим
+      // его верх к отступу сверху, панель встанет под ним (см. ниже).
       if (el && !scrolledIntoView && targetName !== 'sidebar') {
         scrolledIntoView = true;
         try {
-          if (window.innerWidth <= 760) {
-            // На мобильном панель подсказки прижата к низу экрана — вместо
-            // жёсткого «подвести цель к 10% от верха» подбираем прокрутку
-            // так, чтобы нижний край цели встал прямо над панелью — тогда
-            // блок и панель одновременно целиком помещаются на экране
-            // (пользователь как будто немного «доскроллил» вниз). Если блок
-            // выше, чем есть места, — прижимаем его верх к отступу сверху
-            // (остаток по-прежнему обрезается по границе панели ниже).
-            const marginTop = 12;
-            const gapAbovePanel = 10;
-            const availableBottom = window.innerHeight - 16 - panelHeightRef.current - gapAbovePanel;
-            const r = el.getBoundingClientRect();
-            let delta = r.bottom - availableBottom;
-            const maxDelta = r.top - marginTop;
-            if (delta > maxDelta) delta = maxDelta;
+          if (mobile) {
+            const delta = el.getBoundingClientRect().top - marginTop;
             if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
           } else {
             el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
@@ -223,12 +209,25 @@ export default function GuestFirstTaskTour({
           el.scrollIntoView();
         }
       }
-      // На мобильном обрезаем рамку по границе панели — не даём ей уходить
-      // под неё, если блок выше, чем свободное место над панелью.
-      const maxBottom = window.innerWidth <= 760
-        ? Math.max(80, window.innerHeight - 16 - panelHeightRef.current - 10)
-        : window.innerHeight - 4;
-      setRect(getTargetRect(targetName, maxBottom));
+
+      if (mobile) {
+        const r = el ? el.getBoundingClientRect() : null;
+        // Панель встаёт прямо под подсвеченным блоком, но не сжимается
+        // меньше минимума — если блок не помещается целиком, лишнее
+        // обрезаем по границе панели (а не наоборот).
+        const gap = 10;
+        const marginBottom = 16;
+        const minPanelHeight = 170;
+        const maxPanelTop = window.innerHeight - marginBottom - minPanelHeight;
+        let panelTop = r ? r.bottom + gap : window.innerHeight * 0.5;
+        if (panelTop > maxPanelTop) panelTop = maxPanelTop;
+        panelTop = Math.max(marginTop, panelTop);
+        setMobilePanelTop(panelTop);
+        setRect(getTargetRect(targetName, panelTop - gap));
+      } else {
+        setMobilePanelTop(null);
+        setRect(getTargetRect(targetName));
+      }
     };
     update();
     const interval = window.setInterval(update, 200);
@@ -497,7 +496,9 @@ export default function GuestFirstTaskTour({
   if (!activePanel) return null;
 
   const panelWidth = 480;
-  let panelStyle: React.CSSProperties = { position: 'fixed', left: 16, right: 16, bottom: 16, width: 'auto', maxHeight: '60vh', overflowY: 'auto' };
+  let panelStyle: React.CSSProperties = mobilePanelTop !== null
+    ? { position: 'fixed', left: 16, right: 16, top: mobilePanelTop, width: 'auto', maxHeight: `calc(100vh - ${mobilePanelTop}px - 16px)`, overflowY: 'auto' }
+    : { position: 'fixed', left: 16, right: 16, bottom: 16, width: 'auto', maxHeight: '60vh', overflowY: 'auto' };
 
   if (targetRect && window.innerWidth > 760) {
     const gap = 16;

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Course } from '../../types';
 import { useTourSeen } from './useTourSeen';
@@ -41,13 +41,12 @@ export default function GuestWelcomeStep({ courses }: Props) {
   const { tourSeen, markTourSeen } = useTourSeen();
   const [dismissed, setDismissed] = useState(false);
   const [rect, setRect] = useState<Rect | null>(null);
-  // Высота панели — нужна, чтобы обрезать рамку подсветки по видимой
-  // над панелью области (панель прижата к низу на мобильном).
+  // На мобильном панель не занимает жёстко половину экрана снизу — она
+  // подстраивается под то, сколько места осталось под подсвеченным блоком
+  // (курсам отдаётся приоритет по видимости). null = обычное позиционирование
+  // (десктоп/планшет, панель у нижнего края).
+  const [mobilePanelTop, setMobilePanelTop] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const panelHeightRef = useRef(220);
-  useLayoutEffect(() => {
-    if (panelRef.current) panelHeightRef.current = panelRef.current.offsetHeight;
-  });
 
   const pythonCourse = useMemo(() => courses.find((c) => /python/i.test(c.title)), [courses]);
   const sqlCourse = useMemo(() => courses.find((c) => /sql/i.test(c.title)), [courses]);
@@ -59,27 +58,36 @@ export default function GuestWelcomeStep({ courses }: Props) {
     let scrolledIntoView = false;
     const update = () => {
       const el = document.querySelector('[data-tour="course-cards"]');
-      // На мобильном панель прижата к низу экрана — подбираем прокрутку так,
-      // чтобы нижний край карточек встал прямо над панелью: тогда карточки
-      // и панель одновременно целиком помещаются на экране (как будто чуть
-      // доскроллили вниз), а не перекрываются. Если карточек выше, чем есть
-      // места, — прижимаем верх блока к отступу сверху (остаток обрезается
-      // по границе панели в getTargetRect).
-      if (el && !scrolledIntoView && window.innerWidth <= 760) {
+      const mobile = window.innerWidth <= 760;
+      const marginTop = 12;
+
+      // На мобильном курсам отдаём приоритет по видимости: подводим их
+      // верх к отступу сверху экрана один раз (без оглядки на панель —
+      // она подстроится под оставшееся место сама, см. ниже).
+      if (el && !scrolledIntoView && mobile) {
         scrolledIntoView = true;
-        const marginTop = 12;
-        const gapAbovePanel = 10;
-        const availableBottom = window.innerHeight - 16 - panelHeightRef.current - gapAbovePanel;
-        const r = el.getBoundingClientRect();
-        let delta = r.bottom - availableBottom;
-        const maxDelta = r.top - marginTop;
-        if (delta > maxDelta) delta = maxDelta;
+        const delta = el.getBoundingClientRect().top - marginTop;
         if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
       }
-      const maxBottom = window.innerWidth <= 760
-        ? Math.max(80, window.innerHeight - 16 - panelHeightRef.current - 10)
-        : window.innerHeight - 4;
-      setRect(getTargetRect('course-cards', maxBottom));
+
+      if (mobile) {
+        const r = el ? el.getBoundingClientRect() : null;
+        // Панель встаёт прямо под карточками, но не сжимается меньше
+        // минимума — если карточки не помещаются целиком, лишнее обрезаем
+        // по границе панели (а не наоборот, как раньше).
+        const gap = 10;
+        const marginBottom = 16;
+        const minPanelHeight = 170;
+        const maxPanelTop = window.innerHeight - marginBottom - minPanelHeight;
+        let panelTop = r ? r.bottom + gap : window.innerHeight * 0.5;
+        if (panelTop > maxPanelTop) panelTop = maxPanelTop;
+        panelTop = Math.max(marginTop, panelTop);
+        setMobilePanelTop(panelTop);
+        setRect(getTargetRect('course-cards', panelTop - gap));
+      } else {
+        setMobilePanelTop(null);
+        setRect(getTargetRect('course-cards'));
+      }
     };
     update();
     const interval = window.setInterval(update, 200);
@@ -131,7 +139,11 @@ export default function GuestWelcomeStep({ courses }: Props) {
       <div
         ref={panelRef}
         className="card fixed shadow-xl pointer-events-auto"
-        style={{ left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10000 }}
+        style={
+          mobilePanelTop !== null
+            ? { left: 16, right: 16, top: mobilePanelTop, maxWidth: 640, margin: '0 auto', maxHeight: `calc(100vh - ${mobilePanelTop}px - 16px)`, overflowY: 'auto', zIndex: 10000 }
+            : { left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10000 }
+        }
       >
         <div className="flex items-start gap-3">
           <div className="hidden sm:flex shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 items-center justify-center font-bold">
