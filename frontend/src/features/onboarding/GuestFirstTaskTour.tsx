@@ -181,45 +181,45 @@ export default function GuestFirstTaskTour({
   useEffect(() => {
     if (!content) return;
     const targetName = STEP_TARGET[step];
-    let scrolledIntoView = false;
+    // desktop: один scrollIntoView. mobile: phase 0 — поставить панель,
+    // 1..N — подвести блок к верху (scrollBy нельзя сразу — панель ещё не
+    // absolute и документ не вырос), 99 — готово.
+    let desktopScrolled = false;
+    let phase = 0;
+    const marginTop = 12;
+    const gap = 10;
 
     const update = () => {
       const el = document.querySelector(`[data-tour="${targetName}"]`) as HTMLElement | null;
       const mobile = window.innerWidth <= 760;
-      const marginTop = 12;
 
-      if (!mobile) {
+      if (!mobile || targetName === 'sidebar') {
         setMobilePanelTop(null);
-      }
-
-      // Прокручиваем к цели один раз, как только она появится в DOM —
-      // иначе спотлайт и панель считаются от элемента, скрытого за краем
-      // экрана. На мобильном подсвеченному блоку отдаём приоритет: подводим
-      // его верх к отступу сверху, а панель ставим сразу под ним — в
-      // координатах документа, так страница становится выше и просто
-      // скроллится целиком, без обрезки и без прокрутки внутри панели.
-      if (el && !scrolledIntoView && targetName !== 'sidebar') {
-        scrolledIntoView = true;
-        try {
-          if (mobile) {
-            const gap = 10;
-            const r = el.getBoundingClientRect();
-            const delta = r.top - marginTop;
-            const docTop = window.scrollY + delta + marginTop + r.height + gap;
-            setMobilePanelTop(docTop);
-            if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
+        if (!mobile && el && !desktopScrolled && targetName !== 'sidebar') {
+          desktopScrolled = true;
+          try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); }
+          catch { el.scrollIntoView(); }
+        }
+      } else if (el) {
+        const r = el.getBoundingClientRect();
+        if (phase === 0) {
+          phase = 1;
+          setMobilePanelTop(window.scrollY + r.top + r.height + gap);
+        } else if (phase < 6) {
+          const delta = r.top - marginTop;
+          if (delta > 6) {
+            window.scrollBy({ top: delta });
+            phase += 1;
           } else {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            phase = 99;
           }
-        } catch {
-          el.scrollIntoView();
         }
       }
 
       setRect(getTargetRect(targetName));
     };
     update();
-    const interval = window.setInterval(update, 200);
+    const interval = window.setInterval(update, 100);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
 

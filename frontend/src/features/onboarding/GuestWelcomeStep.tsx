@@ -55,26 +55,34 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
   useEffect(() => {
     if (!visible) return;
-    let scrolledIntoView = false;
+    // phase: 0 — поставить панель, 1..N — подвести блок к верху экрана,
+    // 99 — готово. Скролл нельзя делать сразу: панель ещё не отрендерилась
+    // как absolute и документ не стал выше — scrollBy попал бы в «нечего
+    // скроллить». Поэтому сначала ставим панель, а прокрутку — на следующих
+    // тиках, когда высота документа уже выросла.
+    let phase = 0;
+    const marginTop = 12;
+    const gap = 10;
     const update = () => {
       const el = document.querySelector('[data-tour="course-cards"]');
       const mobile = window.innerWidth <= 760;
 
       if (!mobile) {
         setMobilePanelTop(null);
-      } else if (el && !scrolledIntoView) {
-        scrolledIntoView = true;
-        // Подводим карточки к верху экрана и ставим панель сразу под ними —
-        // в координатах документа, а не вьюпорта. Дальше страница просто
-        // становится выше и скроллится целиком, показывая всё без обрезки
-        // и без прокрутки внутри самой панели.
-        const marginTop = 12;
-        const gap = 10;
+      } else if (el) {
         const r = el.getBoundingClientRect();
-        const delta = r.top - marginTop;
-        const docTop = window.scrollY + delta + marginTop + r.height + gap;
-        setMobilePanelTop(docTop);
-        if (Math.abs(delta) > 4) window.scrollBy({ top: delta, behavior: 'smooth' });
+        if (phase === 0) {
+          phase = 1;
+          setMobilePanelTop(window.scrollY + r.top + r.height + gap);
+        } else if (phase < 6) {
+          const delta = r.top - marginTop;
+          if (delta > 6) {
+            window.scrollBy({ top: delta });
+            phase += 1;
+          } else {
+            phase = 99;
+          }
+        }
       }
 
       // Блок больше не обрезаем по границе панели — она теперь не может его
@@ -82,7 +90,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
       setRect(getTargetRect('course-cards'));
     };
     update();
-    const interval = window.setInterval(update, 200);
+    const interval = window.setInterval(update, 100);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
     return () => {
