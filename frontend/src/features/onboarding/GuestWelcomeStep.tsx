@@ -142,7 +142,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
         style={
           mobilePanelTop !== null
             ? { left: 16, right: 16, top: mobilePanelTop, maxWidth: 640, margin: '0 auto', zIndex: 10060 }
-            : { left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10000, position: 'fixed' }
+            : { left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10060, position: 'fixed' }
         }
       >
         <div className="flex items-start gap-3">
