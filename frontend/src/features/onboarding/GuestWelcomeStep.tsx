@@ -90,11 +90,18 @@ export default function GuestWelcomeStep({ courses }: Props) {
       setRect(getTargetRect('course-cards'));
     };
     update();
-    const interval = window.setInterval(update, 100);
+    // Таймер — подстраховка; основной триггер — MutationObserver на #root,
+    // реагирует сразу при реальном изменении DOM, не дожидаясь следующего
+    // тика (см. пояснение в GuestFirstTaskTour).
+    const interval = window.setInterval(update, 150);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
+    const root = document.getElementById('root');
+    const mutationObserver = new MutationObserver(update);
+    if (root) mutationObserver.observe(root, { childList: true, subtree: true, attributes: true, characterData: true });
     return () => {
       window.clearInterval(interval);
+      mutationObserver.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
     };

@@ -219,12 +219,21 @@ export default function GuestFirstTaskTour({
       setRect(getTargetRect(targetName));
     };
     update();
-    const interval = window.setInterval(update, 100);
+    // Таймер — просто подстраховка. Основной триггер — MutationObserver на
+    // #root: он реагирует сразу, как только React реально что-то поменял в
+    // DOM (Monaco довозится, печатается код, идёт ре-рендер) — в отличие от
+    // опроса по таймеру, который может отставать под нагрузкой ровно в эти
+    // моменты (это и приводило к «застрявшей» рамке на старой позиции).
+    const interval = window.setInterval(update, 150);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
+    const root = document.getElementById('root');
+    const mutationObserver = new MutationObserver(update);
+    if (root) mutationObserver.observe(root, { childList: true, subtree: true, attributes: true, characterData: true });
 
     return () => {
       window.clearInterval(interval);
+      mutationObserver.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
     };
