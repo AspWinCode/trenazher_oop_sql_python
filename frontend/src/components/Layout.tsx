@@ -12,19 +12,27 @@ const COLLAPSE_ICON = 'M14.5 6l-6 6 6 6';
 
 // Просим Monaco пересчитать раскладку после того, как CSS-переход сайдбара
 // (.24s) завершится — иначе редактор может остаться со старой шириной
-// контейнера. automaticLayout:true у самого редактора реагирует на resize
-// с задержкой (внутренний таймер), поэтому дополнительно дёргаем layout()
-// у всех активных инстансов напрямую — так же, как это делает monaco-editor
-// при явном вызове (window.monaco выставляется загрузчиком @monaco-editor/react).
+// контейнера. Дёргаем layout() у всех активных инстансов напрямую (так же,
+// как это делает monaco-editor при явном вызове; window.monaco выставляется
+// загрузчиком @monaco-editor/react) — этого достаточно, чтобы Monaco сам
+// пересчитал ширину/высоту канваса.
+//
+// Раньше здесь ещё был window.dispatchEvent(new Event('resize')) — глобальный
+// resize слушают компоненты гида (GuestFirstTaskTour/GuestWelcomeStep) для
+// собственного пересчёта позиции, и НИЧЕГО в их обработчиках не вызывает
+// relayoutEditors() снова, так что реального бесконечного цикла не было —
+// но рассылать синтетический resize всему приложению ради одного Monaco
+// всё равно избыточно и непредсказуемо по побочным эффектам. Раз у гидов
+// теперь есть ResizeObserver/MutationObserver, полагаться на этот
+// широковещательный resize им больше не нужно.
 function relayoutEditors() {
   try {
     (window as unknown as { monaco?: { editor?: { getEditors?: () => { layout: () => void }[] } } })
       .monaco?.editor?.getEditors?.()
       .forEach((editor) => editor.layout());
   } catch {
-    /* монако может быть ещё не загружен — тогда просто полагаемся на resize ниже */
+    /* монако может быть ещё не загружен — тогда просто ничего не делаем */
   }
-  window.dispatchEvent(new Event('resize'));
 }
 
 export default function Layout() {

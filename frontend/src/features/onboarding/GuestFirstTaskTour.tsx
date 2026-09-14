@@ -71,7 +71,16 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;');
 }
 
-function getTargetRect(name: string, maxBottom: number = window.innerHeight - 4): Rect | null {
+// visualViewport точнее window.innerHeight на мобильном Chrome — учитывает
+// скрытие/появление адресной строки и открытую клавиатуру.
+function viewportHeight(): number {
+  return window.visualViewport?.height ?? window.innerHeight;
+}
+function viewportWidth(): number {
+  return window.visualViewport?.width ?? window.innerWidth;
+}
+
+function getTargetRect(name: string, maxBottom: number = viewportHeight() - 4): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
   const r = el.getBoundingClientRect();
@@ -79,7 +88,7 @@ function getTargetRect(name: string, maxBottom: number = window.innerHeight - 4)
   const padding = name === 'sidebar' ? 0 : 8;
   const left = Math.max(4, r.left - padding);
   const top = Math.max(4, r.top - padding);
-  const right = Math.min(window.innerWidth - 4, r.right + padding);
+  const right = Math.min(viewportWidth() - 4, r.right + padding);
   const bottom = Math.min(maxBottom, r.bottom + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
@@ -178,64 +187,104 @@ export default function GuestFirstTaskTour({
   }, [step]);
 
   // Пересчитываем позицию спотлайта под текущий шаг.
+  //
+  // Раньше здесь был счётчик "phase", продвигающийся максимум N раз — если
+  // цель переставала помещаться в это число шагов (например, während печати
+  // кода геометрия меняется быстрее, чем счётчик успевал сойтись), слежение
+  // просто останавливалось на устаревших координатах. Плюс рамка подсветки
+  // была на CSS transition (top/left/width/height, 150мс) — при частых
+  // пересчётах (печать кода, дозагрузка Monaco, результаты тестов приходят
+  // один за другим) новая цель прилетала быстрее, чем успевал доиграть
+  // предыдущий transition, и рамка визуально «зависала» посередине между
+  // двумя разными реальными элементами — отсюда и большие пустые
+  // прямоугольники на скриншотах. Транзишен убран (см. JSX ниже), а
+  // пересчёт теперь безусловный: каждый вызов update() заново меряет
+  // getBoundingClientRect() и применяет результат как есть, без счётчиков,
+  // которые могли «застрять».
   useEffect(() => {
     if (!content) return;
     const targetName = STEP_TARGET[step];
-    // desktop: один scrollIntoView. mobile: phase 0 — поставить панель,
-    // 1..N — подвести блок к верху (scrollBy нельзя сразу — панель ещё не
-    // absolute и документ не вырос), 99 — готово.
-    let desktopScrolled = false;
-    let phase = 0;
     const marginTop = 12;
     const gap = 10;
+    // Автопрокрутку к цели делаем один раз за шаг — дальше пользователь
+    // волен сам скроллить, мы не должны с ним бороться. Но геометрию
+    // (rect/панель) продолжаем актуализировать всегда.
+    let autoScrolled = false;
 
     const update = () => {
       const el = document.querySelector(`[data-tour="${targetName}"]`) as HTMLElement | null;
-      const mobile = window.innerWidth <= 760;
+      if (!el || !el.isConnected) {
+        setRect(null);
+        return;
+      }
+      const mobile = viewportWidth() <= 760;
 
       if (!mobile || targetName === 'sidebar') {
         setMobilePanelTop(null);
-        if (!mobile && el && !desktopScrolled && targetName !== 'sidebar') {
-          desktopScrolled = true;
+        if (!mobile && !autoScrolled && targetName !== 'sidebar') {
+          autoScrolled = true;
           try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); }
           catch { el.scrollIntoView(); }
         }
-      } else if (el) {
+      } else {
         const r = el.getBoundingClientRect();
-        if (phase === 0) {
-          phase = 1;
-          setMobilePanelTop(window.scrollY + r.top + r.height + gap);
-        } else if (phase < 6) {
-          const delta = r.top - marginTop;
-          if (delta > 6) {
-            window.scrollBy({ top: delta });
-            phase += 1;
+        // Панель — сразу под целью, в координатах документа (часть потока,
+        // растягивает страницу — см. рендер ниже).
+        setMobilePanelTop(window.scrollY + r.top + r.height + gap);
+        if (!autoScrolled) {
+          const vh = viewportHeight();
+          // Подводим цель к верху экрана, если она выше/ниже видимой области.
+          if (r.top > marginTop + 6 || r.bottom < 0 || r.top > vh) {
+            window.scrollBy({ top: r.top - marginTop });
           } else {
-            phase = 99;
+            autoScrolled = true;
           }
         }
       }
 
       setRect(getTargetRect(targetName));
     };
-    update();
-    // Таймер — просто подстраховка. Основной триггер — MutationObserver на
-    // #root: он реагирует сразу, как только React реально что-то поменял в
-    // DOM (Monaco довозится, печатается код, идёт ре-рендер) — в отличие от
-    // опроса по таймеру, который может отставать под нагрузкой ровно в эти
-    // моменты (это и приводило к «застрявшей» рамке на старой позиции).
-    const interval = window.setInterval(update, 150);
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, { capture: true, passive: true });
+
+    // Двойной requestAnimationFrame перед первым замером на мобильном шаге:
+    // даём React закоммитить DOM, а браузеру — пересчитать layout (иначе
+    // первый замер может застать ещё не отрисованное состояние). Для
+    // остальных срабатываний (observers/scroll/resize) это не нужно —
+    // getBoundingClientRect() всегда возвращает актуальную геометрию на
+    // момент вызова.
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(update);
+    });
+
+    const el = document.querySelector(`[data-tour="${targetName}"]`);
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+    if (el && resizeObserver) resizeObserver.observe(el);
+
     const root = document.getElementById('root');
     const mutationObserver = new MutationObserver(update);
     if (root) mutationObserver.observe(root, { childList: true, subtree: true, attributes: true, characterData: true });
 
+    // Таймер — только резервный механизм на случай изменений, которые не
+    // поймали ни ResizeObserver, ни MutationObserver (интервал большой —
+    // это не основной канал обновления).
+    const interval = window.setInterval(update, 500);
+
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, { capture: true, passive: true });
+    window.visualViewport?.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('scroll', update);
+
     return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
       window.clearInterval(interval);
+      resizeObserver?.disconnect();
       mutationObserver.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
+      window.visualViewport?.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('scroll', update);
     };
   }, [step, content]);
 
@@ -568,10 +617,19 @@ export default function GuestFirstTaskTour({
           <>
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, targetRect.top) }} />
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: 0, width: Math.max(0, targetRect.left), height: targetRect.height }} />
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: targetRect.left + targetRect.width, width: Math.max(0, window.innerWidth - targetRect.left - targetRect.width), height: targetRect.height }} />
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top + targetRect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - targetRect.top - targetRect.height) }} />
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: targetRect.left + targetRect.width, width: Math.max(0, viewportWidth() - targetRect.left - targetRect.width), height: targetRect.height }} />
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top + targetRect.height, left: 0, width: '100vw', height: Math.max(0, viewportHeight() - targetRect.top - targetRect.height) }} />
+            {/*
+              Без CSS-transition на geometry (top/left/width/height) намеренно:
+              при частых пересчётах (печать кода, результаты тестов) новая
+              цель прилетает быстрее 150мс — transition не успевал доиграть
+              и рамка визуально «зависала» между двумя разными реальными
+              элементами (это и были пустые прямоугольники на скриншотах).
+              Рамка теперь всегда мгновенно совпадает с реальным
+              getBoundingClientRect() цели.
+            */}
             <div
-              className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none transition-all duration-150"
+              className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
               style={{ top: targetRect.top, left: targetRect.left, width: targetRect.width, height: targetRect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
             />
           </>

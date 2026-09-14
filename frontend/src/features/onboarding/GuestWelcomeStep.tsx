@@ -10,9 +10,18 @@ interface Rect {
   height: number;
 }
 
+// visualViewport точнее window.innerWidth/innerHeight на мобильном Chrome —
+// учитывает скрытие/появление адресной строки и открытую клавиатуру.
+function viewportHeight(): number {
+  return window.visualViewport?.height ?? window.innerHeight;
+}
+function viewportWidth(): number {
+  return window.visualViewport?.width ?? window.innerWidth;
+}
+
 // Подсвечиваем реально занятую детьми область, а не весь grid-контейнер —
 // иначе при 2 карточках в 3-колоночной сетке рамка захватывает пустое место справа.
-function getTargetRect(name: string, maxBottom: number = window.innerHeight - 4): Rect | null {
+function getTargetRect(name: string, maxBottom: number = viewportHeight() - 4): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
   const children = Array.from(el.children) as HTMLElement[];
@@ -25,7 +34,7 @@ function getTargetRect(name: string, maxBottom: number = window.innerHeight - 4)
   const padding = 10;
   const left = Math.max(4, left0 - padding);
   const top = Math.max(4, top0 - padding);
-  const right = Math.min(window.innerWidth - 4, right0 + padding);
+  const right = Math.min(viewportWidth() - 4, right0 + padding);
   const bottom = Math.min(maxBottom, bottom0 + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
@@ -55,32 +64,32 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
   useEffect(() => {
     if (!visible) return;
-    // phase: 0 — поставить панель, 1..N — подвести блок к верху экрана,
-    // 99 — готово. Скролл нельзя делать сразу: панель ещё не отрендерилась
-    // как absolute и документ не стал выше — scrollBy попал бы в «нечего
-    // скроллить». Поэтому сначала ставим панель, а прокрутку — на следующих
-    // тиках, когда высота документа уже выросла.
-    let phase = 0;
     const marginTop = 12;
     const gap = 10;
+    // Автопрокрутку делаем один раз — дальше не боремся с пользователем,
+    // если он решил проскроллить сам. Геометрию (rect/панель) продолжаем
+    // актуализировать всегда при любом реальном изменении DOM/размера.
+    let autoScrolled = false;
+
     const update = () => {
       const el = document.querySelector('[data-tour="course-cards"]');
-      const mobile = window.innerWidth <= 760;
+      if (!el || !el.isConnected) {
+        setRect(null);
+        return;
+      }
+      const mobile = viewportWidth() <= 760;
 
       if (!mobile) {
         setMobilePanelTop(null);
-      } else if (el) {
+      } else {
         const r = el.getBoundingClientRect();
-        if (phase === 0) {
-          phase = 1;
-          setMobilePanelTop(window.scrollY + r.top + r.height + gap);
-        } else if (phase < 6) {
-          const delta = r.top - marginTop;
-          if (delta > 6) {
-            window.scrollBy({ top: delta });
-            phase += 1;
+        setMobilePanelTop(window.scrollY + r.top + r.height + gap);
+        if (!autoScrolled) {
+          const vh = viewportHeight();
+          if (r.top > marginTop + 6 || r.bottom < 0 || r.top > vh) {
+            window.scrollBy({ top: r.top - marginTop });
           } else {
-            phase = 99;
+            autoScrolled = true;
           }
         }
       }
@@ -89,21 +98,38 @@ export default function GuestWelcomeStep({ courses }: Props) {
       // перекрыть, т.к. стоит ниже в потоке документа, а не поверх.
       setRect(getTargetRect('course-cards'));
     };
-    update();
-    // Таймер — подстраховка; основной триггер — MutationObserver на #root,
-    // реагирует сразу при реальном изменении DOM, не дожидаясь следующего
-    // тика (см. пояснение в GuestFirstTaskTour).
-    const interval = window.setInterval(update, 150);
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, { capture: true, passive: true });
+
+    // Двойной rAF перед первым замером — даём React закоммитить, а
+    // браузеру пересчитать layout.
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(update); });
+
+    const el = document.querySelector('[data-tour="course-cards"]');
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+    if (el && resizeObserver) resizeObserver.observe(el);
+
     const root = document.getElementById('root');
     const mutationObserver = new MutationObserver(update);
     if (root) mutationObserver.observe(root, { childList: true, subtree: true, attributes: true, characterData: true });
+
+    // Таймер — только резервный механизм, не основной канал обновления.
+    const interval = window.setInterval(update, 500);
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, { capture: true, passive: true });
+    window.visualViewport?.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('scroll', update);
+
     return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
       window.clearInterval(interval);
+      resizeObserver?.disconnect();
       mutationObserver.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
+      window.visualViewport?.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('scroll', update);
     };
   }, [visible]);
 
@@ -127,8 +153,8 @@ export default function GuestWelcomeStep({ courses }: Props) {
             {/* Затемняем всё, кроме подсвеченной области — она остаётся кликабельной насквозь. */}
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, rect.top) }} />
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height }} />
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: rect.left + rect.width, width: Math.max(0, window.innerWidth - rect.left - rect.width), height: rect.height }} />
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top + rect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - rect.top - rect.height) }} />
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: rect.left + rect.width, width: Math.max(0, viewportWidth() - rect.left - rect.width), height: rect.height }} />
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top + rect.height, left: 0, width: '100vw', height: Math.max(0, viewportHeight() - rect.top - rect.height) }} />
             <div
               className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
               style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
