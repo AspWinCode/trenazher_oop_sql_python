@@ -55,6 +55,10 @@ function getTargetRect(name: string, maxBottom?: number): Rect | null {
   return { top, left, width: right - left, height: bottom - top };
 }
 
+// Не показываем рамку толщиной в несколько пикселей (переходное состояние
+// layout, ещё не отрисованный контент) — только реальные, заметные target'ы.
+const MIN_SPOTLIGHT_HEIGHT = 16;
+
 interface Props {
   courses: Course[];
 }
@@ -71,6 +75,14 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
   const visible = !tourSeen && !dismissed && Boolean(pythonCourse || sqlCourse);
 
+  // Снимаем зарезервированный отступ сразу, как только шаг закрывается —
+  // чтобы страница курсов не оставалась с лишним пустым местом внизу.
+  useEffect(() => {
+    if (visible) return;
+    const scrollRoot = document.querySelector('.sf-main') as HTMLElement | null;
+    if (scrollRoot) scrollRoot.style.paddingBottom = '';
+  }, [visible]);
+
   // Реальный scroll-контейнер страницы курсов — .sf-main (flex-1 overflow-auto
   // в Layout.tsx), а не window/html: .sf-main зажат высотой .sf-shell
   // (min-h-screen) и скроллится сам, наружу это не пробрасывается.
@@ -83,6 +95,16 @@ export default function GuestWelcomeStep({ courses }: Props) {
     // актуализировать всегда при любом реальном изменении DOM/размера.
     let autoScrolled = false;
 
+    const applyRect = (next: Rect | null, elExists: boolean) => {
+      // Не перетираем последний корректный rect промежуточным/схлопнувшимся
+      // значением — иначе на экране на миг мелькает пустая тонкая рамка.
+      if (next && next.height >= MIN_SPOTLIGHT_HEIGHT && next.width >= MIN_SPOTLIGHT_HEIGHT) {
+        setRect(next);
+      } else if (!elExists) {
+        setRect(null);
+      }
+    };
+
     const update = () => {
       const el = document.querySelector('[data-tour="course-cards"]');
       if (!el || !el.isConnected) {
@@ -90,9 +112,11 @@ export default function GuestWelcomeStep({ courses }: Props) {
         return;
       }
       const mobile = viewportWidth() <= 760;
+      const scrollRoot = document.querySelector('.sf-main') as HTMLElement | null;
 
       if (!mobile) {
-        setRect(getTargetRect('course-cards'));
+        if (scrollRoot) scrollRoot.style.paddingBottom = '';
+        applyRect(getTargetRect('course-cards'), true);
         return;
       }
 
@@ -101,7 +125,17 @@ export default function GuestWelcomeStep({ courses }: Props) {
       const panelTop = panelRef.current?.getBoundingClientRect().top ?? window.innerHeight;
       const maxBottom = Math.max(marginTop + 40, panelTop - gap);
 
-      const scrollRoot = document.querySelector('.sf-main') as HTMLElement | null;
+      if (scrollRoot) {
+        // Резервируем снизу .sf-main место под панель — иначе цель,
+        // расположенная ближе к концу контента, чем высота панели,
+        // никогда не сможет доскроллиться выше неё.
+        const reserve = Math.max(0, window.innerHeight - panelTop) + gap;
+        const reservePx = `${Math.ceil(reserve)}px`;
+        if (scrollRoot.style.paddingBottom !== reservePx) {
+          scrollRoot.style.paddingBottom = reservePx;
+        }
+      }
+
       if (!autoScrolled && scrollRoot) {
         const r = el.getBoundingClientRect();
         if (r.top > marginTop + 6 || r.top > maxBottom || r.bottom < 0) {
@@ -112,7 +146,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
         }
       }
 
-      setRect(getTargetRect('course-cards', maxBottom));
+      applyRect(getTargetRect('course-cards', maxBottom), true);
     };
 
     // Двойной rAF перед первым замером — даём React закоммитить, а
@@ -202,7 +236,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
         className="card shadow-xl pointer-events-auto"
         style={
           isMobile
-            ? { position: 'fixed', left: 12, right: 12, bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', maxWidth: 640, margin: '0 auto', maxHeight: '45vh', overflowY: 'auto', zIndex: 10060 }
+            ? { position: 'fixed', left: 12, right: 12, bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', maxWidth: 640, margin: '0 auto', maxHeight: '38vh', overflowY: 'auto', zIndex: 10060 }
             : { position: 'fixed', left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10060 }
         }
       >
@@ -226,13 +260,12 @@ export default function GuestWelcomeStep({ courses }: Props) {
           </button>
         </div>
 
-        <div className="mt-3 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug sm:leading-relaxed">
-          Сейчас вам доступна демо-версия курсов Python и SQL: можно открыть часть практических задач
-          и посмотреть, как устроено обучение. Выберите направление — дальше вы увидите, как открыть
-          задачу, написать решение и проверить результат.
+        <div className="mt-2 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug">
+          В демо доступны задачи Python и SQL. Сейчас покажем, как открыть задачу, написать решение,
+          отправить его на проверку и посмотреть результат.
         </div>
 
-        <div className="mt-4 ml-0 sm:ml-12 flex flex-col sm:flex-row gap-2">
+        <div className="mt-3 ml-0 sm:ml-12 flex flex-col sm:flex-row gap-2">
           {pythonCourse && (
             <button type="button" onClick={() => pick(pythonCourse)} className="w-full sm:flex-1 justify-center btn-primary btn-sm whitespace-normal sm:whitespace-nowrap">
               Перейти к Python
@@ -243,10 +276,10 @@ export default function GuestWelcomeStep({ courses }: Props) {
               Перейти к SQL
             </button>
           )}
-          <button type="button" onClick={skip} className="w-full sm:flex-1 justify-center btn-secondary btn-sm whitespace-normal sm:whitespace-nowrap">
-            Разобраться самостоятельно
-          </button>
         </div>
+        <button type="button" onClick={skip} className="mt-2 w-full text-center text-xs text-surface-400 hover:text-surface-600 transition-colors">
+          Разобраться самостоятельно
+        </button>
       </div>
     </>
   );

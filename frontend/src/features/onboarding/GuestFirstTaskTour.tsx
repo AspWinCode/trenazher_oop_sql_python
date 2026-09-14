@@ -42,6 +42,9 @@ const SUBMIT_STEP_KIND: Partial<Record<StepId, SubmitKind>> = {
   'submit-correct': 'correct',
 };
 
+// Таргеты компактные: 'hint-content' — только сам блок подсказки (не вся
+// колонка с историей отправок), 'result-summary' — верхняя часть карточки
+// результата (вердикт + время), а не весь список тестов целиком.
 const STEP_TARGET: Record<StepId, string> = {
   sidebar: 'sidebar',
   problem: 'condition',
@@ -51,9 +54,9 @@ const STEP_TARGET: Record<StepId, string> = {
   'submit-wrong-1': 'submit',
   'wrong-result': 'result',
   'submit-wrong-2': 'submit',
-  hint: 'hints',
+  hint: 'hint-content',
   'submit-correct': 'submit',
-  success: 'result',
+  success: 'result-summary',
   'try-yourself': 'editor',
 };
 
@@ -111,6 +114,12 @@ function getTargetRect(name: string, maxBottom?: number): Rect | null {
   return { top, left, width: right - left, height: bottom - top };
 }
 
+// Порог для отсечения «схлопнувшейся»/ещё не отрисованной геометрии — не
+// показываем рамку толщиной в несколько пикселей (это не настоящая цель, а
+// промежуточное состояние layout). Реальные target'ы (кнопка submit ~40px,
+// текстовые блоки, карточки) всегда заметно выше этого порога.
+const MIN_SPOTLIGHT_HEIGHT = 16;
+
 export default function GuestFirstTaskTour({
   task, code, setCode, submission, submitting, submitSolution,
   hints, showHints, setShowHints, onFinish,
@@ -149,13 +158,22 @@ export default function GuestFirstTaskTour({
     return flow;
   }, [hasSchema, hasSample]);
 
+  // Полная последовательность реальных шагов задачи — для индикатора
+  // «Шаг N из M». Шаг «sidebar» сюда не входит (это шаг 0, ещё до открытия
+  // задачи), «try-yourself» делит номер с «success» (это альтернативная
+  // концовка того же шага, а не отдельный шаг). Технические waiting-состояния
+  // (проверяем решение / готовим подсказку) не считаются отдельными шагами —
+  // у них нет своего StepId, они лишь временно подменяют контент панели.
+  const stepOrder = useMemo<StepId[]>(() => [
+    ...infoFlow,
+    'submit-wrong-1', 'wrong-result', 'submit-wrong-2', 'hint', 'submit-correct', 'success',
+  ], [infoFlow]);
+
   const userId = useAuthStore((s) => s.user?.id);
 
   const [step, setStep] = useState<StepId>('sidebar');
   const [rect, setRect] = useState<Rect | null>(null);
   const [typing, setTyping] = useState(false);
-  // Реальная высота панели — нужна для позиционирования на десктопе (панель
-  // рядом с целью, не должна вылезать за низ экрана).
   const panelRef = useRef<HTMLDivElement>(null);
   // Высота панели — нужна для позиционирования на десктопе (панель рядом
   // с целью, не должна вылезать за низ экрана). На мобильном панель —
@@ -203,21 +221,22 @@ export default function GuestFirstTaskTour({
     };
   }, [step]);
 
+  // На весь срок жизни тура резервируем под fixed bottom sheet место снизу
+  // реального scroll-контейнера задачи (data-tour-scroll-root). Без этого
+  // overflow-y-auto не даёт прокрутить к цели, если она физически находится
+  // ближе к концу контента, чем высота панели: браузер считает контейнер
+  // «прокрученным до конца», хотя визуально нижняя часть спрятана под
+  // панелью (ровно так submit-wrong-2/submit-correct утыкались в
+  // заголовок — самой кнопке было физически некуда доскроллиться). Отступ
+  // снимаем при закрытии тура/при переходе на десктоп.
+  useEffect(() => {
+    return () => {
+      const scrollRoot = document.querySelector('[data-tour-scroll-root]') as HTMLElement | null;
+      if (scrollRoot) scrollRoot.style.paddingBottom = '';
+    };
+  }, []);
+
   // Пересчитываем позицию спотлайта под текущий шаг.
-  //
-  // Архитектурная поправка: на странице задачи (CourseLearnPage → TaskSolver)
-  // реальный scroll-контейнер — это div[data-tour-scroll-root] (flex-1
-  // overflow-y-auto внутри .sf-task-viewport с фиксированной высотой
-  // 100dvh), а НЕ window/html — у них там попросту нечему скроллиться.
-  // Раньше здесь использовались window.scrollY/window.scrollBy — это
-  // скроллило не тот контейнер (в лучшем случае — no-op, в худшем —
-  // рассинхрон между «где мы посчитали target» и «где он на самом деле»).
-  // Плюс мобильная панель раньше была position:absolute — это НЕ часть
-  // normal flow (несмотря на прежний комментарий) и её положение всё
-  // равно приходилось вычислять вручную, вместо того чтобы просто измерить
-  // готовый DOM. Теперь на мобильном панель — обычный fixed bottom sheet
-  // (см. JSX ниже), а видимая область цели ограничена её РЕАЛЬНЫМ верхним
-  // краем (panelRef.getBoundingClientRect().top), а не расчётной величиной.
   useEffect(() => {
     if (!content) return;
     const targetName = STEP_TARGET[step];
@@ -227,6 +246,19 @@ export default function GuestFirstTaskTour({
     // волен сам скроллить, мы не должны с ним бороться. Геометрию
     // (rect) продолжаем актуализировать всегда.
     let autoScrolled = false;
+
+    const applyRect = (next: Rect | null, elExists: boolean) => {
+      // Не перетираем последний КОРРЕКТНЫЙ rect промежуточным/схлопнувшимся
+      // значением (ещё не отрисованный layout, переходное состояние между
+      // старой и новой целью) — иначе на экране на миг мелькает пустая
+      // тонкая рамка без содержимого. Обнуляем rect только если цели
+      // реально больше нет в DOM.
+      if (next && next.height >= MIN_SPOTLIGHT_HEIGHT && next.width >= MIN_SPOTLIGHT_HEIGHT) {
+        setRect(next);
+      } else if (!elExists) {
+        setRect(null);
+      }
+    };
 
     const update = () => {
       const el = document.querySelector(`[data-tour="${targetName}"]`) as HTMLElement | null;
@@ -241,12 +273,16 @@ export default function GuestFirstTaskTour({
       // десктопе: browser-native scrollIntoView сам найдёт нужный
       // скролл-контейнер по цепочке предков.
       if (!mobile || targetName === 'sidebar') {
+        if (!mobile) {
+          const scrollRoot = document.querySelector('[data-tour-scroll-root]') as HTMLElement | null;
+          if (scrollRoot) scrollRoot.style.paddingBottom = '';
+        }
         if (!mobile && !autoScrolled && targetName !== 'sidebar') {
           autoScrolled = true;
           try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); }
           catch { el.scrollIntoView(); }
         }
-        setRect(getTargetRect(targetName));
+        applyRect(getTargetRect(targetName), true);
         return;
       }
 
@@ -259,6 +295,19 @@ export default function GuestFirstTaskTour({
       const maxBottom = Math.max(marginTop + 40, panelTop - gap);
 
       const scrollRoot = document.querySelector('[data-tour-scroll-root]') as HTMLElement | null;
+
+      if (scrollRoot) {
+        // Резервируем снизу scroll-контейнера место под панель — иначе
+        // цель, физически расположенная ближе к концу контента, чем
+        // высота панели, никогда не сможет доскроллиться выше неё
+        // (overflow-y-auto упрётся в конец РЕАЛЬНОГО контента раньше, чем
+        // цель окажется видна).
+        const reserve = Math.max(0, viewportHeight() - panelTop) + gap;
+        const reservePx = `${Math.ceil(reserve)}px`;
+        if (scrollRoot.style.paddingBottom !== reservePx) {
+          scrollRoot.style.paddingBottom = reservePx;
+        }
+      }
 
       if (!autoScrolled && scrollRoot) {
         const r = el.getBoundingClientRect();
@@ -280,7 +329,7 @@ export default function GuestFirstTaskTour({
       // не помещается над панелью) — maxBottom обрежет rect по границе
       // панели, и подсветится ровно видимая часть элемента, а не весь
       // элемент и не пустое место под панелью.
-      setRect(getTargetRect(targetName, maxBottom));
+      applyRect(getTargetRect(targetName, maxBottom), true);
     };
 
     // Двойной requestAnimationFrame перед первым замером на новом шаге:
@@ -427,7 +476,7 @@ export default function GuestFirstTaskTour({
     sidebar: {
       icon: '☰',
       title: 'Список всех задач курса',
-      body: 'Слева расположен список всех задач. <strong>Задачи доступны сразу</strong>, поэтому необязательно идти строго по порядку. Некоторые задачи можно пропускать, а к уже решённым возвращаться, чтобы потренироваться ещё раз.',
+      body: 'Слева — список всех задач. <strong>Все задачи доступны сразу</strong> — можно решать не по порядку.',
       actions: [
         { id: 'sidebar-next', label: 'Перейти к первой задаче', primary: true },
         { id: 'close', label: 'Закрыть помощника' },
@@ -436,7 +485,7 @@ export default function GuestFirstTaskTour({
     problem: {
       icon: '1',
       title: 'Сначала прочитайте условие',
-      body: 'Здесь описано, <strong>какую задачу должен решить ваш код</strong>: что поступает на вход программы и какой результат нужно вывести.',
+      body: 'Здесь описано, <strong>что должен делать ваш код</strong>: что на входе и что нужно вывести.',
       actions: [
         { id: 'next', label: 'Понял, идём дальше', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -453,10 +502,10 @@ export default function GuestFirstTaskTour({
     },
     sample: {
       icon: '2',
-      title: 'Это пример входных и выходных данных',
+      title: 'Пример входных и выходных данных',
       body: sampleValue
-        ? `Значение <strong>${escapeHtml(sampleValue)}</strong> система передаст вашему коду на вход. Программа должна обработать эти данные и вернуть результат именно в том виде, который указан в условии задачи.`
-        : 'Такие данные система передаст вашему коду на вход. Программа должна вернуть результат именно в том виде, который указан в условии.',
+        ? `Значение <strong>${escapeHtml(sampleValue)}</strong> система передаст на вход — верните результат в указанном в условии виде.`
+        : 'Такие данные система передаст на вход — верните результат в указанном в условии виде.',
       actions: [
         { id: 'next', label: 'Понял, идём дальше', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -465,7 +514,7 @@ export default function GuestFirstTaskTour({
     editor: {
       icon: '3',
       title: 'Напишем первый код вместе',
-      body: 'Нажмите кнопку ниже — помощник напечатает решение в редакторе, чтобы вы увидели, как это работает.',
+      body: 'Нажмите кнопку — помощник напечатает решение в редакторе.',
       actions: [
         { id: 'write-wrong', label: 'Написать первый код вместе', primary: true },
         { id: 'close', label: 'Продолжу самостоятельно' },
@@ -474,7 +523,7 @@ export default function GuestFirstTaskTour({
     'submit-wrong-1': {
       icon: '4',
       title: 'Отправим решение на проверку',
-      body: 'Нажмите <strong>«Отправить решение»</strong>: система выполнит программу на нескольких тестах и покажет результат.',
+      body: 'Нажмите <strong>«Отправить решение»</strong> — система проверит код на нескольких тестах.',
       actions: [
         { id: 'submit-wrong-1', label: 'Отправить решение', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -492,7 +541,7 @@ export default function GuestFirstTaskTour({
     'submit-wrong-2': {
       icon: '6',
       title: 'Отправим решение ещё раз',
-      body: 'Первый вариант не прошёл проверку. На платформе дополнительные подсказки появляются после <strong>2-й, 4-й и 6-й неверной попытки</strong>. Нажмите «Отправить решение» ещё раз, чтобы увидеть первую подсказку.',
+      body: 'После 2-й, 4-й и 6-й неверной попытки появляются подсказки. Отправим решение ещё раз.',
       actions: [
         { id: 'submit-wrong-2', label: 'Отправить решение ещё раз', primary: true },
         { id: 'close', label: 'Дальше сам разберусь' },
@@ -519,7 +568,7 @@ export default function GuestFirstTaskTour({
     success: {
       icon: '✓',
       title: 'Задача решена верно!',
-      body: 'Код прошёл проверку. Вы познакомились с процессом работы на платформе — удачи в решении следующих задач!',
+      body: 'Код прошёл проверку. Теперь вы знаете, как решать задачи на платформе!',
       actions: [
         { id: 'close', label: 'Продолжить работу', primary: true },
       ],
@@ -585,6 +634,11 @@ export default function GuestFirstTaskTour({
 
   if (!activePanel) return null;
 
+  // «Шаг N из M» — waiting-состояния не считаются отдельными шагами, они
+  // просто временно подменяют контент панели поверх текущего step.
+  const stepIndex = stepOrder.indexOf(step === 'try-yourself' ? 'success' : step);
+  const stepNumber = stepIndex >= 0 ? stepIndex + 1 : null;
+
   const panelWidth = 480;
   const isMobile = viewportWidth() <= 760;
   // На мобильном панель — обычный fixed bottom sheet: всегда у нижнего
@@ -599,7 +653,7 @@ export default function GuestFirstTaskTour({
         right: 12,
         bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
         width: 'auto',
-        maxHeight: '45vh',
+        maxHeight: '42vh',
         overflowY: 'auto',
       }
     : { position: 'fixed', left: 16, right: 16, bottom: 16, width: 'auto', maxHeight: '60vh', overflowY: 'auto' };
@@ -664,6 +718,9 @@ export default function GuestFirstTaskTour({
     }
   }
 
+  const primaryAction = activePanel.actions.find((a) => a.primary);
+  const secondaryActions = activePanel.actions.filter((a) => !a.primary);
+
   return (
     <>
       <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
@@ -673,15 +730,9 @@ export default function GuestFirstTaskTour({
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: 0, width: Math.max(0, targetRect.left), height: targetRect.height }} />
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top, left: targetRect.left + targetRect.width, width: Math.max(0, viewportWidth() - targetRect.left - targetRect.width), height: targetRect.height }} />
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: targetRect.top + targetRect.height, left: 0, width: '100vw', height: Math.max(0, viewportHeight() - targetRect.top - targetRect.height) }} />
-            {/*
-              Без CSS-transition на geometry (top/left/width/height) намеренно:
-              при частых пересчётах (печать кода, результаты тестов) новая
-              цель прилетает быстрее 150мс — transition не успевал доиграть
-              и рамка визуально «зависала» между двумя разными реальными
-              элементами (это и были пустые прямоугольники на скриншотах).
-              Рамка теперь всегда мгновенно совпадает с реальным
-              getBoundingClientRect() цели.
-            */}
+            {/* Без CSS-transition на geometry намеренно — при частых пересчётах
+                (печать кода, результаты тестов) transition не успевал доиграть,
+                и рамка визуально «зависала» между двумя реальными элементами. */}
             <div
               className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
               style={{ top: targetRect.top, left: targetRect.left, width: targetRect.width, height: targetRect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
@@ -702,8 +753,11 @@ export default function GuestFirstTaskTour({
             {activePanel.icon}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-primary-500 mb-0.5">
-              IT Практикум · обучение
+            <div className="text-[10px] font-bold uppercase tracking-wide text-primary-500 mb-0.5 flex items-center gap-1.5">
+              <span>IT Практикум · обучение</span>
+              {stepNumber !== null && (
+                <span className="text-surface-300 font-semibold normal-case tracking-normal">· Шаг {stepNumber} из {stepOrder.length}</span>
+              )}
             </div>
             <h3 className="text-base font-bold text-dark-700">{activePanel.title}</h3>
           </div>
@@ -718,24 +772,41 @@ export default function GuestFirstTaskTour({
         </div>
 
         {typing ? (
-          <div className="mt-3 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug sm:leading-relaxed">
+          <div className="mt-2 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug sm:leading-relaxed">
             Помощник печатает код в редакторе…
           </div>
         ) : (
           <div
-            className="mt-3 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug sm:leading-relaxed [&_strong]:text-dark-700 [&_strong]:font-semibold"
+            className="mt-2 ml-0 sm:ml-12 text-sm text-surface-500 leading-snug sm:leading-relaxed [&_strong]:text-dark-700 [&_strong]:font-semibold"
             dangerouslySetInnerHTML={{ __html: activePanel.body }}
           />
         )}
 
-        <div className="mt-4 ml-0 sm:ml-12 flex flex-col sm:flex-row gap-2">
-          {activePanel.actions.map((a) => (
+        {/* Один явный главный CTA — крупная синяя кнопка. Второстепенное
+            действие (обычно дублирует × в шапке смыслом «пропустить») —
+            неприметная текстовая ссылка под ней, чтобы не конкурировать
+            с основным действием визуально. */}
+        <div className="mt-3 ml-0 sm:ml-12">
+          <div className="flex flex-col sm:flex-row gap-2">
+            {primaryAction && (
+              <button
+                key={primaryAction.id}
+                type="button"
+                disabled={typing || waiting}
+                onClick={() => handleAction(primaryAction.id)}
+                className="btn-primary w-full sm:flex-1 justify-center whitespace-normal sm:whitespace-nowrap py-2.5"
+              >
+                {primaryAction.label}
+              </button>
+            )}
+          </div>
+          {secondaryActions.map((a) => (
             <button
               key={a.id}
               type="button"
               disabled={typing || waiting}
               onClick={() => handleAction(a.id)}
-              className={`w-full sm:flex-1 justify-center whitespace-normal sm:whitespace-nowrap ${a.primary ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}`}
+              className="mt-2 w-full text-center text-xs text-surface-400 hover:text-surface-600 transition-colors disabled:opacity-50"
             >
               {a.label}
             </button>
