@@ -173,8 +173,12 @@ function TaskSolver({
         </div>
       </div>
 
-      {/* Основной контент */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Основной контент — это и есть реальный scroll-контейнер страницы
+          задачи (не window/html): у .sf-task-viewport фиксированная высота
+          100dvh, а внутри него скроллится именно этот div. GuestFirstTaskTour
+          опирается на data-tour-scroll-root, чтобы скроллить/измерять
+          координаты относительно НЕГО, а не window. */}
+      <div className="flex-1 overflow-y-auto" data-tour-scroll-root>
         <div className="sf-task-grid px-4 sm:px-6 py-5 grid grid-cols-1 xl:grid-cols-2 gap-6">
 
           {/* ── Левая колонка: условие + примеры + подсказки + история ── */}

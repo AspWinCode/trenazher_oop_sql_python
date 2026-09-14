@@ -80,16 +80,33 @@ function viewportWidth(): number {
   return window.visualViewport?.width ?? window.innerWidth;
 }
 
-function getTargetRect(name: string, maxBottom: number = viewportHeight() - 4): Rect | null {
+// getBoundingClientRect() всегда в координатах layout-вьюпорта. visualViewport
+// может быть сдвинут относительно него (offsetTop/offsetLeft) — не только
+// иметь другие height/width — например, при открытой клавиатуре на части
+// мобильных браузеров или при pinch-zoom. Приводим границу "видимой области"
+// к тем же координатам, что и getBoundingClientRect().
+function visualViewportBounds() {
+  const vv = window.visualViewport;
+  if (!vv) return { top: 0, left: 0, right: window.innerWidth, bottom: window.innerHeight };
+  return {
+    top: vv.offsetTop,
+    left: vv.offsetLeft,
+    right: vv.offsetLeft + vv.width,
+    bottom: vv.offsetTop + vv.height,
+  };
+}
+
+function getTargetRect(name: string, maxBottom?: number): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
   const r = el.getBoundingClientRect();
   if (r.width <= 0 || r.height <= 0) return null;
+  const vb = visualViewportBounds();
   const padding = name === 'sidebar' ? 0 : 8;
-  const left = Math.max(4, r.left - padding);
-  const top = Math.max(4, r.top - padding);
-  const right = Math.min(viewportWidth() - 4, r.right + padding);
-  const bottom = Math.min(maxBottom, r.bottom + padding);
+  const left = Math.max(vb.left + 4, r.left - padding);
+  const top = Math.max(vb.top + 4, r.top - padding);
+  const right = Math.min(vb.right - 4, r.right + padding);
+  const bottom = Math.min(maxBottom ?? vb.bottom - 4, r.bottom + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
 }
@@ -140,14 +157,14 @@ export default function GuestFirstTaskTour({
   // Реальная высота панели — нужна для позиционирования на десктопе (панель
   // рядом с целью, не должна вылезать за низ экрана).
   const panelRef = useRef<HTMLDivElement>(null);
+  // Высота панели — нужна для позиционирования на десктопе (панель рядом
+  // с целью, не должна вылезать за низ экрана). На мобильном панель —
+  // fixed bottom sheet с постоянным CSS-позиционированием, её фактическую
+  // геометрию эффект ниже читает напрямую через panelRef.getBoundingClientRect().
   const [panelHeight, setPanelHeight] = useState(260);
   useLayoutEffect(() => {
     if (panelRef.current) setPanelHeight(panelRef.current.offsetHeight);
   });
-  // На мобильном подсвеченному блоку отдаём приоритет по видимости — панель
-  // встаёт прямо под ним и подстраивается под оставшееся место (см. update()
-  // ниже). null = обычное позиционирование (десктоп/планшет).
-  const [mobilePanelTop, setMobilePanelTop] = useState<number | null>(null);
   // Сабмит, который уже обработан туром — чтобы не реагировать на него повторно.
   const lastHandledSubmissionId = useRef<number | null>(submission?.id ?? null);
   // Ждём, пока после 2-й неверной попытки реально подгрузится подсказка,
@@ -188,27 +205,27 @@ export default function GuestFirstTaskTour({
 
   // Пересчитываем позицию спотлайта под текущий шаг.
   //
-  // Раньше здесь был счётчик "phase", продвигающийся максимум N раз — если
-  // цель переставала помещаться в это число шагов (например, während печати
-  // кода геометрия меняется быстрее, чем счётчик успевал сойтись), слежение
-  // просто останавливалось на устаревших координатах. Плюс рамка подсветки
-  // была на CSS transition (top/left/width/height, 150мс) — при частых
-  // пересчётах (печать кода, дозагрузка Monaco, результаты тестов приходят
-  // один за другим) новая цель прилетала быстрее, чем успевал доиграть
-  // предыдущий transition, и рамка визуально «зависала» посередине между
-  // двумя разными реальными элементами — отсюда и большие пустые
-  // прямоугольники на скриншотах. Транзишен убран (см. JSX ниже), а
-  // пересчёт теперь безусловный: каждый вызов update() заново меряет
-  // getBoundingClientRect() и применяет результат как есть, без счётчиков,
-  // которые могли «застрять».
+  // Архитектурная поправка: на странице задачи (CourseLearnPage → TaskSolver)
+  // реальный scroll-контейнер — это div[data-tour-scroll-root] (flex-1
+  // overflow-y-auto внутри .sf-task-viewport с фиксированной высотой
+  // 100dvh), а НЕ window/html — у них там попросту нечему скроллиться.
+  // Раньше здесь использовались window.scrollY/window.scrollBy — это
+  // скроллило не тот контейнер (в лучшем случае — no-op, в худшем —
+  // рассинхрон между «где мы посчитали target» и «где он на самом деле»).
+  // Плюс мобильная панель раньше была position:absolute — это НЕ часть
+  // normal flow (несмотря на прежний комментарий) и её положение всё
+  // равно приходилось вычислять вручную, вместо того чтобы просто измерить
+  // готовый DOM. Теперь на мобильном панель — обычный fixed bottom sheet
+  // (см. JSX ниже), а видимая область цели ограничена её РЕАЛЬНЫМ верхним
+  // краем (panelRef.getBoundingClientRect().top), а не расчётной величиной.
   useEffect(() => {
     if (!content) return;
     const targetName = STEP_TARGET[step];
     const marginTop = 12;
     const gap = 10;
     // Автопрокрутку к цели делаем один раз за шаг — дальше пользователь
-    // волен сам скроллить, мы не должны с ним бороться. Но геометрию
-    // (rect/панель) продолжаем актуализировать всегда.
+    // волен сам скроллить, мы не должны с ним бороться. Геометрию
+    // (rect) продолжаем актуализировать всегда.
     let autoScrolled = false;
 
     const update = () => {
@@ -219,38 +236,56 @@ export default function GuestFirstTaskTour({
       }
       const mobile = viewportWidth() <= 760;
 
+      // sidebar не внутри scroll-root задачи (это отдельный флаутовый
+      // drawer в Layout) — оставляем как отдельный случай, как и на
+      // десктопе: browser-native scrollIntoView сам найдёт нужный
+      // скролл-контейнер по цепочке предков.
       if (!mobile || targetName === 'sidebar') {
-        setMobilePanelTop(null);
         if (!mobile && !autoScrolled && targetName !== 'sidebar') {
           autoScrolled = true;
           try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); }
           catch { el.scrollIntoView(); }
         }
-      } else {
+        setRect(getTargetRect(targetName));
+        return;
+      }
+
+      // Мобильный, не sidebar: панель — fixed bottom sheet, её РЕАЛЬНЫЙ
+      // верхний край меряем через DOM (высота карточки зависит от текста
+      // конкретного шага — не вычисляем заранее, а читаем готовый layout).
+      const panelTop = panelRef.current?.getBoundingClientRect().top ?? viewportHeight();
+      // Доступная для подсветки область заканчивается строго над панелью:
+      // spotlight никогда не должен продолжаться под карточкой.
+      const maxBottom = Math.max(marginTop + 40, panelTop - gap);
+
+      const scrollRoot = document.querySelector('[data-tour-scroll-root]') as HTMLElement | null;
+
+      if (!autoScrolled && scrollRoot) {
         const r = el.getBoundingClientRect();
-        // Панель — сразу под целью, в координатах документа (часть потока,
-        // растягивает страницу — см. рендер ниже).
-        setMobilePanelTop(window.scrollY + r.top + r.height + gap);
-        if (!autoScrolled) {
-          const vh = viewportHeight();
-          // Подводим цель к верху экрана, если она выше/ниже видимой области.
-          if (r.top > marginTop + 6 || r.bottom < 0 || r.top > vh) {
-            window.scrollBy({ top: r.top - marginTop });
-          } else {
-            autoScrolled = true;
-          }
+        // Подводим верх цели к marginTop, если она перекрыта панелью снизу
+        // или уходит выше вьюпорта.
+        if (r.top > marginTop + 6 || r.top > maxBottom || r.bottom < 0) {
+          scrollRoot.scrollBy({ top: r.top - marginTop });
+          // После scrollBy — двойной rAF и повторный замер: даём браузеру
+          // применить прокрутку и пересчитать layout, прежде чем мерить
+          // снова (getBoundingClientRect сразу после scrollBy в общем
+          // случае уже актуален, но так — гарантированно, без гонки).
+          requestAnimationFrame(() => requestAnimationFrame(update));
+        } else {
+          autoScrolled = true;
         }
       }
 
-      setRect(getTargetRect(targetName));
+      // Если цель выше доступной области целиком (например весь editor
+      // не помещается над панелью) — maxBottom обрежет rect по границе
+      // панели, и подсветится ровно видимая часть элемента, а не весь
+      // элемент и не пустое место под панелью.
+      setRect(getTargetRect(targetName, maxBottom));
     };
 
-    // Двойной requestAnimationFrame перед первым замером на мобильном шаге:
+    // Двойной requestAnimationFrame перед первым замером на новом шаге:
     // даём React закоммитить DOM, а браузеру — пересчитать layout (иначе
-    // первый замер может застать ещё не отрисованное состояние). Для
-    // остальных срабатываний (observers/scroll/resize) это не нужно —
-    // getBoundingClientRect() всегда возвращает актуальную геометрию на
-    // момент вызова.
+    // первый замер может застать ещё не отрисованное состояние).
     let raf1 = 0;
     let raf2 = 0;
     raf1 = requestAnimationFrame(() => {
@@ -259,7 +294,13 @@ export default function GuestFirstTaskTour({
 
     const el = document.querySelector(`[data-tour="${targetName}"]`);
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+    // Наблюдаем и за целью, и за панелью — изменение текста карточки тура
+    // (переход между шагами, разный объём подсказки) меняет её высоту, а
+    // значит и доступную для spotlight область.
     if (el && resizeObserver) resizeObserver.observe(el);
+    if (panelRef.current && resizeObserver) resizeObserver.observe(panelRef.current);
+
+    const scrollRootEl = document.querySelector('[data-tour-scroll-root]');
 
     const root = document.getElementById('root');
     const mutationObserver = new MutationObserver(update);
@@ -272,6 +313,7 @@ export default function GuestFirstTaskTour({
 
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
+    scrollRootEl?.addEventListener('scroll', update, { passive: true });
     window.visualViewport?.addEventListener('resize', update);
     window.visualViewport?.addEventListener('scroll', update);
 
@@ -283,6 +325,7 @@ export default function GuestFirstTaskTour({
       mutationObserver.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
+      scrollRootEl?.removeEventListener('scroll', update);
       window.visualViewport?.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('scroll', update);
     };
@@ -543,14 +586,25 @@ export default function GuestFirstTaskTour({
   if (!activePanel) return null;
 
   const panelWidth = 480;
-  // На мобильном (mobilePanelTop не null) панель — absolute в координатах
-  // документа: часть потока страницы сразу под подсвеченным блоком, без
-  // internal-скролла. Иначе — прежнее fixed-позиционирование.
-  let panelStyle: React.CSSProperties = mobilePanelTop !== null
-    ? { position: 'absolute', left: 16, right: 16, top: mobilePanelTop, width: 'auto' }
+  const isMobile = viewportWidth() <= 760;
+  // На мобильном панель — обычный fixed bottom sheet: всегда у нижнего
+  // края экрана (с отступом под safe-area на iOS), с собственной
+  // прокруткой, если текст шага не помещается. Её РЕАЛЬНУЮ высоту/верх
+  // эффект слежения выше читает через panelRef.getBoundingClientRect() —
+  // ничего вычислять заранее не нужно.
+  let panelStyle: React.CSSProperties = isMobile
+    ? {
+        position: 'fixed',
+        left: 12,
+        right: 12,
+        bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+        width: 'auto',
+        maxHeight: '45vh',
+        overflowY: 'auto',
+      }
     : { position: 'fixed', left: 16, right: 16, bottom: 16, width: 'auto', maxHeight: '60vh', overflowY: 'auto' };
 
-  if (targetRect && window.innerWidth > 760) {
+  if (targetRect && !isMobile) {
     const gap = 16;
     const margin = 12;
     const spaceRight = window.innerWidth - targetRect.left - targetRect.width;
@@ -638,9 +692,10 @@ export default function GuestFirstTaskTour({
         )}
       </div>
 
-      {/* Панель вынесена из фиксированной обёртки: на мобильном она absolute
-          в координатах документа и должна расти вместе с его высотой, а не
-          быть ограничена контейнером position:fixed (тот всегда = вьюпорту). */}
+      {/* Панель — сосед затемняющей обёртки (не потомок), чтобы её
+          z-index (10060) реально стоял выше затемнения (10050). На
+          мобильном это простой fixed bottom sheet — координаты рамки
+          подсветки выше в этом файле ограничены её реальным верхним краем. */}
       <div ref={panelRef} className="card shadow-xl pointer-events-auto" style={{ ...panelStyle, zIndex: 10060 }}>
         <div className="flex items-start gap-3">
           <div className="hidden sm:flex shrink-0 w-9 h-9 rounded-lg bg-primary-50 text-primary-600 items-center justify-center font-bold">

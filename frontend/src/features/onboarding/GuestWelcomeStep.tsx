@@ -12,16 +12,30 @@ interface Rect {
 
 // visualViewport точнее window.innerWidth/innerHeight на мобильном Chrome —
 // учитывает скрытие/появление адресной строки и открытую клавиатуру.
-function viewportHeight(): number {
-  return window.visualViewport?.height ?? window.innerHeight;
-}
 function viewportWidth(): number {
   return window.visualViewport?.width ?? window.innerWidth;
 }
 
+// getBoundingClientRect() всегда в координатах layout-вьюпорта. visualViewport
+// может быть сдвинут относительно него (offsetTop/offsetLeft), а не только
+// иметь другие height/width — приводим границу видимой области к тем же
+// координатам, что и getBoundingClientRect().
+function visualViewportBounds() {
+  const vv = window.visualViewport;
+  if (!vv) return { top: 0, left: 0, right: window.innerWidth, bottom: window.innerHeight };
+  return {
+    top: vv.offsetTop,
+    left: vv.offsetLeft,
+    right: vv.offsetLeft + vv.width,
+    bottom: vv.offsetTop + vv.height,
+  };
+}
+
 // Подсвечиваем реально занятую детьми область, а не весь grid-контейнер —
-// иначе при 2 карточках в 3-колоночной сетке рамка захватывает пустое место справа.
-function getTargetRect(name: string, maxBottom: number = viewportHeight() - 4): Rect | null {
+// иначе при 2 карточках в 3-колоночной сетке рамка захватывает пустое место
+// справа. maxBottom — реальный верхний край bottom sheet минус отступ:
+// spotlight никогда не должен продолжаться под карточкой.
+function getTargetRect(name: string, maxBottom?: number): Rect | null {
   const el = document.querySelector(`[data-tour="${name}"]`);
   if (!el || !el.isConnected) return null;
   const children = Array.from(el.children) as HTMLElement[];
@@ -31,11 +45,12 @@ function getTargetRect(name: string, maxBottom: number = viewportHeight() - 4): 
   const right0 = Math.max(...rects.map((r) => r.right));
   const bottom0 = Math.max(...rects.map((r) => r.bottom));
   if (right0 - left0 <= 0 || bottom0 - top0 <= 0) return null;
+  const vb = visualViewportBounds();
   const padding = 10;
-  const left = Math.max(4, left0 - padding);
-  const top = Math.max(4, top0 - padding);
-  const right = Math.min(viewportWidth() - 4, right0 + padding);
-  const bottom = Math.min(maxBottom, bottom0 + padding);
+  const left = Math.max(vb.left + 4, left0 - padding);
+  const top = Math.max(vb.top + 4, top0 - padding);
+  const right = Math.min(vb.right - 4, right0 + padding);
+  const bottom = Math.min(maxBottom ?? vb.bottom - 4, bottom0 + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
 }
@@ -49,12 +64,6 @@ export default function GuestWelcomeStep({ courses }: Props) {
   const { tourSeen, markTourSeen } = useTourSeen();
   const [dismissed, setDismissed] = useState(false);
   const [rect, setRect] = useState<Rect | null>(null);
-  // На мобильном панель — не фиксированный оверлей поверх низа экрана, а
-  // часть потока документа сразу под карточками курсов: страница становится
-  // выше и просто скроллится, чтобы показать всё целиком, без внутренней
-  // прокрутки самой панели. top — в координатах документа (с учётом скролла).
-  // null = обычное позиционирование (десктоп/планшет, панель у нижнего края).
-  const [mobilePanelTop, setMobilePanelTop] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const pythonCourse = useMemo(() => courses.find((c) => /python/i.test(c.title)), [courses]);
@@ -62,12 +71,15 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
   const visible = !tourSeen && !dismissed && Boolean(pythonCourse || sqlCourse);
 
+  // Реальный scroll-контейнер страницы курсов — .sf-main (flex-1 overflow-auto
+  // в Layout.tsx), а не window/html: .sf-main зажат высотой .sf-shell
+  // (min-h-screen) и скроллится сам, наружу это не пробрасывается.
   useEffect(() => {
     if (!visible) return;
     const marginTop = 12;
     const gap = 10;
     // Автопрокрутку делаем один раз — дальше не боремся с пользователем,
-    // если он решил проскроллить сам. Геометрию (rect/панель) продолжаем
+    // если он решил проскроллить сам. Геометрию (rect) продолжаем
     // актуализировать всегда при любом реальном изменении DOM/размера.
     let autoScrolled = false;
 
@@ -80,23 +92,27 @@ export default function GuestWelcomeStep({ courses }: Props) {
       const mobile = viewportWidth() <= 760;
 
       if (!mobile) {
-        setMobilePanelTop(null);
-      } else {
+        setRect(getTargetRect('course-cards'));
+        return;
+      }
+
+      // Мобильный: панель — fixed bottom sheet, её реальный верхний край
+      // меряем через DOM (высота зависит от того, сколько курсов доступно).
+      const panelTop = panelRef.current?.getBoundingClientRect().top ?? window.innerHeight;
+      const maxBottom = Math.max(marginTop + 40, panelTop - gap);
+
+      const scrollRoot = document.querySelector('.sf-main') as HTMLElement | null;
+      if (!autoScrolled && scrollRoot) {
         const r = el.getBoundingClientRect();
-        setMobilePanelTop(window.scrollY + r.top + r.height + gap);
-        if (!autoScrolled) {
-          const vh = viewportHeight();
-          if (r.top > marginTop + 6 || r.bottom < 0 || r.top > vh) {
-            window.scrollBy({ top: r.top - marginTop });
-          } else {
-            autoScrolled = true;
-          }
+        if (r.top > marginTop + 6 || r.top > maxBottom || r.bottom < 0) {
+          scrollRoot.scrollBy({ top: r.top - marginTop });
+          requestAnimationFrame(() => requestAnimationFrame(update));
+        } else {
+          autoScrolled = true;
         }
       }
 
-      // Блок больше не обрезаем по границе панели — она теперь не может его
-      // перекрыть, т.к. стоит ниже в потоке документа, а не поверх.
-      setRect(getTargetRect('course-cards'));
+      setRect(getTargetRect('course-cards', maxBottom));
     };
 
     // Двойной rAF перед первым замером — даём React закоммитить, а
@@ -108,6 +124,9 @@ export default function GuestWelcomeStep({ courses }: Props) {
     const el = document.querySelector('[data-tour="course-cards"]');
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
     if (el && resizeObserver) resizeObserver.observe(el);
+    if (panelRef.current && resizeObserver) resizeObserver.observe(panelRef.current);
+
+    const scrollRootEl = document.querySelector('.sf-main');
 
     const root = document.getElementById('root');
     const mutationObserver = new MutationObserver(update);
@@ -117,6 +136,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
     const interval = window.setInterval(update, 500);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
+    scrollRootEl?.addEventListener('scroll', update, { passive: true });
     window.visualViewport?.addEventListener('resize', update);
     window.visualViewport?.addEventListener('scroll', update);
 
@@ -128,6 +148,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
       mutationObserver.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
+      scrollRootEl?.removeEventListener('scroll', update);
       window.visualViewport?.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('scroll', update);
     };
@@ -145,6 +166,8 @@ export default function GuestWelcomeStep({ courses }: Props) {
     setDismissed(true);
   }
 
+  const isMobile = viewportWidth() <= 760;
+
   return (
     <>
       <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
@@ -154,7 +177,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, rect.top) }} />
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height }} />
             <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: rect.left + rect.width, width: Math.max(0, viewportWidth() - rect.left - rect.width), height: rect.height }} />
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top + rect.height, left: 0, width: '100vw', height: Math.max(0, viewportHeight() - rect.top - rect.height) }} />
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top + rect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - rect.top - rect.height) }} />
             <div
               className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
               style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
@@ -171,19 +194,16 @@ export default function GuestWelcomeStep({ courses }: Props) {
         )}
       </div>
 
-      {/*
-        Панель вынесена ИЗ фиксированной обёртки: на мобильном (mobilePanelTop
-        не null) она позиционируется absolute в координатах документа —
-        значит участвует в его высоте и скроллится вместе со страницей,
-        а не зависает поверх контента.
-      */}
+      {/* Панель — сосед затемняющей обёртки (не потомок), чтобы её z-index
+          (10060) реально стоял выше затемнения (10050). На мобильном —
+          простой fixed bottom sheet со своей прокруткой при нехватке места. */}
       <div
         ref={panelRef}
-        className={`card shadow-xl pointer-events-auto ${mobilePanelTop !== null ? 'absolute' : 'fixed'}`}
+        className="card shadow-xl pointer-events-auto"
         style={
-          mobilePanelTop !== null
-            ? { left: 16, right: 16, top: mobilePanelTop, maxWidth: 640, margin: '0 auto', zIndex: 10060 }
-            : { left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10060, position: 'fixed' }
+          isMobile
+            ? { position: 'fixed', left: 12, right: 12, bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', maxWidth: 640, margin: '0 auto', maxHeight: '45vh', overflowY: 'auto', zIndex: 10060 }
+            : { position: 'fixed', left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10060 }
         }
       >
         <div className="flex items-start gap-3">
