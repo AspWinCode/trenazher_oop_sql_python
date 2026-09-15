@@ -100,16 +100,29 @@ function visualViewportBounds() {
 }
 
 function getTargetRect(name: string, maxBottom?: number): Rect | null {
-  const el = document.querySelector(`[data-tour="${name}"]`);
+  const el = document.querySelector(`[data-tour="${name}"]`) as HTMLElement | null;
   if (!el || !el.isConnected) return null;
   const r = el.getBoundingClientRect();
   if (r.width <= 0 || r.height <= 0) return null;
   const vb = visualViewportBounds();
+  // Если target лежит внутри реального scroll-контейнера задачи, обрезаем
+  // его границами ЭТОГО контейнера, а не только вьюпорта — иначе, если
+  // элемент физически прокрутился выше scrollRoot, его getBoundingClientRect()
+  // может уходить за верхнюю границу scrollRoot (то есть под sf-task-header),
+  // и подсветка ошибочно рисуется поверх заголовка задачи.
+  const scrollRoot = el.closest('[data-tour-scroll-root]') as HTMLElement | null;
+  const sr = scrollRoot?.getBoundingClientRect();
   const padding = name === 'sidebar' ? 0 : 8;
-  const left = Math.max(vb.left + 4, r.left - padding);
-  const top = Math.max(vb.top + 4, r.top - padding);
-  const right = Math.min(vb.right - 4, r.right + padding);
-  const bottom = Math.min(maxBottom ?? vb.bottom - 4, r.bottom + padding);
+
+  const clipTop = Math.max(vb.top + 4, sr ? sr.top + 4 : vb.top + 4);
+  const clipLeft = Math.max(vb.left + 4, sr ? sr.left + 4 : vb.left + 4);
+  const clipRight = Math.min(vb.right - 4, sr ? sr.right - 4 : vb.right - 4);
+  const clipBottom = Math.min(maxBottom ?? vb.bottom - 4, sr ? sr.bottom - 4 : vb.bottom - 4);
+
+  const left = Math.max(clipLeft, r.left - padding);
+  const top = Math.max(clipTop, r.top - padding);
+  const right = Math.min(clipRight, r.right + padding);
+  const bottom = Math.min(clipBottom, r.bottom + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
 }
@@ -247,12 +260,22 @@ export default function GuestFirstTaskTour({
     // (rect) продолжаем актуализировать всегда.
     let autoScrolled = false;
 
+    // При смене шага старый spotlight нельзя оставлять висеть на экране —
+    // иначе при переходе, например, problem -> sample -> editor рамка на
+    // миг (или до первого валидного замера) остаётся на ПРЕДЫДУЩЕМ target'е.
+    // "Сохранение последнего валидного rect" ниже (в applyRect) защищает
+    // только от мерцания МЕЖДУ обновлениями ОДНОГО и того же шага — сброс
+    // здесь обязателен перед этим.
+    setRect(null);
+
     const applyRect = (next: Rect | null, elExists: boolean) => {
       // Не перетираем последний КОРРЕКТНЫЙ rect промежуточным/схлопнувшимся
       // значением (ещё не отрисованный layout, переходное состояние между
       // старой и новой целью) — иначе на экране на миг мелькает пустая
       // тонкая рамка без содержимого. Обнуляем rect только если цели
-      // реально больше нет в DOM.
+      // реально больше нет в DOM. Это относится только к обновлениям
+      // ТЕКУЩЕГО шага — при смене step сам эффект перезапускается и rect
+      // уже сброшен в null выше.
       if (next && next.height >= MIN_SPOTLIGHT_HEIGHT && next.width >= MIN_SPOTLIGHT_HEIGHT) {
         setRect(next);
       } else if (!elExists) {
@@ -311,10 +334,16 @@ export default function GuestFirstTaskTour({
 
       if (!autoScrolled && scrollRoot) {
         const r = el.getBoundingClientRect();
-        // Подводим верх цели к marginTop, если она перекрыта панелью снизу
-        // или уходит выше вьюпорта.
-        if (r.top > marginTop + 6 || r.top > maxBottom || r.bottom < 0) {
-          scrollRoot.scrollBy({ top: r.top - marginTop });
+        // r.top — координата во ВЬЮПОРТЕ, а scrollRoot начинается не с
+        // верха вьюпорта, а ниже sf-task-header. Нельзя просто подводить
+        // r.top к marginTop от верха экрана — верную "желаемую" позицию
+        // цели нужно считать от верхней ВИДИМОЙ границы самого scrollRoot.
+        const scrollRect = scrollRoot.getBoundingClientRect();
+        const desiredTop = scrollRect.top + marginTop;
+        // Подводим верх цели к desiredTop, если она перекрыта панелью снизу
+        // или уходит выше видимой области scrollRoot (то есть под header).
+        if (r.top > desiredTop + 6 || r.top > maxBottom || r.bottom < 0) {
+          scrollRoot.scrollBy({ top: r.top - desiredTop });
           // После scrollBy — двойной rAF и повторный замер: даём браузеру
           // применить прокрутку и пересчитать layout, прежде чем мерить
           // снова (getBoundingClientRect сразу после scrollBy в общем
