@@ -64,8 +64,16 @@ export default function CoursesPage() {
             const total = p?.total_tasks_count ?? 0;
             const done = p?.completed_tasks_count ?? 0;
             const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            // В демо-режиме гид подсвечивает сразу обе доступные карточки —
+            // Python и SQL — общим спотлайтом (GuestWelcomeStep).
+            const isDemoCourse = isGuest && /python|sql/i.test(c.title);
             return (
-              <Link key={c.id} to={`/course/${c.id}`} className="card hover:shadow-md transition-shadow group flex flex-col gap-3">
+              <Link
+                key={c.id}
+                to={`/course/${c.id}`}
+                data-tour={isDemoCourse ? 'demo-courses' : undefined}
+                className="card hover:shadow-md transition-shadow group flex flex-col gap-3"
+              >
                 <div className="flex items-start justify-between">
                   <h2 className="text-lg font-semibold group-hover:text-primary-600 transition-colors">{c.title}</h2>
                   <span className={`badge-${c.status === 'published' ? 'green' : c.status === 'draft' ? 'yellow' : 'gray'} shrink-0`}>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Course } from '../../types';
 import { useTourSeen } from './useTourSeen';
@@ -10,8 +10,8 @@ interface Rect {
   height: number;
 }
 
-// visualViewport точнее window.innerWidth/innerHeight на мобильном Chrome —
-// учитывает скрытие/появление адресной строки и открытую клавиатуру.
+// visualViewport точнее window.innerWidth на мобильном Chrome — учитывает
+// скрытие/появление адресной строки и открытую клавиатуру.
 function viewportWidth(): number {
   return window.visualViewport?.width ?? window.innerWidth;
 }
@@ -31,15 +31,14 @@ function visualViewportBounds() {
   };
 }
 
-// Подсвечиваем реально занятую детьми область, а не весь grid-контейнер —
-// иначе при 2 карточках в 3-колоночной сетке рамка захватывает пустое место
-// справа. maxBottom — реальный верхний край bottom sheet минус отступ:
-// spotlight никогда не должен продолжаться под карточкой.
-function getTargetRect(name: string, maxBottom?: number): Rect | null {
-  const el = document.querySelector(`[data-tour="${name}"]`);
-  if (!el || !el.isConnected) return null;
-  const children = Array.from(el.children) as HTMLElement[];
-  const rects = (children.length > 0 ? children : [el]).map((c) => c.getBoundingClientRect());
+// Target — сразу все карточки курсов, помеченные data-tour="demo-courses"
+// (обычно ровно Python + SQL, а не весь грид — в нём могут быть и другие,
+// недоступные в демо, курсы). Объединяем их реальные прямоугольники в один
+// общий bounding box, чтобы подсветка охватывала обе карточки сразу.
+function getTargetRect(): Rect | null {
+  const els = Array.from(document.querySelectorAll('[data-tour="demo-courses"]')) as HTMLElement[];
+  if (els.length === 0) return null;
+  const rects = els.map((el) => el.getBoundingClientRect());
   const left0 = Math.min(...rects.map((r) => r.left));
   const top0 = Math.min(...rects.map((r) => r.top));
   const right0 = Math.max(...rects.map((r) => r.right));
@@ -50,13 +49,13 @@ function getTargetRect(name: string, maxBottom?: number): Rect | null {
   const left = Math.max(vb.left + 4, left0 - padding);
   const top = Math.max(vb.top + 4, top0 - padding);
   const right = Math.min(vb.right - 4, right0 + padding);
-  const bottom = Math.min(maxBottom ?? vb.bottom - 4, bottom0 + padding);
+  const bottom = Math.min(vb.bottom - 4, bottom0 + padding);
   if (right <= left || bottom <= top) return null;
   return { top, left, width: right - left, height: bottom - top };
 }
 
 // Не показываем рамку толщиной в несколько пикселей (переходное состояние
-// layout, ещё не отрисованный контент) — только реальные, заметные target'ы.
+// layout, ещё не отрисованный контент) — только реальный, заметный target.
 const MIN_SPOTLIGHT_HEIGHT = 16;
 
 interface Props {
@@ -68,100 +67,43 @@ export default function GuestWelcomeStep({ courses }: Props) {
   const { tourSeen, markTourSeen } = useTourSeen();
   const [dismissed, setDismissed] = useState(false);
   const [rect, setRect] = useState<Rect | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const pythonCourse = useMemo(() => courses.find((c) => /python/i.test(c.title)), [courses]);
   const sqlCourse = useMemo(() => courses.find((c) => /sql/i.test(c.title)), [courses]);
 
   const visible = !tourSeen && !dismissed && Boolean(pythonCourse || sqlCourse);
 
-  // Снимаем зарезервированный отступ сразу, как только шаг закрывается —
-  // чтобы страница курсов не оставалась с лишним пустым местом внизу.
-  useEffect(() => {
-    if (visible) return;
-    const scrollRoot = document.querySelector('.sf-main') as HTMLElement | null;
-    if (scrollRoot) scrollRoot.style.paddingBottom = '';
-  }, [visible]);
-
-  // Реальный scroll-контейнер страницы курсов — .sf-main (flex-1 overflow-auto
-  // в Layout.tsx), а не window/html: .sf-main зажат высотой .sf-shell
-  // (min-h-screen) и скроллится сам, наружу это не пробрасывается.
+  // Курсы уже находятся в самом верху страницы (первый контент CoursesPage),
+  // поэтому оба видны сразу при загрузке — никакой автопрокрутки не нужно.
+  // Карточка помощника — обычный блок в потоке страницы сразу под гридом
+  // курсов (см. рендер ниже и порядок в CoursesPage), поэтому единственное,
+  // что нужно отслеживать здесь — актуальную позицию подсвечиваемых карточек
+  // относительно вьюпорта (она меняется при скролле обычной страницы).
   useEffect(() => {
     if (!visible) return;
-    const marginTop = 12;
-    const gap = 10;
-    // Автопрокрутку делаем один раз — дальше не боремся с пользователем,
-    // если он решил проскроллить сам. Геометрию (rect) продолжаем
-    // актуализировать всегда при любом реальном изменении DOM/размера.
-    let autoScrolled = false;
-
-    const applyRect = (next: Rect | null, elExists: boolean) => {
-      // Не перетираем последний корректный rect промежуточным/схлопнувшимся
-      // значением — иначе на экране на миг мелькает пустая тонкая рамка.
-      if (next && next.height >= MIN_SPOTLIGHT_HEIGHT && next.width >= MIN_SPOTLIGHT_HEIGHT) {
-        setRect(next);
-      } else if (!elExists) {
-        setRect(null);
-      }
-    };
 
     const update = () => {
-      const el = document.querySelector('[data-tour="course-cards"]');
-      if (!el || !el.isConnected) {
+      const next = getTargetRect();
+      // Пока хотя бы часть подсвечиваемых карточек реально видна во
+      // вьюпорте — показываем рамку. Как только пользователь проскроллил
+      // мимо них (например, вниз — к самой карточке помощника), подсветку
+      // просто убираем: она уже сослужила свою роль и не должна ничего
+      // затемнять поверх карточки.
+      if (next && next.height >= MIN_SPOTLIGHT_HEIGHT && next.width >= MIN_SPOTLIGHT_HEIGHT) {
+        setRect(next);
+      } else {
         setRect(null);
-        return;
       }
-      const mobile = viewportWidth() <= 760;
-      const scrollRoot = document.querySelector('.sf-main') as HTMLElement | null;
-
-      if (!mobile) {
-        if (scrollRoot) scrollRoot.style.paddingBottom = '';
-        applyRect(getTargetRect('course-cards'), true);
-        return;
-      }
-
-      // Мобильный: панель — fixed bottom sheet, её реальный верхний край
-      // меряем через DOM (высота зависит от того, сколько курсов доступно).
-      const panelTop = panelRef.current?.getBoundingClientRect().top ?? window.innerHeight;
-      const maxBottom = Math.max(marginTop + 40, panelTop - gap);
-
-      if (scrollRoot) {
-        // Резервируем снизу .sf-main место под панель — иначе цель,
-        // расположенная ближе к концу контента, чем высота панели,
-        // никогда не сможет доскроллиться выше неё.
-        const reserve = Math.max(0, window.innerHeight - panelTop) + gap;
-        const reservePx = `${Math.ceil(reserve)}px`;
-        if (scrollRoot.style.paddingBottom !== reservePx) {
-          scrollRoot.style.paddingBottom = reservePx;
-        }
-      }
-
-      if (!autoScrolled && scrollRoot) {
-        const r = el.getBoundingClientRect();
-        if (r.top > marginTop + 6 || r.top > maxBottom || r.bottom < 0) {
-          scrollRoot.scrollBy({ top: r.top - marginTop });
-          requestAnimationFrame(() => requestAnimationFrame(update));
-        } else {
-          autoScrolled = true;
-        }
-      }
-
-      applyRect(getTargetRect('course-cards', maxBottom), true);
     };
 
-    // Двойной rAF перед первым замером — даём React закоммитить, а
-    // браузеру пересчитать layout.
-    let raf1 = 0;
-    let raf2 = 0;
-    raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(update); });
+    update();
+    const raf1 = requestAnimationFrame(() => requestAnimationFrame(update));
 
-    const el = document.querySelector('[data-tour="course-cards"]');
+    const els = Array.from(document.querySelectorAll('[data-tour="demo-courses"]'));
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
-    if (el && resizeObserver) resizeObserver.observe(el);
-    if (panelRef.current && resizeObserver) resizeObserver.observe(panelRef.current);
+    els.forEach((el) => resizeObserver?.observe(el));
 
-    const scrollRootEl = document.querySelector('.sf-main');
-
+    const scrollRoot = document.querySelector('.sf-main');
     const root = document.getElementById('root');
     const mutationObserver = new MutationObserver(update);
     if (root) mutationObserver.observe(root, { childList: true, subtree: true, attributes: true, characterData: true });
@@ -170,19 +112,18 @@ export default function GuestWelcomeStep({ courses }: Props) {
     const interval = window.setInterval(update, 500);
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, { capture: true, passive: true });
-    scrollRootEl?.addEventListener('scroll', update, { passive: true });
+    scrollRoot?.addEventListener('scroll', update, { passive: true });
     window.visualViewport?.addEventListener('resize', update);
     window.visualViewport?.addEventListener('scroll', update);
 
     return () => {
       cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
       window.clearInterval(interval);
       resizeObserver?.disconnect();
       mutationObserver.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, { capture: true } as EventListenerOptions);
-      scrollRootEl?.removeEventListener('scroll', update);
+      scrollRoot?.removeEventListener('scroll', update);
       window.visualViewport?.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('scroll', update);
     };
@@ -204,39 +145,33 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
-        {rect ? (
-          <>
-            {/* Затемняем всё, кроме подсвеченной области — она остаётся кликабельной насквозь. */}
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, rect.top) }} />
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height }} />
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: rect.left + rect.width, width: Math.max(0, viewportWidth() - rect.left - rect.width), height: rect.height }} />
-            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top + rect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - rect.top - rect.height) }} />
-            <div
-              className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
-              style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
-            />
-            <div
-              className="fixed flex items-center gap-2 rounded-full bg-white border border-surface-200 shadow-md px-3 py-2 text-sm font-semibold text-dark-700 pointer-events-none"
-              style={{ top: rect.top + rect.height + 14, left: rect.left + rect.width / 2, transform: 'translateX(-50%)' }}
-            >
-              <span>👆</span> Нажмите на курс
-            </div>
-          </>
-        ) : (
-          <div className="fixed inset-0 bg-black/60 pointer-events-auto" />
-        )}
-      </div>
+      {rect && (
+        <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
+          {/* Затемняем только сверху/слева/справа от подсветки. Снизу
+              намеренно ничего не затемняем: там в обычном потоке страницы
+              сразу начинается карточка помощника — она не должна оказаться
+              под полупрозрачным слоем и должна быть кликабельна как обычный
+              контент страницы. */}
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, rect.top) }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height }} />
+          <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: rect.left + rect.width, width: Math.max(0, viewportWidth() - rect.left - rect.width), height: rect.height }} />
+          <div
+            className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
+            style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
+          />
+        </div>
+      )}
 
-      {/* Панель — сосед затемняющей обёртки (не потомок), чтобы её z-index
-          (10060) реально стоял выше затемнения (10050). На мобильном —
-          простой fixed bottom sheet со своей прокруткой при нехватке места. */}
+      {/* Мобильный: обычный блок в нормальном потоке документа — рендерится
+          в CoursesPage сразу после грида курсов, поэтому просто продолжает
+          страницу вниз (без position: fixed/absolute, без своего overflow —
+          скроллится вся страница целиком через .sf-main). Десктоп оставлен
+          как был — фиксированная плашка снизу экрана. */}
       <div
-        ref={panelRef}
-        className="card shadow-xl pointer-events-auto"
+        className={isMobile ? 'card shadow-xl mt-4' : 'card shadow-xl pointer-events-auto'}
         style={
           isMobile
-            ? { position: 'fixed', left: 12, right: 12, bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', maxWidth: 640, margin: '0 auto', maxHeight: '38vh', overflowY: 'auto', zIndex: 10060 }
+            ? undefined
             : { position: 'fixed', left: 16, right: 16, bottom: 16, maxWidth: 640, margin: '0 auto', maxHeight: '50vh', overflowY: 'auto', zIndex: 10060 }
         }
       >
