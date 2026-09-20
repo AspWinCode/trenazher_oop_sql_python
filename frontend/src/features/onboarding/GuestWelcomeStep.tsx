@@ -164,6 +164,17 @@ export default function GuestWelcomeStep({ courses }: Props) {
             className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
             style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
           />
+          {/* Только десктоп: на мобильном карточка помощника и так сразу
+              под курсами, отдельная плашка-подсказка там лишняя. */}
+          {!isMobile && (
+            <div
+              className="fixed flex items-center gap-2 rounded-full bg-white border border-surface-200 shadow-md px-3 py-2 text-sm font-semibold text-dark-700 pointer-events-none sf-course-hint-float"
+              style={{ top: rect.top + rect.height + 14, left: rect.left + rect.width / 2, zIndex: 10060 }}
+            >
+              <span>👆</span>
+              Нажмите на курс
+            </div>
+          )}
         </div>
       ) : (
         // Пока рамка ещё не измерена/не найдена — на десктопе, как и раньше,

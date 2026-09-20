@@ -497,6 +497,19 @@ body.guest-tour-active .sf-demo-banner {
   }
 }
 
+/* Плашка "Нажмите на курс" на welcome-шаге демо-режима (десктоп) — мягкое
+   покачивание вместо резкого animate-bounce, чтобы не быть навязчивым в
+   onboarding. Анимация сама управляет transform, поэтому translateX(-50%)
+   для центрирования зашит в keyframes, а не в inline-style элемента. */
+@keyframes sf-course-hint-float {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -4px); }
+}
+
+.sf-course-hint-float {
+  animation: sf-course-hint-float 1.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sf-demo-banner { animation: none; }
   .sf-demo-banner__button,
