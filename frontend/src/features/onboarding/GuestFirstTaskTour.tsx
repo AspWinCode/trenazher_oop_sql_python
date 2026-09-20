@@ -399,8 +399,26 @@ export default function GuestFirstTaskTour({
           // r.top к marginTop от верха экрана — верную "желаемую" позицию
           // цели нужно считать от верхней ВИДИМОЙ границы самого scrollRoot.
           const desiredTop = scrollRect.top + marginTop;
-          needsScroll = r.top > desiredTop + 6 || r.top > maxBottom || r.bottom < 0;
           delta = r.top - desiredTop;
+          // ВАЖНО: "не виден" для target'а внутри scrollRoot нельзя
+          // определять как r.bottom < 0 (координата от верха ВЬЮПОРТА) —
+          // над scrollRoot есть sf-task-header, поэтому target может уже
+          // целиком скрыться выше видимой области scrollRoot, а r.bottom
+          // при этом останется положительным (просто попадёт под header).
+          // Тогда needsScroll ошибочно был бы false, autoScrolled
+          // выставлялся в true, и цель так и оставалась бы невидимой —
+          // ровно так вело себя появление hint-content после прокрутки
+          // вниз к submit. Сравниваем с границами именно scrollRoot.
+          const aboveVisibleArea = r.bottom <= scrollRect.top + marginTop;
+          const belowVisibleArea = r.top >= maxBottom;
+          if (aboveVisibleArea || belowVisibleArea) {
+            needsScroll = true;
+          } else {
+            // Target уже достаточно виден между верхней границей scrollRoot
+            // и панелью — не нужно каждый раз силой прижимать его к самому
+            // верху, если он и так помещается в видимой области.
+            needsScroll = false;
+          }
         }
 
         if (needsScroll) {
