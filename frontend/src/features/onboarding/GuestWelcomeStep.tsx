@@ -145,21 +145,32 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
   return (
     <>
-      {rect && (
+      {rect ? (
         <div className="fixed inset-0 z-[10050] pointer-events-none" role="dialog" aria-modal="true">
-          {/* Затемняем только сверху/слева/справа от подсветки. Снизу
-              намеренно ничего не затемняем: там в обычном потоке страницы
-              сразу начинается карточка помощника — она не должна оказаться
-              под полупрозрачным слоем и должна быть кликабельна как обычный
-              контент страницы. */}
           <div className="fixed bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, width: '100vw', height: Math.max(0, rect.top) }} />
           <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height }} />
           <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top, left: rect.left + rect.width, width: Math.max(0, viewportWidth() - rect.left - rect.width), height: rect.height }} />
+          {/* На мобильном карточка — обычный блок в потоке страницы сразу
+              под курсами, разрыва между вырезом и карточкой физически нет,
+              поэтому снизу намеренно ничего не затемняем (иначе полупрозрачный
+              слой оказался бы поверх самой карточки). На десктопе карточка —
+              fixed bottom sheet, ниже выреза остаётся обычный контент
+              страницы — там нижнюю полосу нужно закрашивать до конца экрана,
+              как и раньше, иначе получается пустой незатемнённый разрыв. */}
+          {!isMobile && (
+            <div className="fixed bg-black/60 pointer-events-auto" style={{ top: rect.top + rect.height, left: 0, width: '100vw', height: Math.max(0, window.innerHeight - rect.top - rect.height) }} />
+          )}
           <div
             className="fixed rounded-2xl border-2 border-primary-500 pointer-events-none"
             style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height, boxShadow: '0 0 0 4px rgba(59,130,246,0.25)' }}
           />
         </div>
+      ) : (
+        // Пока рамка ещё не измерена/не найдена — на десктопе, как и раньше,
+        // держим сплошную тёмную заливку (не даём мелькать голой странице
+        // без подсветки и без затемнения). На мобильном оставляем как есть:
+        // без подсветки просто ничего не показываем.
+        !isMobile && <div className="fixed inset-0 z-[10050] bg-black/60 pointer-events-auto" />
       )}
 
       {/* Мобильный: обычный блок в нормальном потоке документа — рендерится
