@@ -60,6 +60,21 @@ const STEP_TARGET: Record<StepId, string> = {
   'try-yourself': 'editor',
 };
 
+// На мобильном для submit-шагов подсвечиваем не только кнопку, а всю
+// карточку редактора (data-tour="editor") — она и так включает toolbar,
+// код в Monaco и sf-editor-actions с настоящей кнопкой submit внутри,
+// так что отдельный wrapper не нужен. Иначе на узком экране пользователь
+// видит только кнопку и не видит код, который отправляет. Desktop не
+// трогаем — там spotlight по-прежнему только вокруг кнопки.
+const MOBILE_WIDE_SUBMIT_STEPS = new Set<StepId>(['submit-wrong-1', 'submit-wrong-2', 'submit-correct']);
+
+function getStepTarget(step: StepId, mobile: boolean): string {
+  if (mobile && MOBILE_WIDE_SUBMIT_STEPS.has(step)) {
+    return 'editor';
+  }
+  return STEP_TARGET[step];
+}
+
 interface Rect {
   top: number;
   left: number;
@@ -252,7 +267,6 @@ export default function GuestFirstTaskTour({
   // Пересчитываем позицию спотлайта под текущий шаг.
   useEffect(() => {
     if (!content) return;
-    const targetName = STEP_TARGET[step];
     const marginTop = 12;
     const gap = 10;
     // Автопрокрутку к цели делаем один раз за шаг — дальше пользователь
@@ -294,12 +308,27 @@ export default function GuestFirstTaskTour({
     };
 
     const update = () => {
+      const mobile = viewportWidth() <= 760;
+      const targetName = getStepTarget(step, mobile);
       const el = document.querySelector(`[data-tour="${targetName}"]`) as HTMLElement | null;
+
+      // Дополнительный акцент на настоящей кнопке submit — только на
+      // мобильном и только на submit-шагах, где spotlight охватывает весь
+      // editor целиком (иначе кнопка теряется на фоне всего блока кода).
+      // Класс переключается на реальном DOM-узле напрямую (как и запись
+      // paddingBottom на scrollRoot чуть ниже) — тот же приём, что уже
+      // используется в этом эффекте, без прокидывания пропсов в другой
+      // компонент.
+      const submitEl = document.querySelector('[data-tour="submit"]') as HTMLElement | null;
+      const shouldAccentSubmit = mobile && MOBILE_WIDE_SUBMIT_STEPS.has(step);
+      submitEl?.classList.toggle('ring-2', shouldAccentSubmit);
+      submitEl?.classList.toggle('ring-primary-400', shouldAccentSubmit);
+      submitEl?.classList.toggle('shadow-lg', shouldAccentSubmit);
+
       if (!el || !el.isConnected) {
         setRect(null);
         return;
       }
-      const mobile = viewportWidth() <= 760;
 
       // sidebar не внутри scroll-root задачи (это отдельный флаутовый
       // drawer в Layout) — оставляем как отдельный случай, как и на
@@ -343,21 +372,42 @@ export default function GuestFirstTaskTour({
       }
 
       if (!autoScrolled && !scrollInFlight && scrollRoot) {
-        const r = el.getBoundingClientRect();
-        // r.top — координата во ВЬЮПОРТЕ, а scrollRoot начинается не с
-        // верха вьюпорта, а ниже sf-task-header. Нельзя просто подводить
-        // r.top к marginTop от верха экрана — верную "желаемую" позицию
-        // цели нужно считать от верхней ВИДИМОЙ границы самого scrollRoot.
+        // На mobile submit-шагах target — весь editor, который часто
+        // выше доступного места над панелью. Если выравнивать по верху
+        // editor (как для обычных target'ов), кнопка submit внизу карточки
+        // может остаться под bottom-sheet. Здесь важнее показать код и
+        // саму кнопку, а не шапку тулбара — поэтому подводим к панели
+        // именно НИЗ настоящей кнопки submit, а не верх editor.
+        const isMobileWideSubmit = MOBILE_WIDE_SUBMIT_STEPS.has(step);
+        const anchorEl = isMobileWideSubmit
+          ? (document.querySelector('[data-tour="submit"]') as HTMLElement | null) ?? el
+          : el;
+        const r = anchorEl.getBoundingClientRect();
         const scrollRect = scrollRoot.getBoundingClientRect();
-        const desiredTop = scrollRect.top + marginTop;
-        // Подводим верх цели к desiredTop, если она перекрыта панелью снизу
-        // или уходит выше видимой области scrollRoot (то есть под header).
-        if (r.top > desiredTop + 6 || r.top > maxBottom || r.bottom < 0) {
+
+        let delta: number;
+        let needsScroll: boolean;
+        if (isMobileWideSubmit) {
+          // Желаемое положение — низ кнопки submit ровно у верхней границы
+          // maxBottom (то есть впритык над панелью).
+          const desiredBottom = maxBottom;
+          needsScroll = Math.abs(r.bottom - desiredBottom) > 6 || r.top < scrollRect.top;
+          delta = r.bottom - desiredBottom;
+        } else {
+          // r.top — координата во ВЬЮПОРТЕ, а scrollRoot начинается не с
+          // верха вьюпорта, а ниже sf-task-header. Нельзя просто подводить
+          // r.top к marginTop от верха экрана — верную "желаемую" позицию
+          // цели нужно считать от верхней ВИДИМОЙ границы самого scrollRoot.
+          const desiredTop = scrollRect.top + marginTop;
+          needsScroll = r.top > desiredTop + 6 || r.top > maxBottom || r.bottom < 0;
+          delta = r.top - desiredTop;
+        }
+
+        if (needsScroll) {
           // Абсолютный scrollTo вместо scrollBy: дельту считаем от ТЕКУЩЕГО
           // scrollTop один раз, до старта прокрутки, а не полагаемся на то,
           // что scrollBy применится мгновенно и синхронно для следующего
           // конкурентного вызова update().
-          const delta = r.top - desiredTop;
           const destination = scrollRoot.scrollTop + delta;
           scrollInFlight = true;
           scrollRoot.scrollTo({ top: destination, behavior: 'auto' });
@@ -393,7 +443,7 @@ export default function GuestFirstTaskTour({
       raf2 = requestAnimationFrame(update);
     });
 
-    const el = document.querySelector(`[data-tour="${targetName}"]`);
+    const el = document.querySelector(`[data-tour="${getStepTarget(step, viewportWidth() <= 760)}"]`);
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
     // Наблюдаем и за целью, и за панелью — изменение текста карточки тура
     // (переход между шагами, разный объём подсказки) меняет её высоту, а
@@ -439,6 +489,10 @@ export default function GuestFirstTaskTour({
       scrollRootEl?.removeEventListener('scroll', update);
       window.visualViewport?.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('scroll', update);
+      // Уходим с шага (или тур размонтируется) — акцент на кнопке submit
+      // не должен оставаться висеть на следующем шаге/после закрытия тура.
+      const submitEl = document.querySelector('[data-tour="submit"]') as HTMLElement | null;
+      submitEl?.classList.remove('ring-2', 'ring-primary-400', 'shadow-lg');
     };
   }, [step, content]);
 
