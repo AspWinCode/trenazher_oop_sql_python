@@ -394,30 +394,39 @@ export default function GuestFirstTaskTour({
           needsScroll = Math.abs(r.bottom - desiredBottom) > 6 || r.top < scrollRect.top;
           delta = r.bottom - desiredBottom;
         } else {
-          // r.top — координата во ВЬЮПОРТЕ, а scrollRoot начинается не с
-          // верха вьюпорта, а ниже sf-task-header. Нельзя просто подводить
-          // r.top к marginTop от верха экрана — верную "желаемую" позицию
-          // цели нужно считать от верхней ВИДИМОЙ границы самого scrollRoot.
-          const desiredTop = scrollRect.top + marginTop;
-          delta = r.top - desiredTop;
-          // ВАЖНО: "не виден" для target'а внутри scrollRoot нельзя
-          // определять как r.bottom < 0 (координата от верха ВЬЮПОРТА) —
-          // над scrollRoot есть sf-task-header, поэтому target может уже
-          // целиком скрыться выше видимой области scrollRoot, а r.bottom
-          // при этом останется положительным (просто попадёт под header).
-          // Тогда needsScroll ошибочно был бы false, autoScrolled
-          // выставлялся в true, и цель так и оставалась бы невидимой —
-          // ровно так вело себя появление hint-content после прокрутки
-          // вниз к submit. Сравниваем с границами именно scrollRoot.
-          const aboveVisibleArea = r.bottom <= scrollRect.top + marginTop;
-          const belowVisibleArea = r.top >= maxBottom;
-          if (aboveVisibleArea || belowVisibleArea) {
-            needsScroll = true;
+          // r.top/r.bottom — координаты во ВЬЮПОРТЕ, а scrollRoot начинается
+          // не с верха вьюпорта, а ниже sf-task-header. "Видимая область" —
+          // это полоса между низом header'а (visibleTop) и верхом панели
+          // (visibleBottom), а не весь вьюпорт от 0.
+          const visibleTop = scrollRect.top + marginTop;
+          const visibleBottom = maxBottom;
+          const availableHeight = Math.max(0, visibleBottom - visibleTop);
+          const targetHeight = r.height;
+
+          if (targetHeight <= availableHeight) {
+            // Target физически помещается целиком между header и панелью —
+            // "видно" значит виден ПОЛНОСТЬЮ, а не любым краем. Раньше
+            // проверка "хотя бы что-то пересекается с видимой областью"
+            // считала, например, узкую полоску верхних 10px блока sample
+            // (при том что весь остальной блок уже под панелью) достаточной,
+            // и getTargetRect затем клипал всё остальное — на экране
+            // оставалась только эта полоска вместо всего блока.
+            if (r.top < visibleTop) {
+              delta = r.top - visibleTop;
+              needsScroll = true;
+            } else if (r.bottom > visibleBottom) {
+              delta = r.bottom - visibleBottom;
+              needsScroll = true;
+            } else {
+              delta = 0;
+              needsScroll = false;
+            }
           } else {
-            // Target уже достаточно виден между верхней границей scrollRoot
-            // и панелью — не нужно каждый раз силой прижимать его к самому
-            // верху, если он и так помещается в видимой области.
-            needsScroll = false;
+            // Target выше доступной области целиком (большой editor, длинный
+            // result) — целиком не показать физически, выравниваем по верху,
+            // getTargetRect обрежет по visibleBottom и покажет видимую часть.
+            delta = r.top - visibleTop;
+            needsScroll = Math.abs(delta) > 6;
           }
         }
 
@@ -440,9 +449,14 @@ export default function GuestFirstTaskTour({
               update();
             });
           });
-        } else {
-          autoScrolled = true;
+          // Не считаем spotlight в ЭТОМ вызове: пока scrollTo не применился
+          // и layout не пересчитался, getTargetRect() увидел бы старую,
+          // ещё не проскроллленную геометрию — ровно так на один кадр
+          // мелькала обрезанная полоска вместо целого target'а. Актуальный
+          // rect посчитает update(), вызванный из двойного rAF выше.
+          return;
         }
+        autoScrolled = true;
       }
 
       // Если цель выше доступной области целиком (например весь editor
