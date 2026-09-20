@@ -259,6 +259,16 @@ export default function GuestFirstTaskTour({
     // волен сам скроллить, мы не должны с ним бороться. Геометрию
     // (rect) продолжаем актуализировать всегда.
     let autoScrolled = false;
+    // update() дёргается из нескольких независимых источников одновременно
+    // (interval, оба scroll-слушателя, resize, ResizeObserver, MutationObserver) —
+    // особенно часто сразу после отправки решения, когда в DOM одновременно
+    // рендерится новая карточка результата. Без этого флага каждый такой
+    // параллельный вызов мог посчитать СВОЮ дельту скролла и запустить
+    // ещё один scrollTo поверх ещё не отработавшего предыдущего — скролл
+    // не успевал устояться, а замер геометрии попадал в момент "между"
+    // прокрутками и стабильно возвращал null. Пока один автоскролл +
+    // двойной rAF не завершились, новый scrollTo не запускаем.
+    let scrollInFlight = false;
 
     // При смене шага старый spotlight нельзя оставлять висеть на экране —
     // иначе при переходе, например, problem -> sample -> editor рамка на
@@ -332,7 +342,7 @@ export default function GuestFirstTaskTour({
         }
       }
 
-      if (!autoScrolled && scrollRoot) {
+      if (!autoScrolled && !scrollInFlight && scrollRoot) {
         const r = el.getBoundingClientRect();
         // r.top — координата во ВЬЮПОРТЕ, а scrollRoot начинается не с
         // верха вьюпорта, а ниже sf-task-header. Нельзя просто подводить
@@ -343,12 +353,25 @@ export default function GuestFirstTaskTour({
         // Подводим верх цели к desiredTop, если она перекрыта панелью снизу
         // или уходит выше видимой области scrollRoot (то есть под header).
         if (r.top > desiredTop + 6 || r.top > maxBottom || r.bottom < 0) {
-          scrollRoot.scrollBy({ top: r.top - desiredTop });
-          // После scrollBy — двойной rAF и повторный замер: даём браузеру
+          // Абсолютный scrollTo вместо scrollBy: дельту считаем от ТЕКУЩЕГО
+          // scrollTop один раз, до старта прокрутки, а не полагаемся на то,
+          // что scrollBy применится мгновенно и синхронно для следующего
+          // конкурентного вызова update().
+          const delta = r.top - desiredTop;
+          const destination = scrollRoot.scrollTop + delta;
+          scrollInFlight = true;
+          scrollRoot.scrollTo({ top: destination, behavior: 'auto' });
+          // После scrollTo — двойной rAF и повторный замер: даём браузеру
           // применить прокрутку и пересчитать layout, прежде чем мерить
-          // снова (getBoundingClientRect сразу после scrollBy в общем
-          // случае уже актуален, но так — гарантированно, без гонки).
-          requestAnimationFrame(() => requestAnimationFrame(update));
+          // снова. Пока это не завершилось, ни один другой вызов update()
+          // (из interval/scroll/resize/MutationObserver) не запустит ещё
+          // один автоскролл поверх этого.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              scrollInFlight = false;
+              update();
+            });
+          });
         } else {
           autoScrolled = true;
         }
@@ -381,7 +404,17 @@ export default function GuestFirstTaskTour({
     const scrollRootEl = document.querySelector('[data-tour-scroll-root]');
 
     const root = document.getElementById('root');
-    const mutationObserver = new MutationObserver(update);
+    // Сам update() пишет scrollRootEl.style.paddingBottom (резерв под
+    // панель) — это мутация атрибута style внутри наблюдаемого поддерева.
+    // Отфильтровываем именно её, чтобы она не участвовала в позиционировании
+    // тура: если В ЭТОЙ пачке мутаций есть хоть что-то, кроме изменения
+    // style самого scrollRootEl, обрабатываем как обычно.
+    const mutationObserver = new MutationObserver((mutations) => {
+      const relevant = mutations.some((m) => !(
+        m.type === 'attributes' && m.attributeName === 'style' && m.target === scrollRootEl
+      ));
+      if (relevant) update();
+    });
     if (root) mutationObserver.observe(root, { childList: true, subtree: true, attributes: true, characterData: true });
 
     // Таймер — только резервный механизм на случай изменений, которые не
