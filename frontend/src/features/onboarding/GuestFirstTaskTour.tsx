@@ -60,18 +60,13 @@ const STEP_TARGET: Record<StepId, string> = {
   'try-yourself': 'editor',
 };
 
-// На мобильном для submit-шагов подсвечиваем не только кнопку, а всю
-// карточку редактора (data-tour="editor") — она и так включает toolbar,
-// код в Monaco и sf-editor-actions с настоящей кнопкой submit внутри,
-// так что отдельный wrapper не нужен. Иначе на узком экране пользователь
-// видит только кнопку и не видит код, который отправляет. Desktop не
-// трогаем — там spotlight по-прежнему только вокруг кнопки.
+// Используется ниже только специальной mobile-веткой автоскролла (подводит
+// саму кнопку submit впритык к панели), а не выбором target — spotlight на
+// submit-шагах целится в кнопку и на mobile, и на desktop.
 const MOBILE_WIDE_SUBMIT_STEPS = new Set<StepId>(['submit-wrong-1', 'submit-wrong-2', 'submit-correct']);
 
 function getStepTarget(step: StepId, mobile: boolean): string {
-  if (mobile && MOBILE_WIDE_SUBMIT_STEPS.has(step)) {
-    return 'editor';
-  }
+  void mobile;
   return STEP_TARGET[step];
 }
 
