@@ -109,17 +109,26 @@ export default function GuestWelcomeStep({ courses }: Props) {
         // подводим .sf-main так, чтобы курсы оказались у верхней границы —
         // без transform/negative margin/своего overflow у самой карточки,
         // просто прокручиваем реальный scroll-контейнер страницы.
+        //
+        // autoScrolledRef.current выставляем в true ТОЛЬКО после того, как
+        // реально посчитали и запустили scrollTo — раньше флаг ставился
+        // безусловно, до проверки mobile/scrollRootEl/demoEls/rect. Если на
+        // этом конкретном кадре хоть одно из условий не выполнялось (курсы
+        // ещё не отрисованы и т.п.), скролл молча не происходил, а флаг уже
+        // считался "использованным" — повторной попытки больше не было, и
+        // курсы так и оставались низко.
         if (!autoScrolledRef.current) {
-          autoScrolledRef.current = true;
           const mobile = viewportWidth() <= 760;
           const scrollRootEl = document.querySelector('.sf-main') as HTMLElement | null;
           const demoEls = Array.from(document.querySelectorAll('[data-tour="demo-courses"]')) as HTMLElement[];
           const firstRect = demoEls[0]?.getBoundingClientRect();
           const scrollRect = scrollRootEl?.getBoundingClientRect();
           if (mobile && scrollRootEl && firstRect && scrollRect) {
-            const desiredTop = scrollRect.top + 12;
+            const desiredTop = scrollRect.top + 8;
             const delta = firstRect.top - desiredTop;
-            scrollRootEl.scrollTo({ top: scrollRootEl.scrollTop + delta, behavior: 'smooth' });
+            const destination = scrollRootEl.scrollTop + delta;
+            autoScrolledRef.current = true;
+            scrollRootEl.scrollTo({ top: destination, behavior: 'smooth' });
           }
         }
         update();
