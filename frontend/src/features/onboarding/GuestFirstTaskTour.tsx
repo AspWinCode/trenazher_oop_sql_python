@@ -408,6 +408,22 @@ export default function GuestFirstTaskTour({
           const desiredBottom = maxBottom;
           needsScroll = Math.abs(r.bottom - desiredBottom) > 6 || r.top < scrollRect.top;
           delta = r.bottom - desiredBottom;
+        } else if (step === 'wrong-result') {
+          // Локальная ветка только для этого шага. Общий fits/doesn't-fit
+          // алгоритм ниже мог бы выровнять result по НИЖНЕМУ краю, если весь
+          // блок технически помещается в доступную высоту (например когда
+          // виден только один тест, а маленькая панель "Проверка показала
+          // ошибку" оставляет много места) — тогда верх блока (Неверно/время)
+          // уезжал вниз с зазором сверху, а не прижимался к header, и под
+          // первый TestResultCard оставалось меньше места, чем возможно.
+          // Здесь верх result всегда прижимаем к верхней границе видимой
+          // области, независимо от того, помещается весь блок целиком или
+          // нет — так вверху максимум места остаётся под verdict+время+
+          // первый тест, а остальное (второй тест и ниже) по-прежнему
+          // клипует существующий getTargetRect() по maxBottom.
+          const desiredTop = scrollRect.top + 8;
+          delta = r.top - desiredTop;
+          needsScroll = Math.abs(delta) > 6;
         } else {
           // r.top/r.bottom — координаты во ВЬЮПОРТЕ, а scrollRoot начинается
           // не с верха вьюпорта, а ниже sf-task-header. "Видимая область" —
