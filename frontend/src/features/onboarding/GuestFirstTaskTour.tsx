@@ -283,6 +283,19 @@ export default function GuestFirstTaskTour({
     // прокрутками и стабильно возвращал null. Пока один автоскролл +
     // двойной rAF не завершились, новый scrollTo не запускаем.
     let scrollInFlight = false;
+    // Вложенный двойной rAF автоскролла (ниже, в блоке needsScroll) не
+    // отменяется своим обычным идентификатором — requestAnimationFrame
+    // возвращает handle только для САМОГО ВНЕШНЕГО вызова в цепочке, а
+    // сама цепочка планируется заново при каждом срабатывании needsScroll.
+    // Если step сменится до того, как эта цепочка успеет отработать,
+    // cleanup эффекта её не остановит "сам по себе" — обработчик всё ещё
+    // держит ссылку на СТАРЫЕ update()/targetName и после отмонтирования
+    // логики может вызвать setRect() с геометрией уже неактуального шага.
+    // Поэтому: (1) id обоих кадров сохраняем и отменяем в cleanup, (2)
+    // update() и оба продолжения rAF-цепочки в начале проверяют alive.
+    let alive = true;
+    let scrollRaf1 = 0;
+    let scrollRaf2 = 0;
 
     // При смене шага старый spotlight нельзя оставлять висеть на экране —
     // иначе при переходе, например, problem -> sample -> editor рамка на
@@ -293,6 +306,7 @@ export default function GuestFirstTaskTour({
     setRect(null);
 
     const applyRect = (next: Rect | null, elExists: boolean) => {
+      if (!alive) return;
       // Не перетираем последний КОРРЕКТНЫЙ rect промежуточным/схлопнувшимся
       // значением (ещё не отрисованный layout, переходное состояние между
       // старой и новой целью) — иначе на экране на миг мелькает пустая
@@ -308,6 +322,7 @@ export default function GuestFirstTaskTour({
     };
 
     const update = () => {
+      if (!alive) return;
       const mobile = viewportWidth() <= 760;
       const targetName = getStepTarget(step, mobile);
       const el = document.querySelector(`[data-tour="${targetName}"]`) as HTMLElement | null;
@@ -443,9 +458,10 @@ export default function GuestFirstTaskTour({
           // снова. Пока это не завершилось, ни один другой вызов update()
           // (из interval/scroll/resize/MutationObserver) не запустит ещё
           // один автоскролл поверх этого.
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+          scrollRaf1 = requestAnimationFrame(() => {
+            scrollRaf2 = requestAnimationFrame(() => {
               scrollInFlight = false;
+              if (!alive) return;
               update();
             });
           });
@@ -511,8 +527,16 @@ export default function GuestFirstTaskTour({
     window.visualViewport?.addEventListener('scroll', update);
 
     return () => {
+      // Первым делом — глушим update() и обе rAF-продолжения автоскролла:
+      // они могли быть уже поставлены в очередь браузера и не отменяются
+      // простым cancelAnimationFrame внешнего звена цепочки (см. комментарий
+      // выше про scrollRaf1/scrollRaf2). После alive=false ни один из них
+      // не сможет вызвать setRect() с геометрией уже отмонтированного шага.
+      alive = false;
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
+      cancelAnimationFrame(scrollRaf1);
+      cancelAnimationFrame(scrollRaf2);
       window.clearInterval(interval);
       resizeObserver?.disconnect();
       mutationObserver.disconnect();
