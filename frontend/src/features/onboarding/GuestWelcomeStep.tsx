@@ -85,7 +85,41 @@ export default function GuestWelcomeStep({ courses }: Props) {
   useEffect(() => {
     if (!visible) return;
 
+    // Заголовок "Курсы", demo-banner и отступы над ним занимают часть
+    // первого экрана на мобильном, из-за чего блок курсов (а вслед за ним
+    // и welcome-card, которая идёт в normal flow сразу под ним) оказывается
+    // слишком низко. Плавно подводим .sf-main так, чтобы курсы оказались у
+    // верхней границы — без transform/negative margin/своего overflow у
+    // самой карточки, просто прокручиваем реальный scroll-контейнер
+    // страницы. Вызывается из update() (а не один раз из initial rAF) —
+    // update() и так дёргается многократно из разных источников (rAF,
+    // MutationObserver, ResizeObserver, interval, resize), так что если на
+    // каком-то из первых кадров .sf-main/demo-courses ещё не готовы, попытка
+    // просто повторится на следующем вызове update() без отдельных новых
+    // таймеров/observer'ов. autoScrolledRef.current выставляется только
+    // непосредственно перед реальным scrollTo — гарантирует ровно один
+    // фактический скролл за показ шага.
+    const tryAutoScroll = () => {
+      if (autoScrolledRef.current) return;
+      if (viewportWidth() > 760) return;
+
+      const scrollRootEl = document.querySelector('.sf-main') as HTMLElement | null;
+      const demoEls = Array.from(document.querySelectorAll('[data-tour="demo-courses"]')) as HTMLElement[];
+      const firstRect = demoEls[0]?.getBoundingClientRect();
+      const scrollRect = scrollRootEl?.getBoundingClientRect();
+      if (!scrollRootEl || !firstRect || !scrollRect) return;
+
+      const desiredTop = scrollRect.top + 8;
+      const delta = firstRect.top - desiredTop;
+      const destination = scrollRootEl.scrollTop + delta;
+
+      autoScrolledRef.current = true;
+      scrollRootEl.scrollTo({ top: destination, behavior: 'smooth' });
+    };
+
     const update = () => {
+      tryAutoScroll();
+
       const next = getTargetRect();
       // Пока хотя бы часть подсвечиваемых карточек реально видна во
       // вьюпорте — показываем рамку. Как только пользователь проскроллил
@@ -100,39 +134,10 @@ export default function GuestWelcomeStep({ courses }: Props) {
     };
 
     update();
-    const raf1 = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // Один раз за показ шага: заголовок "Курсы", demo-banner и отступы
-        // над ним занимают часть первого экрана на мобильном, из-за чего
-        // блок курсов (а вслед за ним и welcome-card, которая идёт в
-        // normal flow сразу под ним) оказывается слишком низко. Плавно
-        // подводим .sf-main так, чтобы курсы оказались у верхней границы —
-        // без transform/negative margin/своего overflow у самой карточки,
-        // просто прокручиваем реальный scroll-контейнер страницы.
-        //
-        // autoScrolledRef.current выставляем в true ТОЛЬКО после того, как
-        // реально посчитали и запустили scrollTo — раньше флаг ставился
-        // безусловно, до проверки mobile/scrollRootEl/demoEls/rect. Если на
-        // этом конкретном кадре хоть одно из условий не выполнялось (курсы
-        // ещё не отрисованы и т.п.), скролл молча не происходил, а флаг уже
-        // считался "использованным" — повторной попытки больше не было, и
-        // курсы так и оставались низко.
-        if (!autoScrolledRef.current) {
-          const mobile = viewportWidth() <= 760;
-          const scrollRootEl = document.querySelector('.sf-main') as HTMLElement | null;
-          const demoEls = Array.from(document.querySelectorAll('[data-tour="demo-courses"]')) as HTMLElement[];
-          const firstRect = demoEls[0]?.getBoundingClientRect();
-          const scrollRect = scrollRootEl?.getBoundingClientRect();
-          if (mobile && scrollRootEl && firstRect && scrollRect) {
-            const desiredTop = scrollRect.top + 8;
-            const delta = firstRect.top - desiredTop;
-            const destination = scrollRootEl.scrollTop + delta;
-            autoScrolledRef.current = true;
-            scrollRootEl.scrollTo({ top: destination, behavior: 'smooth' });
-          }
-        }
-        update();
-      });
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(update);
     });
 
     const els = Array.from(document.querySelectorAll('[data-tour="demo-courses"]'));
@@ -154,6 +159,7 @@ export default function GuestWelcomeStep({ courses }: Props) {
 
     return () => {
       cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
       window.clearInterval(interval);
       resizeObserver?.disconnect();
       mutationObserver.disconnect();
