@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Course } from '../../types';
 import { useTourSeen } from './useTourSeen';
@@ -67,6 +67,9 @@ export default function GuestWelcomeStep({ courses }: Props) {
   const { tourSeen, markTourSeen } = useTourSeen();
   const [dismissed, setDismissed] = useState(false);
   const [rect, setRect] = useState<Rect | null>(null);
+  // Автоскролл к курсам на мобильном выполняется один раз за показ шага —
+  // дальше пользователь волен сам скроллить, мы не должны с ним бороться.
+  const autoScrolledRef = useRef(false);
 
   const pythonCourse = useMemo(() => courses.find((c) => /python/i.test(c.title)), [courses]);
   const sqlCourse = useMemo(() => courses.find((c) => /sql/i.test(c.title)), [courses]);
@@ -97,7 +100,31 @@ export default function GuestWelcomeStep({ courses }: Props) {
     };
 
     update();
-    const raf1 = requestAnimationFrame(() => requestAnimationFrame(update));
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Один раз за показ шага: заголовок "Курсы", demo-banner и отступы
+        // над ним занимают часть первого экрана на мобильном, из-за чего
+        // блок курсов (а вслед за ним и welcome-card, которая идёт в
+        // normal flow сразу под ним) оказывается слишком низко. Плавно
+        // подводим .sf-main так, чтобы курсы оказались у верхней границы —
+        // без transform/negative margin/своего overflow у самой карточки,
+        // просто прокручиваем реальный scroll-контейнер страницы.
+        if (!autoScrolledRef.current) {
+          autoScrolledRef.current = true;
+          const mobile = viewportWidth() <= 760;
+          const scrollRootEl = document.querySelector('.sf-main') as HTMLElement | null;
+          const demoEls = Array.from(document.querySelectorAll('[data-tour="demo-courses"]')) as HTMLElement[];
+          const firstRect = demoEls[0]?.getBoundingClientRect();
+          const scrollRect = scrollRootEl?.getBoundingClientRect();
+          if (mobile && scrollRootEl && firstRect && scrollRect) {
+            const desiredTop = scrollRect.top + 12;
+            const delta = firstRect.top - desiredTop;
+            scrollRootEl.scrollTo({ top: scrollRootEl.scrollTop + delta, behavior: 'smooth' });
+          }
+        }
+        update();
+      });
+    });
 
     const els = Array.from(document.querySelectorAll('[data-tour="demo-courses"]'));
     const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
