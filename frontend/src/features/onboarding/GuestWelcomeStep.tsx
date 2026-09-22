@@ -45,7 +45,7 @@ function getTargetRect(): Rect | null {
   const bottom0 = Math.max(...rects.map((r) => r.bottom));
   if (right0 - left0 <= 0 || bottom0 - top0 <= 0) return null;
   const vb = visualViewportBounds();
-  const padding = 10;
+  const padding = 12;
   const left = Math.max(vb.left + 4, left0 - padding);
   const top = Math.max(vb.top + 4, top0 - padding);
   const right = Math.min(vb.right - 4, right0 + padding);

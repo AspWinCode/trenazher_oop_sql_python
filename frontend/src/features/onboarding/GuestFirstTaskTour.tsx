@@ -127,7 +127,7 @@ function getTargetRect(name: string, maxBottom?: number): Rect | null {
   // и подсветка ошибочно рисуется поверх заголовка задачи.
   const scrollRoot = el.closest('[data-tour-scroll-root]') as HTMLElement | null;
   const sr = scrollRoot?.getBoundingClientRect();
-  const padding = name === 'sidebar' ? 0 : 8;
+  const padding = name === 'sidebar' ? 0 : 12;
 
   const clipTop = Math.max(vb.top + 4, sr ? sr.top + 4 : vb.top + 4);
   const clipLeft = Math.max(vb.left + 4, sr ? sr.left + 4 : vb.left + 4);
