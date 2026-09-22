@@ -88,33 +88,42 @@ export default function GuestWelcomeStep({ courses }: Props) {
     // Заголовок "Курсы", demo-banner и отступы над ним занимают часть
     // первого экрана на мобильном, из-за чего блок курсов (а вслед за ним
     // и welcome-card, которая идёт в normal flow сразу под ним) оказывается
-    // слишком низко. Плавно подводим .sf-main так, чтобы курсы оказались у
-    // верхней границы — без transform/negative margin/своего overflow у
-    // самой карточки, просто прокручиваем реальный scroll-контейнер
-    // страницы. Вызывается из update() (а не один раз из initial rAF) —
-    // update() и так дёргается многократно из разных источников (rAF,
-    // MutationObserver, ResizeObserver, interval, resize), так что если на
-    // каком-то из первых кадров .sf-main/demo-courses ещё не готовы, попытка
-    // просто повторится на следующем вызове update() без отдельных новых
+    // слишком низко. На странице курсов .sf-main НЕ имеет фиксированной
+    // высоты (только .sf-shell задаёт min-height: 100vh) — контейнер
+    // растягивается по контенту и его scrollHeight ≈ clientHeight, то есть
+    // сам .sf-main не является реальным вертикальным scroll-container
+    // здесь: scrollTo на нём — no-op. Реальный скролл страницы курсов идёт
+    // через document/window, поэтому подводим именно его. Вызывается из
+    // update() (а не один раз из initial rAF) — update() и так дёргается
+    // многократно (rAF, MutationObserver, ResizeObserver, interval, resize),
+    // так что если на каком-то из первых кадров demo-courses ещё не готов,
+    // попытка просто повторится на следующем вызове без новых
     // таймеров/observer'ов. autoScrolledRef.current выставляется только
-    // непосредственно перед реальным scrollTo — гарантирует ровно один
+    // непосредственно перед реальным скроллом — гарантирует ровно один
     // фактический скролл за показ шага.
     const tryAutoScroll = () => {
       if (autoScrolledRef.current) return;
       if (viewportWidth() > 760) return;
 
-      const scrollRootEl = document.querySelector('.sf-main') as HTMLElement | null;
       const demoEls = Array.from(document.querySelectorAll('[data-tour="demo-courses"]')) as HTMLElement[];
-      const firstRect = demoEls[0]?.getBoundingClientRect();
-      const scrollRect = scrollRootEl?.getBoundingClientRect();
-      if (!scrollRootEl || !firstRect || !scrollRect) return;
+      const first = demoEls[0];
+      if (!first) return;
 
-      const desiredTop = scrollRect.top + 8;
-      const delta = firstRect.top - desiredTop;
-      const destination = scrollRootEl.scrollTop + delta;
+      const r = first.getBoundingClientRect();
+      const vb = visualViewportBounds();
+      const desiredTop = vb.top + 8;
+      const delta = r.top - desiredTop;
+
+      // Не считать скролл выполненным, если двигаться почти некуда —
+      // блокировать autoScrolledRef имеет смысл только после реальной
+      // попытки скролла.
+      if (Math.abs(delta) <= 4) {
+        autoScrolledRef.current = true;
+        return;
+      }
 
       autoScrolledRef.current = true;
-      scrollRootEl.scrollTo({ top: destination, behavior: 'smooth' });
+      window.scrollBy({ top: delta, behavior: 'smooth' });
     };
 
     const update = () => {
