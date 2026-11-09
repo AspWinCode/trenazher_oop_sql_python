@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import Any, Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.submission import Submission, SubmissionStatus
-from app.models.task import Task
+from app.models.task import Task, TaskType
 from app.schemas.submission import SubmissionExecutionPayload, SubmissionExecutionTest
 from app.services.submission_service import enqueue_submission
 
@@ -44,7 +46,8 @@ async def create_submission_and_enqueue(
     *,
     user_id: int,
     task_id: int,
-    code: str,
+    code: Optional[str] = None,
+    answer_data: Optional[Any] = None,
 ) -> tuple[Submission, str]:
     result = await db.execute(
         select(Task)
@@ -53,12 +56,19 @@ async def create_submission_and_enqueue(
     )
     task = result.scalar_one_or_none()
     if task is None:
-        raise ValueError("Task not found")
+        raise LookupError("Task not found")
+
+    is_interactive = task.task_type == TaskType.interactive
+    if is_interactive and answer_data is None:
+        raise ValueError("answer_data is required for interactive exercises")
+    if not is_interactive and not code:
+        raise ValueError("code is required for this task type")
 
     submission = Submission(
         task_id=task_id,
         user_id=user_id,
-        code=code,
+        code=None if is_interactive else code,
+        answer_data=answer_data if is_interactive else None,
         status=SubmissionStatus.queued,
     )
     db.add(submission)
@@ -69,7 +79,12 @@ async def create_submission_and_enqueue(
     await db.commit()
     await db.refresh(submission)
 
-    execution_payload = _build_execution_payload(submission, task)
-    enqueue_submission(execution_payload)
+    if is_interactive:
+        from app.services.interactive.grading_service import grade_interactive_submission
+
+        await grade_interactive_submission(db, submission, task)
+    else:
+        execution_payload = _build_execution_payload(submission, task)
+        enqueue_submission(execution_payload)
 
     return submission, task.task_type.value

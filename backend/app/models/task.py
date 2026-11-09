@@ -1,9 +1,9 @@
 import enum
 from datetime import datetime
 
-from typing import Optional
+from typing import Any, Optional
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -16,6 +16,7 @@ class TaskType(str, enum.Enum):
     sql_query = "sql_query"
     cpp_io = "cpp_io"
     js_io = "js_io"
+    interactive = "interactive"
 
 
 class RunnerType(str, enum.Enum):
@@ -24,6 +25,7 @@ class RunnerType(str, enum.Enum):
     sql_runner = "sql_runner"
     cpp_runner = "cpp_runner"
     js_runner = "js_runner"
+    interactive_runner = "interactive_runner"
 
 
 class TaskStatus(str, enum.Enum):
@@ -46,6 +48,11 @@ class Task(Base):
     # SQL-specific fields stored as text
     sql_schema: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     sql_seed: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Interactive-exercise fields (task_type == interactive). `mechanic` is a plain
+    # string (not a DB enum) so new mechanics can be added without a migration;
+    # validity is enforced by the checker registry (app/services/interactive).
+    mechanic: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    interactive_config: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

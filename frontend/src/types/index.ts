@@ -120,8 +120,9 @@ export interface Submodule {
   order_index: number;
 }
 
-export type TaskType = 'python_io' | 'python_oop' | 'python_numpy' | 'sql_query' | 'cpp_io' | 'js_io';
-export type RunnerType = 'stdin_runner' | 'pytest_runner' | 'sql_runner' | 'cpp_runner' | 'js_runner';
+export type TaskType = 'python_io' | 'python_oop' | 'python_numpy' | 'sql_query' | 'cpp_io' | 'js_io' | 'interactive';
+export type RunnerType = 'stdin_runner' | 'pytest_runner' | 'sql_runner' | 'cpp_runner' | 'js_runner' | 'interactive_runner';
+export type MechanicCode = 'multiple_choice' | 'matching' | 'ordering' | 'fill_blanks' | 'input_answer';
 export type Verdict = 'AC' | 'WA' | 'RE' | 'TLE' | 'MLE' | 'CE' | 'PE' | 'IE';
 
 export interface TestFile {
@@ -169,6 +170,8 @@ export interface Task {
   version: number;
   sql_schema?: string | null;
   sql_seed?: string | null;
+  mechanic?: MechanicCode | string | null;
+  interactive_config?: unknown;
   created_at: string;
   updated_at: string;
   tests?: TaskTest[];
@@ -191,14 +194,19 @@ export interface Submission {
   id: number;
   task_id: number;
   user_id: number;
-  code: string;
+  code: string | null;
+  answer_data?: unknown;
   status: 'queued' | 'running' | 'finished';
   verdict: Verdict | null;
   runtime: number | null;
   memory: number | null;
   error_output: string | null;
+  score?: number | null;
+  max_score?: number | null;
+  grading_details?: unknown;
   created_at: string;
   task_type?: string;
+  mechanic?: MechanicCode | string | null;
   test_results?: SubmissionTestResult[];
 }
 

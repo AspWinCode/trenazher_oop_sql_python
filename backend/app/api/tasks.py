@@ -73,6 +73,14 @@ async def list_tasks(
     return [TaskOut.model_validate(t) for t in result.scalars().all()]
 
 
+@router.get("/mechanics", response_model=List[str])
+async def list_mechanics(user: User = Depends(get_current_user)):
+    """Static catalog of interactive-exercise mechanic codes available right now."""
+    from app.services.interactive import MECHANIC_CHECKERS
+
+    return sorted(MECHANIC_CHECKERS.keys())
+
+
 @router.get("/{task_id}/context", response_model=List[TaskCourseContextOut])
 async def get_task_context(
     task_id: int,
@@ -152,12 +160,29 @@ async def get_task(task_id: int, db: AsyncSession = Depends(get_db), user: User 
             test.expected_output = None
             test.verification_sql = None
             test.test_files = None
+        if out.task_type == TaskType.interactive:
+            out.interactive_config = None
 
     return out
 
 
+def _validate_interactive_config(task_type: TaskType, mechanic: Optional[str], config: Any) -> None:
+    if task_type != TaskType.interactive or config is None:
+        # config is None: task created as an empty shell, to be configured via a
+        # later PUT before publish. Nothing to validate yet.
+        return
+    from app.services.interactive import ConfigError, get_checker
+
+    try:
+        checker = get_checker(mechanic)
+        checker.validate_config(config)
+    except ConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.post("", response_model=TaskDetailOut, status_code=status.HTTP_201_CREATED)
 async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db), _=Depends(require_admin)):
+    _validate_interactive_config(body.task_type, body.mechanic, body.interactive_config)
     task = Task(
         submodule_id=body.submodule_id,
         title=body.title,
@@ -167,6 +192,8 @@ async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db), _=De
         status=body.status,
         sql_schema=body.sql_schema,
         sql_seed=body.sql_seed,
+        mechanic=body.mechanic,
+        interactive_config=body.interactive_config,
     )
     db.add(task)
     await db.flush()
@@ -192,8 +219,11 @@ async def update_task(task_id: int, body: TaskUpdate, db: AsyncSession = Depends
     task = result.scalar_one_or_none()
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updated_fields = body.model_dump(exclude_unset=True)
+    for field, value in updated_fields.items():
         setattr(task, field, value)
+    if {"task_type", "mechanic", "interactive_config"} & updated_fields.keys():
+        _validate_interactive_config(task.task_type, task.mechanic, task.interactive_config)
     task.version += 1
     await db.flush()
     await db.refresh(task)

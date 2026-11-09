@@ -163,6 +163,7 @@ export const tasksApi = {
   list: (params?: { submodule_id?: number; task_type?: string }) => api.get<Task[]>('/tasks', { params }),
   get: (id: number) => api.get<Task>(`/tasks/${id}`),
   getCourseContext: (id: number) => api.get<TaskCourseContext[]>(`/tasks/${id}/context`),
+  getMechanics: () => api.get<string[]>('/tasks/mechanics'),
   create: (data: any) => api.post<Task>('/tasks', data),
   update: (id: number, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data),
   delete: (id: number) => api.delete(`/tasks/${id}`),
@@ -197,7 +198,8 @@ export const courseStudentApi = {
 };
 
 export const submissionsApi = {
-  submit: (task_id: number, code: string) => api.post<Submission>('/submissions', { task_id, code }),
+  submit: (payload: { task_id: number; code?: string; answer_data?: unknown }) =>
+    api.post<Submission>('/submissions', payload),
   get: (id: number) => api.get<Submission>(`/submissions/${id}`),
   list: (task_id?: number) => api.get<Submission[]>('/submissions', { params: task_id ? { task_id } : {} }),
 };

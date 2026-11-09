@@ -10,7 +10,7 @@ interface Props {
   setCode: (code: string) => void;
   submission: Submission | null;
   submitting: boolean;
-  submitSolution: (taskId: number, code: string) => Promise<void>;
+  submitSolution: (taskId: number, payload: { code?: string; answer_data?: unknown }) => Promise<void>;
   hints: TaskHint[];
   showHints: boolean;
   setShowHints: (v: boolean) => void;
@@ -647,7 +647,7 @@ export default function GuestFirstTaskTour({
 
   function handleSubmit() {
     if (submitting) return;
-    submitSolution(task.id, code);
+    submitSolution(task.id, { code });
   }
 
   function handleApplyHint() {
