@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { tasksApi } from '../api';
 import type { Task, TaskTest, TaskHint, TestFile } from '../types';
+import ExerciseEditor from '../features/interactive/editor/ExerciseEditor';
+import { ExerciseRegistry } from '../features/interactive/registry';
+import type { MechanicConfig } from '../features/interactive/types';
 
 const RUNNER_MAP: Record<string, string> = {
   python_io: 'stdin_runner',
@@ -10,6 +13,7 @@ const RUNNER_MAP: Record<string, string> = {
   sql_query: 'sql_runner',
   cpp_io: 'cpp_runner',
   js_io: 'js_runner',
+  interactive: 'interactive_runner',
 };
 
 const TASK_TYPE_LABELS: Record<string, string> = {
@@ -19,6 +23,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   sql_query: 'SQL Query',
   cpp_io: 'C++ IO',
   js_io: 'JavaScript IO',
+  interactive: 'Интерактивное упражнение',
 };
 
 export default function AdminTaskEditPage() {
@@ -42,6 +47,8 @@ export default function AdminTaskEditPage() {
   const [status, setStatus] = useState<'draft' | 'published' | 'archived'>('draft');
   const [sqlSchema, setSqlSchema] = useState('');
   const [sqlSeed, setSqlSeed] = useState('');
+  const [mechanic, setMechanic] = useState('multiple_choice');
+  const [interactiveConfig, setInteractiveConfig] = useState<MechanicConfig | null>(null);
 
   // тесты и подсказки
   const [tests, setTests] = useState<TaskTest[]>([]);
@@ -71,6 +78,8 @@ export default function AdminTaskEditPage() {
       setStatus(data.status);
       setSqlSchema(data.sql_schema || '');
       setSqlSeed(data.sql_seed || '');
+      setMechanic(data.mechanic || 'multiple_choice');
+      setInteractiveConfig((data.interactive_config as MechanicConfig) ?? null);
       setTests(data.tests || []);
       setHints(data.hints || []);
       setNewHint((h) => ({ ...h, hint_level: (data.hints?.length || 0) + 1, unlock_attempts: ((data.hints?.length || 0) + 1) * 2 }));
@@ -99,6 +108,8 @@ export default function AdminTaskEditPage() {
         status,
         sql_schema: sqlSchema || null,
         sql_seed: sqlSeed || null,
+        mechanic: taskType === 'interactive' ? mechanic : null,
+        interactive_config: taskType === 'interactive' ? interactiveConfig : null,
       });
       setSuccess('Задача сохранена');
       await loadTask();
@@ -275,6 +286,22 @@ export default function AdminTaskEditPage() {
             />
           </div>
 
+          {taskType === 'interactive' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Механика</label>
+                <select className="input w-full" value={mechanic} onChange={(e) => { setMechanic(e.target.value); setInteractiveConfig(null); }}>
+                  {Object.entries(ExerciseRegistry).map(([code, entry]) => (
+                    <option key={code} value={code}>{entry.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="border border-surface-200 rounded-lg p-3">
+                <ExerciseEditor mechanic={mechanic} config={interactiveConfig} onChange={setInteractiveConfig} />
+              </div>
+            </div>
+          )}
+
           {taskType === 'sql_query' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -306,7 +333,8 @@ export default function AdminTaskEditPage() {
         </form>
       </div>
 
-      {/* ── Тесты ── */}
+      {/* ── Тесты (не применимо к интерактивным упражнениям) ── */}
+      {taskType !== 'interactive' && (
       <div className="card space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-lg">Тесты ({tests.length})</h2>
@@ -608,6 +636,7 @@ export default function AdminTaskEditPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* ── Подсказки ── */}
       <div className="card space-y-3">

@@ -1,9 +1,9 @@
 import enum
 from datetime import datetime
 
-from typing import Optional
+from typing import Any, Optional
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Text, func
+from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -32,12 +32,18 @@ class Submission(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    code: Mapped[str] = mapped_column(Text)
+    code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Student-submitted answer for interactive exercises (shape depends on mechanic).
+    answer_data: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     status: Mapped[SubmissionStatus] = mapped_column(Enum(SubmissionStatus), default=SubmissionStatus.queued)
     verdict: Mapped[Optional[Verdict]] = mapped_column(Enum(Verdict), nullable=True)
     runtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     memory: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     error_output: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Partial-credit score for interactive exercises (NULL for code tasks).
+    score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    max_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    grading_details: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     task = relationship("Task", back_populates="submissions")

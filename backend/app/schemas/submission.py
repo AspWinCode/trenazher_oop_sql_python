@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,19 +11,24 @@ from app.models.task_test import TestType
 
 class SubmissionCreate(BaseModel):
     task_id: int
-    code: str = Field(..., min_length=1, max_length=100_000)
+    code: Optional[str] = Field(None, max_length=100_000)
+    # Student's answer for interactive exercises; shape depends on the task's mechanic.
+    answer_data: Optional[Any] = None
 
 
 class SubmissionOut(BaseModel):
     id: int
     task_id: int
     user_id: int
-    code: str
+    code: Optional[str] = None
+    answer_data: Optional[Any] = None
     status: SubmissionStatus
     verdict: Optional[Verdict]
     runtime: Optional[float]
     memory: Optional[float]
     error_output: Optional[str]
+    score: Optional[float] = None
+    max_score: Optional[float] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -44,6 +49,8 @@ class SubmissionTestOut(BaseModel):
 
 class SubmissionDetailOut(SubmissionOut):
     task_type: str = ""
+    mechanic: Optional[str] = None
+    grading_details: Optional[Any] = None
     test_results: List[SubmissionTestOut] = []
 
 
@@ -84,3 +91,8 @@ class SubmissionCompleteIn(BaseModel):
     memory: Optional[float] = None
     error_output: Optional[str] = None
     test_results: List[SubmissionTestResultIn] = []
+    # Only populated by synchronous interactive-exercise grading; the external
+    # Judger never sends these, so they default to None for code submissions.
+    score: Optional[float] = None
+    max_score: Optional[float] = None
+    grading_details: Optional[Any] = None

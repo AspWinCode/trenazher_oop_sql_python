@@ -105,13 +105,16 @@ export function useSubmissionWatcher({ refreshHistory, refreshHints }: UseSubmis
     socket.start();
   }, [fallbackPoll, refreshHistory, refreshHints, stopPolling, stopSocket]);
 
-  const submitSolution = useCallback(async (taskId: number, code: string) => {
+  const submitSolution = useCallback(async (
+    taskId: number,
+    payload: { code?: string; answer_data?: unknown },
+  ) => {
     stopPolling();
     stopSocket();
     setSubmitting(true);
 
     try {
-      const { data } = await submissionsApi.submit(taskId, code);
+      const { data } = await submissionsApi.submit({ task_id: taskId, ...payload });
       setSubmission(data);
       waitForResult(data.id, taskId);
     } catch {

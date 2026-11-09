@@ -178,7 +178,7 @@ export default function SubmissionDetailPage() {
 
           {tab === 'code' && (
             <CodeEditor
-              value={submission.code}
+              value={submission.code ?? ''}
               onChange={() => {}}
               language={lang}
               height="350px"

@@ -24,7 +24,7 @@ from app.schemas.submission import (
     SubmissionOut,
     SubmissionTestOut,
 )
-from app.services.submission_events import publish_submission_update
+from app.services.submission_events import build_submission_event, publish_submission_update
 from app.services.submission_finalize_service import (
     finalize_submission,
     get_submission,
@@ -33,19 +33,6 @@ from app.services.submission_finalize_service import (
 from app.services.submission_lifecycle_service import create_submission_and_enqueue
 
 router = APIRouter()
-
-
-def _submission_event(submission: Submission) -> dict:
-    return {
-        "type": "submission_update",
-        "submission_id": submission.id,
-        "user_id": submission.user_id,
-        "status": submission.status.value,
-        "verdict": submission.verdict.value if submission.verdict else None,
-        "runtime": submission.runtime,
-        "memory": submission.memory,
-        "error_output": submission.error_output,
-    }
 
 
 @router.post("", response_model=SubmissionOut, status_code=201)
@@ -75,9 +62,12 @@ async def submit_solution(
             user_id=user.id,
             task_id=body.task_id,
             code=body.code,
+            answer_data=body.answer_data,
         )
-    except ValueError:
+    except LookupError:
         raise HTTPException(status_code=404, detail="Task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
     SUBMISSIONS_TOTAL.labels(task_type=task_type).inc()
     return SubmissionOut.model_validate(submission)
@@ -139,6 +129,8 @@ async def get_submission_detail(
 
     out = SubmissionDetailOut.model_validate(submission)
     out.task_type = submission.task.task_type.value if submission.task else ""
+    out.mechanic = submission.task.mechanic if submission.task else None
+    out.grading_details = submission.grading_details
     out.test_results = test_results
     if submission.verdict:
         SUBMISSIONS_VERDICT.labels(verdict=submission.verdict.value).inc()
@@ -179,7 +171,7 @@ async def start_submission_internal(
     if submission is None:
         raise HTTPException(status_code=404, detail="Submission not found")
 
-    await publish_submission_update(_submission_event(submission))
+    await publish_submission_update(build_submission_event(submission))
 
 
 @router.post(
@@ -197,4 +189,4 @@ async def complete_submission_internal(
         raise HTTPException(status_code=404, detail="Submission not found")
 
     await finalize_submission(db, submission, body)
-    await publish_submission_update(_submission_event(submission))
+    await publish_submission_update(build_submission_event(submission))

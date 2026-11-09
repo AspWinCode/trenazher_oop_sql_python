@@ -318,7 +318,7 @@ function TaskSolver({
                 </button>
                 <button
                   data-tour="submit"
-                  onClick={() => submitSolution(task.id, code)}
+                  onClick={() => submitSolution(task.id, { code })}
                   disabled={submitting}
                   className="btn-primary flex-1"
                 >

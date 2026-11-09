@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 
@@ -76,6 +76,9 @@ class TaskCreate(BaseModel):
     status: TaskStatus = TaskStatus.draft
     sql_schema: Optional[str] = None
     sql_seed: Optional[str] = None
+    # Interactive-exercise fields (task_type == interactive)
+    mechanic: Optional[str] = None
+    interactive_config: Optional[Any] = None
     tests: List[TaskTestCreate] = []
     hints: List[TaskHintCreate] = []
     lectures: List[TaskLectureCreate] = []
@@ -90,6 +93,8 @@ class TaskUpdate(BaseModel):
     status: Optional[TaskStatus] = None
     sql_schema: Optional[str] = None
     sql_seed: Optional[str] = None
+    mechanic: Optional[str] = None
+    interactive_config: Optional[Any] = None
 
 
 class TaskOut(BaseModel):
@@ -103,6 +108,8 @@ class TaskOut(BaseModel):
     version: int
     sql_schema: Optional[str] = None
     sql_seed: Optional[str] = None
+    mechanic: Optional[str] = None
+    interactive_config: Optional[Any] = None
     created_at: datetime
     updated_at: datetime
 

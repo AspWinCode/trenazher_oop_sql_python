@@ -7,6 +7,8 @@ import Markdown from '../components/Markdown';
 import VerdictBadge from '../components/VerdictBadge';
 import SubmissionDetailLink from '../components/SubmissionDetailLink';
 import TestResultCard from '../components/TestResultCard';
+import ExerciseRenderer from '../features/interactive/renderer/ExerciseRenderer';
+import type { MechanicAnswer } from '../features/interactive/types';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 
@@ -42,10 +44,16 @@ export default function TaskPage() {
   });
 
   const [saveFlash, setSaveFlash] = useState(false);
+  const [interactiveAnswer, setInteractiveAnswer] = useState<MechanicAnswer | undefined>(undefined);
+  const isInteractive = task?.task_type === 'interactive';
 
   const handleSubmit = async () => {
     if (!task) return;
-    await submitSolution(task.id, code);
+    if (isInteractive) {
+      await submitSolution(task.id, { answer_data: interactiveAnswer });
+    } else {
+      await submitSolution(task.id, { code });
+    }
   };
 
   const handleSave = useCallback(() => {
@@ -92,7 +100,7 @@ export default function TaskPage() {
         <div>
           <h1 className="text-2xl font-bold">{task.title}</h1>
           <div className="flex gap-2 mt-1">
-            <span className="badge-blue">{task.task_type}</span>
+            <span className="badge-blue">{isInteractive ? task.mechanic : task.task_type}</span>
             <span className="badge-gray">v{task.version}</span>
           </div>
         </div>
@@ -169,7 +177,7 @@ export default function TaskPage() {
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 bg-dark-800 text-white">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium">Решение</span>
-                {draftSavedAt && (
+                {!isInteractive && draftSavedAt && (
                   <span className="text-xs text-green-400 flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -179,7 +187,7 @@ export default function TaskPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {draftSavedAt && (
+                {!isInteractive && draftSavedAt && (
                   <button
                     type="button"
                     onClick={clearDraft}
@@ -189,23 +197,37 @@ export default function TaskPage() {
                     Сбросить
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className={`btn-sm border transition-all ${
-                    saveFlash
-                      ? 'border-green-400 text-green-400'
-                      : 'border-surface-500 text-surface-300 hover:text-white hover:border-white'
-                  }`}
-                >
-                  {saveFlash ? '✓ Сохранено' : 'Сохранить'}
-                </button>
+                {!isInteractive && (
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    className={`btn-sm border transition-all ${
+                      saveFlash
+                        ? 'border-green-400 text-green-400'
+                        : 'border-surface-500 text-surface-300 hover:text-white hover:border-white'
+                    }`}
+                  >
+                    {saveFlash ? '✓ Сохранено' : 'Сохранить'}
+                  </button>
+                )}
                 <button onClick={handleSubmit} disabled={submitting} className="btn-primary btn-sm">
                   {submitting ? 'Проверка...' : 'Отправить'}
                 </button>
               </div>
             </div>
-            <CodeEditor value={code} onChange={setCode} language={lang} height="350px" />
+            {isInteractive ? (
+              <div className="p-4">
+                <ExerciseRenderer
+                  mechanic={task.mechanic}
+                  config={task.interactive_config}
+                  value={interactiveAnswer}
+                  onAnswerChange={setInteractiveAnswer}
+                  disabled={submitting}
+                />
+              </div>
+            ) : (
+              <CodeEditor value={code} onChange={setCode} language={lang} height="350px" />
+            )}
           </div>
 
           {submission && (
@@ -235,6 +257,11 @@ export default function TaskPage() {
                   </summary>
                   <pre className="bg-red-50 text-red-800 text-xs p-3 rounded-lg overflow-auto max-h-40">{submission.error_output}</pre>
                 </details>
+              )}
+              {isInteractive && submission.status === 'finished' && submission.max_score != null && (
+                <div className="text-sm text-surface-400 mb-3">
+                  Выполнено: {Math.round(((submission.score ?? 0) / submission.max_score) * 100)}%
+                </div>
               )}
               {submission.test_results && submission.test_results.length > 0 && (
                 <div className="space-y-3">

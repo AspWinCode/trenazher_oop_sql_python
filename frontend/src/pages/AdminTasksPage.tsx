@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { tasksApi } from '../api';
 import type { Task } from '../types';
 import { Link } from 'react-router-dom';
+import { ExerciseRegistry } from '../features/interactive/registry';
 
 type TaskForm = {
   title: string;
@@ -11,13 +12,14 @@ type TaskForm = {
   submodule_id: string;
   sql_schema: string;
   sql_seed: string;
+  mechanic: string;
   tests: { test_type: string; input_data: string; expected_output: string }[];
   hints: { hint_level: number; unlock_attempts: number; content: string }[];
 };
 
 const defaultForm: TaskForm = {
   title: '', description: '', task_type: 'python_io', runner_type: 'stdin_runner',
-  submodule_id: '', sql_schema: '', sql_seed: '',
+  submodule_id: '', sql_schema: '', sql_seed: '', mechanic: 'multiple_choice',
   tests: [{ test_type: 'public', input_data: '', expected_output: '' }],
   hints: [],
 };
@@ -29,6 +31,7 @@ const RUNNER_MAP: Record<string, string> = {
   sql_query: 'sql_runner',
   cpp_io: 'cpp_runner',
   js_io: 'js_runner',
+  interactive: 'interactive_runner',
 };
 
 export default function AdminTasksPage() {
@@ -50,7 +53,8 @@ export default function AdminTasksPage() {
       submodule_id: form.submodule_id ? parseInt(form.submodule_id) : null,
       sql_schema: form.sql_schema || null,
       sql_seed: form.sql_seed || null,
-      tests: form.tests.filter((t) => t.expected_output),
+      mechanic: form.task_type === 'interactive' ? form.mechanic : null,
+      tests: form.task_type === 'interactive' ? [] : form.tests.filter((t) => t.expected_output),
       hints: form.hints.filter((h) => h.content),
     });
     setForm({ ...defaultForm });
@@ -93,9 +97,23 @@ export default function AdminTasksPage() {
                 <option value="sql_query">SQL Query</option>
                 <option value="cpp_io">C++ IO</option>
                 <option value="js_io">JavaScript IO</option>
+                <option value="interactive">Интерактивное упражнение</option>
               </select>
             </div>
           </div>
+          {form.task_type === 'interactive' && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Механика</label>
+              <select className="input" value={form.mechanic} onChange={(e) => setForm({ ...form, mechanic: e.target.value })}>
+                {Object.entries(ExerciseRegistry).map(([code, entry]) => (
+                  <option key={code} value={code}>{entry.label}</option>
+                ))}
+              </select>
+              <p className="text-xs text-surface-400 mt-1">
+                Содержимое упражнения (варианты, пары, правильные ответы) настраивается после создания — на странице редактирования задачи.
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium mb-1">Описание</label>
             <textarea className="input" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -122,6 +140,7 @@ export default function AdminTasksPage() {
               </div>
             </div>
           )}
+          {form.task_type !== 'interactive' && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium">Тесты</label>
@@ -138,6 +157,7 @@ export default function AdminTasksPage() {
               </div>
             ))}
           </div>
+          )}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium">Подсказки</label>
@@ -176,9 +196,10 @@ export default function AdminTasksPage() {
                 <td className="px-4 py-3 font-medium">
                   <Link to={`/task/${t.id}`} className="text-primary-600 hover:underline">{t.title}</Link>
                 </td>
-                <td className="px-4 py-3"><span className="badge-blue">{t.task_type}</span></td>
+                <td className="px-4 py-3"><span className="badge-blue">{t.task_type === 'interactive' ? t.mechanic : t.task_type}</span></td>
                 <td className="px-4 py-3"><span className={t.status === 'published' ? 'badge-green' : 'badge-yellow'}>{t.status}</span></td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 space-x-2">
+                  <Link to={`/admin/tasks/${t.id}`} className="text-xs text-primary-600 hover:underline">Редактировать</Link>
                   <button onClick={() => handleDelete(t.id)} className="text-xs text-red-600 hover:underline">Удалить</button>
                 </td>
               </tr>

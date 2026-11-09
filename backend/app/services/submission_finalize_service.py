@@ -36,6 +36,9 @@ async def finalize_submission(db: AsyncSession, submission: Submission, body: Su
     submission.runtime = body.runtime
     submission.memory = body.memory
     submission.error_output = body.error_output
+    submission.score = body.score
+    submission.max_score = body.max_score
+    submission.grading_details = body.grading_details
 
     await db.execute(delete(SubmissionTest).where(SubmissionTest.submission_id == submission.id))
 
