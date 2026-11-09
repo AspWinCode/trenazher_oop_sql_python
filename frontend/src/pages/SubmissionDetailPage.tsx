@@ -74,10 +74,11 @@ export default function SubmissionDetailPage() {
   const totalCount = submission.test_results?.length ?? 0;
   const lang = langMap[submission.task_type ?? ''] ?? 'python';
 
+  const isInteractive = submission.task_type === 'interactive';
   const tabs: { key: Tab; label: string }[] = [
     { key: 'error', label: 'Ошибка' },
     { key: 'tests', label: 'Тесты' },
-    { key: 'code', label: 'Код' },
+    { key: 'code', label: isInteractive ? 'Ответ' : 'Код' },
   ];
 
   return (
@@ -177,13 +178,26 @@ export default function SubmissionDetailPage() {
           )}
 
           {tab === 'code' && (
-            <CodeEditor
-              value={submission.code ?? ''}
-              onChange={() => {}}
-              language={lang}
-              height="350px"
-              readOnly
-            />
+            isInteractive ? (
+              <div className="space-y-3">
+                {submission.max_score != null && (
+                  <div className="text-sm text-surface-500">
+                    Выполнено: {Math.round(((submission.score ?? 0) / submission.max_score) * 100)}%
+                  </div>
+                )}
+                <pre className="bg-surface-50 text-dark-700 text-xs p-4 rounded-lg overflow-auto whitespace-pre-wrap">
+                  {JSON.stringify(submission.answer_data, null, 2)}
+                </pre>
+              </div>
+            ) : (
+              <CodeEditor
+                value={submission.code ?? ''}
+                onChange={() => {}}
+                language={lang}
+                height="350px"
+                readOnly
+              />
+            )
           )}
         </div>
       </div>
