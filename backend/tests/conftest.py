@@ -41,6 +41,20 @@ async def setup_db():
         await conn.run_sync(Base.metadata.drop_all)
 
 
+@pytest_asyncio.fixture(autouse=True)
+def reset_rate_limiters():
+    """The rate limiters are module-level singletons with an in-memory fallback
+    keyed by user id. Since each test recreates the DB (autoincrement ids reset
+    to 1), hits from earlier tests would otherwise accumulate against the same
+    key within the sliding window and spuriously 429 later tests."""
+    from app.middleware.rate_limiter import login_limiter, submission_limiter, support_limiter
+
+    submission_limiter._fallback.clear()
+    login_limiter._fallback.clear()
+    support_limiter._fallback.clear()
+    yield
+
+
 @pytest_asyncio.fixture
 async def db_connection() -> AsyncGenerator[AsyncConnection, None]:
     async with test_engine.connect() as connection:
