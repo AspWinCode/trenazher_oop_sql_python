@@ -3,6 +3,8 @@ from __future__ import annotations
 from app.services.interactive.base import Checker, CheckResult, ConfigError
 from app.services.interactive.categorization import CategorizationChecker
 from app.services.interactive.fill_blanks import FillBlanksChecker
+from app.services.interactive.find_error import FindErrorChecker
+from app.services.interactive.grouping import GroupingChecker
 from app.services.interactive.input_answer import InputAnswerChecker
 from app.services.interactive.matching import MatchingChecker
 from app.services.interactive.multi_select_elements import MultiSelectElementsChecker
@@ -10,6 +12,9 @@ from app.services.interactive.multiple_choice import MultipleChoiceChecker
 from app.services.interactive.odd_one_out import OddOneOutChecker
 from app.services.interactive.ordering import OrderingChecker
 from app.services.interactive.pattern_completion import PatternCompletionChecker
+from app.services.interactive.restore_structure import RestoreStructureChecker
+from app.services.interactive.situation_analysis import SituationAnalysisChecker
+from app.services.interactive.solution_correction import SolutionCorrectionChecker
 from app.services.interactive.table_fill import TableFillChecker
 
 # One entry per mechanic code. Adding a new mechanic later = one new module +
@@ -25,6 +30,11 @@ MECHANIC_CHECKERS: dict[str, Checker] = {
     "multi_select_elements": MultiSelectElementsChecker(),
     "pattern_completion": PatternCompletionChecker(),
     "table_fill": TableFillChecker(),
+    "solution_correction": SolutionCorrectionChecker(),
+    "situation_analysis": SituationAnalysisChecker(),
+    "find_error": FindErrorChecker(),
+    "grouping": GroupingChecker(),
+    "restore_structure": RestoreStructureChecker(),
 }
 
 
