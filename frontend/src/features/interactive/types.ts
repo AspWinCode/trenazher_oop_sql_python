@@ -8,7 +8,12 @@ export type MechanicCode =
   | 'odd_one_out'
   | 'multi_select_elements'
   | 'pattern_completion'
-  | 'table_fill';
+  | 'table_fill'
+  | 'solution_correction'
+  | 'situation_analysis'
+  | 'find_error'
+  | 'grouping'
+  | 'restore_structure';
 
 export const MECHANIC_LABELS: Record<MechanicCode, string> = {
   multiple_choice: 'Выбери правильный ответ',
@@ -21,6 +26,11 @@ export const MECHANIC_LABELS: Record<MechanicCode, string> = {
   multi_select_elements: 'Найди все подходящие элементы',
   pattern_completion: 'Продолжи закономерность',
   table_fill: 'Заполни таблицу',
+  solution_correction: 'Исправь готовое решение',
+  situation_analysis: 'Разбери ситуацию',
+  find_error: 'Найди ошибку',
+  grouping: 'Составь группы',
+  restore_structure: 'Восстанови повреждённую конструкцию',
 };
 
 // --- multiple_choice ---
@@ -179,6 +189,78 @@ export interface TableFillAnswer {
   cells: Record<string, string>;
 }
 
+// --- solution_correction ---
+export interface SolutionCorrectionConfig {
+  prompt?: string;
+  initial_content: string;
+  correct_values: string[];
+  case_sensitive?: boolean;
+}
+export interface SolutionCorrectionAnswer {
+  corrected_content: string;
+}
+
+// --- situation_analysis ---
+export interface SituationAnalysisConfig {
+  description: string;
+  question: string;
+  mode: 'choice' | 'text';
+  options?: MultipleChoiceOption[];
+  correct_option_ids?: string[];
+  accepted_answers?: string[];
+  case_sensitive?: boolean;
+  explanation?: string;
+}
+export interface SituationAnalysisAnswer {
+  selected_option_ids?: string[];
+  answer?: string;
+}
+
+// --- find_error ---
+export interface FindErrorItem {
+  id: string;
+  text: string;
+}
+export interface FindErrorConfig {
+  items: FindErrorItem[];
+  correct_error_ids: string[];
+  explanation?: string;
+}
+export interface FindErrorAnswer {
+  selected_ids: string[];
+}
+
+// --- grouping ---
+export interface GroupingItem {
+  id: string;
+  text: string;
+}
+export interface GroupingConfig {
+  items: GroupingItem[];
+  correct_groups: string[][];
+}
+export interface GroupingAnswer {
+  groups: string[][];
+}
+
+// --- restore_structure ---
+export interface RestoreSlot {
+  id: string;
+  label: string;
+}
+export interface RestorePoolItem {
+  id: string;
+  text: string;
+}
+export interface RestoreStructureConfig {
+  slots: RestoreSlot[];
+  pool: RestorePoolItem[];
+  correct_placements: Record<string, string>;
+}
+export interface RestoreStructureAnswer {
+  placements: Record<string, string>;
+}
+
 export type MechanicConfig =
   | MultipleChoiceConfig
   | MatchingConfig
@@ -189,7 +271,12 @@ export type MechanicConfig =
   | OddOneOutConfig
   | MultiSelectElementsConfig
   | PatternCompletionConfig
-  | TableFillConfig;
+  | TableFillConfig
+  | SolutionCorrectionConfig
+  | SituationAnalysisConfig
+  | FindErrorConfig
+  | GroupingConfig
+  | RestoreStructureConfig;
 
 export type MechanicAnswer =
   | MultipleChoiceAnswer
@@ -201,7 +288,12 @@ export type MechanicAnswer =
   | OddOneOutAnswer
   | MultiSelectElementsAnswer
   | PatternCompletionAnswer
-  | TableFillAnswer;
+  | TableFillAnswer
+  | SolutionCorrectionAnswer
+  | SituationAnalysisAnswer
+  | FindErrorAnswer
+  | GroupingAnswer
+  | RestoreStructureAnswer;
 
 export interface RendererProps<TConfig = any, TAnswer = any> {
   config: TConfig;

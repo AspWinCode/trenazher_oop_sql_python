@@ -11,6 +11,11 @@ import OddOneOutRenderer from './renderer/OddOneOutRenderer';
 import MultiSelectElementsRenderer from './renderer/MultiSelectElementsRenderer';
 import PatternCompletionRenderer from './renderer/PatternCompletionRenderer';
 import TableFillRenderer from './renderer/TableFillRenderer';
+import SolutionCorrectionRenderer from './renderer/SolutionCorrectionRenderer';
+import SituationAnalysisRenderer from './renderer/SituationAnalysisRenderer';
+import FindErrorRenderer from './renderer/FindErrorRenderer';
+import GroupingRenderer from './renderer/GroupingRenderer';
+import RestoreStructureRenderer from './renderer/RestoreStructureRenderer';
 
 import MultipleChoiceEditor from './editor/MultipleChoiceEditor';
 import MatchingEditor from './editor/MatchingEditor';
@@ -22,6 +27,11 @@ import OddOneOutEditor from './editor/OddOneOutEditor';
 import MultiSelectElementsEditor from './editor/MultiSelectElementsEditor';
 import PatternCompletionEditor from './editor/PatternCompletionEditor';
 import TableFillEditor from './editor/TableFillEditor';
+import SolutionCorrectionEditor from './editor/SolutionCorrectionEditor';
+import SituationAnalysisEditor from './editor/SituationAnalysisEditor';
+import FindErrorEditor from './editor/FindErrorEditor';
+import GroupingEditor from './editor/GroupingEditor';
+import RestoreStructureEditor from './editor/RestoreStructureEditor';
 
 interface RegistryEntry {
   label: string;
@@ -81,5 +91,30 @@ export const ExerciseRegistry: Record<string, RegistryEntry> & Record<MechanicCo
     label: 'Заполни таблицу',
     Renderer: TableFillRenderer,
     Editor: TableFillEditor,
+  },
+  solution_correction: {
+    label: 'Исправь готовое решение',
+    Renderer: SolutionCorrectionRenderer,
+    Editor: SolutionCorrectionEditor,
+  },
+  situation_analysis: {
+    label: 'Разбери ситуацию',
+    Renderer: SituationAnalysisRenderer,
+    Editor: SituationAnalysisEditor,
+  },
+  find_error: {
+    label: 'Найди ошибку',
+    Renderer: FindErrorRenderer,
+    Editor: FindErrorEditor,
+  },
+  grouping: {
+    label: 'Составь группы',
+    Renderer: GroupingRenderer,
+    Editor: GroupingEditor,
+  },
+  restore_structure: {
+    label: 'Восстанови повреждённую конструкцию',
+    Renderer: RestoreStructureRenderer,
+    Editor: RestoreStructureEditor,
   },
 };
