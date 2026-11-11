@@ -18,7 +18,12 @@ export type MechanicCode =
   | 'object_assembly'
   | 'parameter_adjustment'
   | 'hotspot'
-  | 'point_selection';
+  | 'point_selection'
+  | 'diagram_builder'
+  | 'hierarchy_builder'
+  | 'decision_path'
+  | 'simulation'
+  | 'comparison';
 
 export const MECHANIC_LABELS: Record<MechanicCode, string> = {
   multiple_choice: 'Выбери правильный ответ',
@@ -41,6 +46,11 @@ export const MECHANIC_LABELS: Record<MechanicCode, string> = {
   parameter_adjustment: 'Настрой параметры',
   hotspot: 'Отметь нужные части',
   point_selection: 'Укажи точку на изображении',
+  diagram_builder: 'Собери схему',
+  hierarchy_builder: 'Построй иерархию',
+  decision_path: 'Построй маршрут решения',
+  simulation: 'Работа с симулятором',
+  comparison: 'Сравни два объекта',
 };
 
 // --- multiple_choice ---
@@ -357,6 +367,84 @@ export interface PointSelectionAnswer {
   points: { x: number; y: number }[];
 }
 
+// --- diagram_builder ---
+export interface DiagramNode {
+  id: string;
+  label: string;
+}
+export interface DiagramBuilderConfig {
+  directed?: boolean;
+  nodes: DiagramNode[];
+  correct_edges: [string, string][];
+}
+export interface DiagramBuilderAnswer {
+  edges: [string, string][];
+}
+
+// --- hierarchy_builder ---
+export interface HierarchyNode {
+  id: string;
+  label: string;
+}
+export interface HierarchyBuilderConfig {
+  nodes: HierarchyNode[];
+  correct_parents: Record<string, string | null>;
+}
+export interface HierarchyBuilderAnswer {
+  parents: Record<string, string | null>;
+}
+
+// --- decision_path ---
+export interface DecisionOption {
+  id: string;
+  text: string;
+  next_step_id: string | null;
+}
+export interface DecisionStep {
+  id: string;
+  prompt: string;
+  options: DecisionOption[];
+}
+export interface DecisionPathConfig {
+  start_step_id: string;
+  steps: DecisionStep[];
+  correct_paths: string[][];
+}
+export interface DecisionPathAnswer {
+  path: string[];
+}
+
+// --- simulation ---
+export interface SimulationConfig {
+  prompt?: string;
+  parameters: ParameterDef[];
+  formula: string;
+  target_min: number;
+  target_max: number;
+}
+export interface SimulationAnswer {
+  values: Record<string, number>;
+}
+
+// --- comparison ---
+export interface ComparisonRegion {
+  id: string;
+  side: 'left' | 'right';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+export interface ComparisonConfig {
+  left_image_url?: string;
+  right_image_url?: string;
+  regions: ComparisonRegion[];
+  correct_region_ids: string[];
+}
+export interface ComparisonAnswer {
+  selected_region_ids: string[];
+}
+
 export type MechanicConfig =
   | MultipleChoiceConfig
   | MatchingConfig
@@ -377,7 +465,12 @@ export type MechanicConfig =
   | ObjectAssemblyConfig
   | ParameterAdjustmentConfig
   | HotspotConfig
-  | PointSelectionConfig;
+  | PointSelectionConfig
+  | DiagramBuilderConfig
+  | HierarchyBuilderConfig
+  | DecisionPathConfig
+  | SimulationConfig
+  | ComparisonConfig;
 
 export type MechanicAnswer =
   | MultipleChoiceAnswer
@@ -399,7 +492,12 @@ export type MechanicAnswer =
   | ObjectAssemblyAnswer
   | ParameterAdjustmentAnswer
   | HotspotAnswer
-  | PointSelectionAnswer;
+  | PointSelectionAnswer
+  | DiagramBuilderAnswer
+  | HierarchyBuilderAnswer
+  | DecisionPathAnswer
+  | SimulationAnswer
+  | ComparisonAnswer;
 
 export interface RendererProps<TConfig = any, TAnswer = any> {
   config: TConfig;
