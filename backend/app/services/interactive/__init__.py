@@ -4,14 +4,19 @@ from app.services.interactive.base import Checker, CheckResult, ConfigError
 from app.services.interactive.categorization import CategorizationChecker
 from app.services.interactive.fill_blanks import FillBlanksChecker
 from app.services.interactive.find_error import FindErrorChecker
+from app.services.interactive.formula_builder import FormulaBuilderChecker
 from app.services.interactive.grouping import GroupingChecker
+from app.services.interactive.hotspot import HotspotChecker
 from app.services.interactive.input_answer import InputAnswerChecker
 from app.services.interactive.matching import MatchingChecker
 from app.services.interactive.multi_select_elements import MultiSelectElementsChecker
 from app.services.interactive.multiple_choice import MultipleChoiceChecker
+from app.services.interactive.object_assembly import ObjectAssemblyChecker
 from app.services.interactive.odd_one_out import OddOneOutChecker
 from app.services.interactive.ordering import OrderingChecker
+from app.services.interactive.parameter_adjustment import ParameterAdjustmentChecker
 from app.services.interactive.pattern_completion import PatternCompletionChecker
+from app.services.interactive.point_selection import PointSelectionChecker
 from app.services.interactive.restore_structure import RestoreStructureChecker
 from app.services.interactive.situation_analysis import SituationAnalysisChecker
 from app.services.interactive.solution_correction import SolutionCorrectionChecker
@@ -35,6 +40,11 @@ MECHANIC_CHECKERS: dict[str, Checker] = {
     "find_error": FindErrorChecker(),
     "grouping": GroupingChecker(),
     "restore_structure": RestoreStructureChecker(),
+    "formula_builder": FormulaBuilderChecker(),
+    "object_assembly": ObjectAssemblyChecker(),
+    "parameter_adjustment": ParameterAdjustmentChecker(),
+    "hotspot": HotspotChecker(),
+    "point_selection": PointSelectionChecker(),
 }
 
 

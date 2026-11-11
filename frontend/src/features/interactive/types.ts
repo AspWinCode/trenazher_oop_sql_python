@@ -13,7 +13,12 @@ export type MechanicCode =
   | 'situation_analysis'
   | 'find_error'
   | 'grouping'
-  | 'restore_structure';
+  | 'restore_structure'
+  | 'formula_builder'
+  | 'object_assembly'
+  | 'parameter_adjustment'
+  | 'hotspot'
+  | 'point_selection';
 
 export const MECHANIC_LABELS: Record<MechanicCode, string> = {
   multiple_choice: 'Выбери правильный ответ',
@@ -31,6 +36,11 @@ export const MECHANIC_LABELS: Record<MechanicCode, string> = {
   find_error: 'Найди ошибку',
   grouping: 'Составь группы',
   restore_structure: 'Восстанови повреждённую конструкцию',
+  formula_builder: 'Собери формулу',
+  object_assembly: 'Собери объект из частей',
+  parameter_adjustment: 'Настрой параметры',
+  hotspot: 'Отметь нужные части',
+  point_selection: 'Укажи точку на изображении',
 };
 
 // --- multiple_choice ---
@@ -261,6 +271,92 @@ export interface RestoreStructureAnswer {
   placements: Record<string, string>;
 }
 
+// --- formula_builder ---
+export interface FormulaBlock {
+  id: string;
+  text: string;
+}
+export interface FormulaBuilderConfig {
+  prompt?: string;
+  slots: { id: string }[];
+  blocks: FormulaBlock[];
+  correct_sequences: string[][];
+  allow_reuse?: boolean;
+}
+export interface FormulaBuilderAnswer {
+  sequence: string[];
+}
+
+// --- object_assembly ---
+export interface AssemblyZone {
+  id: string;
+  label: string;
+}
+export interface AssemblyPart {
+  id: string;
+  text: string;
+}
+export interface ObjectAssemblyConfig {
+  zones: AssemblyZone[];
+  parts: AssemblyPart[];
+  correct_placements: Record<string, string>;
+}
+export interface ObjectAssemblyAnswer {
+  placements: Record<string, string>;
+}
+
+// --- parameter_adjustment ---
+export interface ParameterDef {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  default: number;
+}
+export interface ParameterAdjustmentConfig {
+  prompt?: string;
+  parameters: ParameterDef[];
+  formula: string;
+  target_min: number;
+  target_max: number;
+}
+export interface ParameterAdjustmentAnswer {
+  values: Record<string, number>;
+}
+
+// --- hotspot ---
+export interface HotspotRegion {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+export interface HotspotConfig {
+  image_url?: string;
+  regions: HotspotRegion[];
+  correct_region_ids: string[];
+}
+export interface HotspotAnswer {
+  selected_region_ids: string[];
+}
+
+// --- point_selection ---
+export interface TargetPoint {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+}
+export interface PointSelectionConfig {
+  image_url?: string;
+  target_points: TargetPoint[];
+}
+export interface PointSelectionAnswer {
+  points: { x: number; y: number }[];
+}
+
 export type MechanicConfig =
   | MultipleChoiceConfig
   | MatchingConfig
@@ -276,7 +372,12 @@ export type MechanicConfig =
   | SituationAnalysisConfig
   | FindErrorConfig
   | GroupingConfig
-  | RestoreStructureConfig;
+  | RestoreStructureConfig
+  | FormulaBuilderConfig
+  | ObjectAssemblyConfig
+  | ParameterAdjustmentConfig
+  | HotspotConfig
+  | PointSelectionConfig;
 
 export type MechanicAnswer =
   | MultipleChoiceAnswer
@@ -293,7 +394,12 @@ export type MechanicAnswer =
   | SituationAnalysisAnswer
   | FindErrorAnswer
   | GroupingAnswer
-  | RestoreStructureAnswer;
+  | RestoreStructureAnswer
+  | FormulaBuilderAnswer
+  | ObjectAssemblyAnswer
+  | ParameterAdjustmentAnswer
+  | HotspotAnswer
+  | PointSelectionAnswer;
 
 export interface RendererProps<TConfig = any, TAnswer = any> {
   config: TConfig;
