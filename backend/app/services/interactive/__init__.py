@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from app.services.interactive.base import Checker, CheckResult, ConfigError
 from app.services.interactive.categorization import CategorizationChecker
+from app.services.interactive.comparison import ComparisonChecker
+from app.services.interactive.decision_path import DecisionPathChecker
+from app.services.interactive.diagram_builder import DiagramBuilderChecker
 from app.services.interactive.fill_blanks import FillBlanksChecker
 from app.services.interactive.find_error import FindErrorChecker
 from app.services.interactive.formula_builder import FormulaBuilderChecker
 from app.services.interactive.grouping import GroupingChecker
+from app.services.interactive.hierarchy_builder import HierarchyBuilderChecker
 from app.services.interactive.hotspot import HotspotChecker
 from app.services.interactive.input_answer import InputAnswerChecker
 from app.services.interactive.matching import MatchingChecker
@@ -18,6 +22,7 @@ from app.services.interactive.parameter_adjustment import ParameterAdjustmentChe
 from app.services.interactive.pattern_completion import PatternCompletionChecker
 from app.services.interactive.point_selection import PointSelectionChecker
 from app.services.interactive.restore_structure import RestoreStructureChecker
+from app.services.interactive.simulation import SimulationChecker
 from app.services.interactive.situation_analysis import SituationAnalysisChecker
 from app.services.interactive.solution_correction import SolutionCorrectionChecker
 from app.services.interactive.table_fill import TableFillChecker
@@ -45,6 +50,11 @@ MECHANIC_CHECKERS: dict[str, Checker] = {
     "parameter_adjustment": ParameterAdjustmentChecker(),
     "hotspot": HotspotChecker(),
     "point_selection": PointSelectionChecker(),
+    "diagram_builder": DiagramBuilderChecker(),
+    "hierarchy_builder": HierarchyBuilderChecker(),
+    "decision_path": DecisionPathChecker(),
+    "simulation": SimulationChecker(),
+    "comparison": ComparisonChecker(),
 }
 
 

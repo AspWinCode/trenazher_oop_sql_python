@@ -21,6 +21,11 @@ import ObjectAssemblyRenderer from './renderer/ObjectAssemblyRenderer';
 import ParameterAdjustmentRenderer from './renderer/ParameterAdjustmentRenderer';
 import HotspotRenderer from './renderer/HotspotRenderer';
 import PointSelectionRenderer from './renderer/PointSelectionRenderer';
+import DiagramBuilderRenderer from './renderer/DiagramBuilderRenderer';
+import HierarchyBuilderRenderer from './renderer/HierarchyBuilderRenderer';
+import DecisionPathRenderer from './renderer/DecisionPathRenderer';
+import SimulationRenderer from './renderer/SimulationRenderer';
+import ComparisonRenderer from './renderer/ComparisonRenderer';
 
 import MultipleChoiceEditor from './editor/MultipleChoiceEditor';
 import MatchingEditor from './editor/MatchingEditor';
@@ -42,6 +47,11 @@ import ObjectAssemblyEditor from './editor/ObjectAssemblyEditor';
 import ParameterAdjustmentEditor from './editor/ParameterAdjustmentEditor';
 import HotspotEditor from './editor/HotspotEditor';
 import PointSelectionEditor from './editor/PointSelectionEditor';
+import DiagramBuilderEditor from './editor/DiagramBuilderEditor';
+import HierarchyBuilderEditor from './editor/HierarchyBuilderEditor';
+import DecisionPathEditor from './editor/DecisionPathEditor';
+import SimulationEditor from './editor/SimulationEditor';
+import ComparisonEditor from './editor/ComparisonEditor';
 
 interface RegistryEntry {
   label: string;
@@ -151,5 +161,30 @@ export const ExerciseRegistry: Record<string, RegistryEntry> & Record<MechanicCo
     label: 'Укажи точку на изображении',
     Renderer: PointSelectionRenderer,
     Editor: PointSelectionEditor,
+  },
+  diagram_builder: {
+    label: 'Собери схему',
+    Renderer: DiagramBuilderRenderer,
+    Editor: DiagramBuilderEditor,
+  },
+  hierarchy_builder: {
+    label: 'Построй иерархию',
+    Renderer: HierarchyBuilderRenderer,
+    Editor: HierarchyBuilderEditor,
+  },
+  decision_path: {
+    label: 'Построй маршрут решения',
+    Renderer: DecisionPathRenderer,
+    Editor: DecisionPathEditor,
+  },
+  simulation: {
+    label: 'Работа с симулятором',
+    Renderer: SimulationRenderer,
+    Editor: SimulationEditor,
+  },
+  comparison: {
+    label: 'Сравни два объекта',
+    Renderer: ComparisonRenderer,
+    Editor: ComparisonEditor,
   },
 };
