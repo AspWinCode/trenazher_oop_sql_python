@@ -16,6 +16,11 @@ import SituationAnalysisRenderer from './renderer/SituationAnalysisRenderer';
 import FindErrorRenderer from './renderer/FindErrorRenderer';
 import GroupingRenderer from './renderer/GroupingRenderer';
 import RestoreStructureRenderer from './renderer/RestoreStructureRenderer';
+import FormulaBuilderRenderer from './renderer/FormulaBuilderRenderer';
+import ObjectAssemblyRenderer from './renderer/ObjectAssemblyRenderer';
+import ParameterAdjustmentRenderer from './renderer/ParameterAdjustmentRenderer';
+import HotspotRenderer from './renderer/HotspotRenderer';
+import PointSelectionRenderer from './renderer/PointSelectionRenderer';
 
 import MultipleChoiceEditor from './editor/MultipleChoiceEditor';
 import MatchingEditor from './editor/MatchingEditor';
@@ -32,6 +37,11 @@ import SituationAnalysisEditor from './editor/SituationAnalysisEditor';
 import FindErrorEditor from './editor/FindErrorEditor';
 import GroupingEditor from './editor/GroupingEditor';
 import RestoreStructureEditor from './editor/RestoreStructureEditor';
+import FormulaBuilderEditor from './editor/FormulaBuilderEditor';
+import ObjectAssemblyEditor from './editor/ObjectAssemblyEditor';
+import ParameterAdjustmentEditor from './editor/ParameterAdjustmentEditor';
+import HotspotEditor from './editor/HotspotEditor';
+import PointSelectionEditor from './editor/PointSelectionEditor';
 
 interface RegistryEntry {
   label: string;
@@ -116,5 +126,30 @@ export const ExerciseRegistry: Record<string, RegistryEntry> & Record<MechanicCo
     label: 'Восстанови повреждённую конструкцию',
     Renderer: RestoreStructureRenderer,
     Editor: RestoreStructureEditor,
+  },
+  formula_builder: {
+    label: 'Собери формулу',
+    Renderer: FormulaBuilderRenderer,
+    Editor: FormulaBuilderEditor,
+  },
+  object_assembly: {
+    label: 'Собери объект из частей',
+    Renderer: ObjectAssemblyRenderer,
+    Editor: ObjectAssemblyEditor,
+  },
+  parameter_adjustment: {
+    label: 'Настрой параметры',
+    Renderer: ParameterAdjustmentRenderer,
+    Editor: ParameterAdjustmentEditor,
+  },
+  hotspot: {
+    label: 'Отметь нужные части',
+    Renderer: HotspotRenderer,
+    Editor: HotspotEditor,
+  },
+  point_selection: {
+    label: 'Укажи точку на изображении',
+    Renderer: PointSelectionRenderer,
+    Editor: PointSelectionEditor,
   },
 };
