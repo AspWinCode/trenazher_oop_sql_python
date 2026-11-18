@@ -123,7 +123,7 @@ export default function MatchingRenderer({
                   else leftRefs.current.delete(item.id);
                 }}
                 onClick={() => (matchedTo ? removePair(item.id) : pickLeft(item.id))}
-                className={`w-full text-left p-2 rounded-lg border-2 bg-white ${
+                className={`w-full min-h-[3rem] flex items-center text-left p-2 rounded-lg border-2 bg-white ${
                   selectedLeft === item.id ? 'border-primary-500 bg-primary-50' : !color ? 'border-surface-200' : ''
                 } ${disabled ? 'opacity-60' : 'hover:border-primary-300'}`}
                 style={color ? { borderColor: color, backgroundColor: `${color}14` } : undefined}
@@ -147,7 +147,7 @@ export default function MatchingRenderer({
                   else rightRefs.current.delete(item.id);
                 }}
                 onClick={() => pickRight(item.id)}
-                className={`w-full text-left p-2 rounded-lg border-2 bg-white ${
+                className={`w-full min-h-[3rem] flex items-center text-left p-2 rounded-lg border-2 bg-white ${
                   !color ? 'border-surface-200' : ''
                 } ${disabled ? 'opacity-60' : 'hover:border-primary-300'}`}
                 style={color ? { borderColor: color, backgroundColor: `${color}14` } : undefined}
