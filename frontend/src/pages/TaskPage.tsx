@@ -8,7 +8,6 @@ import VerdictBadge from '../components/VerdictBadge';
 import SubmissionDetailLink from '../components/SubmissionDetailLink';
 import TestResultCard from '../components/TestResultCard';
 import ExerciseRenderer from '../features/interactive/renderer/ExerciseRenderer';
-import type { MechanicAnswer } from '../features/interactive/types';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 
@@ -27,6 +26,8 @@ export default function TaskPage() {
     task,
     code,
     setCode,
+    interactiveAnswer,
+    setInteractiveAnswer,
     history,
     hints,
     loading,
@@ -44,12 +45,17 @@ export default function TaskPage() {
   });
 
   const [saveFlash, setSaveFlash] = useState(false);
-  const [interactiveAnswer, setInteractiveAnswer] = useState<MechanicAnswer | undefined>(undefined);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const isInteractive = task?.task_type === 'interactive';
 
   const handleSubmit = async () => {
     if (!task) return;
     if (isInteractive) {
+      if (interactiveAnswer == null) {
+        setSubmitError('Сначала дайте ответ на задание.');
+        return;
+      }
+      setSubmitError(null);
       await submitSolution(task.id, { answer_data: interactiveAnswer });
     } else {
       await submitSolution(task.id, { code });
@@ -217,7 +223,9 @@ export default function TaskPage() {
             </div>
             {isInteractive ? (
               <div className="p-4">
+                {submitError && <div className="text-sm text-red-600 mb-3">{submitError}</div>}
                 <ExerciseRenderer
+                  key={task.id}
                   mechanic={task.mechanic}
                   config={task.interactive_config}
                   value={interactiveAnswer}

@@ -9,6 +9,15 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { OrderingAnswer, OrderingConfig, OrderingItem, RendererProps } from '../types';
 
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 // Six-dot "grip" icon — a widely recognized visual affordance for "this is
 // draggable", attached only to this handle (not the whole row) so clicking
 // the item text never accidentally starts a drag.
@@ -64,11 +73,25 @@ export default function OrderingRenderer({
   disabled,
 }: RendererProps<OrderingConfig, OrderingAnswer>) {
   const itemsById = new Map(config.items.map((i) => [i.id, i]));
-  const [order, setOrder] = useState<string[]>(value?.order ?? config.items.map((i) => i.id));
+  // Shuffled once on mount (lazy initializer) if there's no saved answer yet —
+  // otherwise the task's authored item order (which the admin naturally tends
+  // to write in the correct sequence) would already show the right answer.
+  const [order, setOrder] = useState<string[]>(
+    () => value?.order ?? shuffled(config.items.map((i) => i.id)),
+  );
 
   useEffect(() => {
     if (value?.order) setOrder(value.order);
   }, [value?.order]);
+
+  // If there's no saved answer, the parent's `value` is still undefined even
+  // though this component already shows a full (shuffled) arrangement —
+  // without this, hitting "Отправить" without ever dragging a card sends
+  // answer_data: undefined and the backend silently rejects it (422).
+  useEffect(() => {
+    if (!value?.order) onAnswerChange({ order });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDragEnd = (event: DragEndEvent) => {
     if (disabled) return;

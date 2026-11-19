@@ -1,5 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { MatchingAnswer, MatchingConfig, RendererProps } from '../types';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { MatchingAnswer, MatchingConfig, MatchingItem, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 // Click-to-pair UX (select a left item, then a right item) instead of drag-and-drop —
 // simpler and fully keyboard/touch friendly for a 1:1 matching exercise. Each
@@ -26,6 +35,12 @@ export default function MatchingRenderer({
   const pairs = value?.pairs ?? [];
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
+
+  // Shuffled once per task: the admin naturally lists left/right in matching
+  // order (l1↔r1, l2↔r2, ...), which without this would let a student match
+  // everything correctly just by position, never reading the content.
+  const shuffledLeft = useMemo<MatchingItem[]>(() => shuffled(config.left), [config]);
+  const shuffledRight = useMemo<MatchingItem[]>(() => shuffled(config.right), [config]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const leftRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -110,7 +125,7 @@ export default function MatchingRenderer({
       </svg>
       <div className="relative grid grid-cols-2 gap-4" style={{ zIndex: 2 }}>
         <div className="space-y-2">
-          {config.left.map((item) => {
+          {shuffledLeft.map((item) => {
             const matchedTo = matchedLeft.get(item.id);
             const color = matchedTo ? colorOf(item.id, matchedTo) : undefined;
             return (
@@ -134,7 +149,7 @@ export default function MatchingRenderer({
           })}
         </div>
         <div className="space-y-2">
-          {config.right.map((item) => {
+          {shuffledRight.map((item) => {
             const pairEntry = pairs.find(([, r]) => r === item.id);
             const color = pairEntry ? colorOf(pairEntry[0], item.id) : undefined;
             return (
