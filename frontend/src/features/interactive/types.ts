@@ -62,7 +62,6 @@ export interface MultipleChoiceConfig {
   mode: 'single' | 'multi';
   options: MultipleChoiceOption[];
   correct_option_ids: string[];
-  shuffle?: boolean;
 }
 export interface MultipleChoiceAnswer {
   selected_option_ids: string[];

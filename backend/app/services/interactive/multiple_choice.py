@@ -6,8 +6,10 @@ from app.services.interactive.base import CheckResult, ConfigError
 
 
 class MultipleChoiceChecker:
-    """config: {mode: "single"|"multi", options: [{id, text}], correct_option_ids: [id...], shuffle?: bool}
+    """config: {mode: "single"|"multi", options: [{id, text}], correct_option_ids: [id...]}
     answer: {selected_option_ids: [id...]}
+    Option display order is always shuffled client-side (not part of the
+    config — grading only cares about the id sets, never positions).
     """
 
     def validate_config(self, config: Any) -> None:

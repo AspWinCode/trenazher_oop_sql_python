@@ -1,4 +1,14 @@
-import type { MultipleChoiceAnswer, MultipleChoiceConfig, RendererProps } from '../types';
+import { useMemo } from 'react';
+import type { MultipleChoiceAnswer, MultipleChoiceConfig, MultipleChoiceOption, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 export default function MultipleChoiceRenderer({
   config,
@@ -8,6 +18,10 @@ export default function MultipleChoiceRenderer({
 }: RendererProps<MultipleChoiceConfig, MultipleChoiceAnswer>) {
   const selected = new Set(value?.selected_option_ids ?? []);
   const isSingle = config.mode === 'single';
+  // Always shuffled: an admin naturally lists the correct option first/last
+  // just by habit, which would let a student spot a pattern across repeated
+  // attempts — same reasoning as ordering/matching.
+  const options = useMemo<MultipleChoiceOption[]>(() => shuffled(config.options), [config]);
 
   const toggle = (id: string) => {
     if (disabled) return;
@@ -23,7 +37,7 @@ export default function MultipleChoiceRenderer({
 
   return (
     <div className="space-y-2">
-      {config.options.map((opt) => (
+      {options.map((opt) => (
         <label
           key={opt.id}
           className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer ${
