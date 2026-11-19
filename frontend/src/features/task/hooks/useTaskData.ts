@@ -25,11 +25,33 @@ function legacyStorageKey(taskId: number) {
   return `code_task_${taskId}`;
 }
 
+// Черновик ответа интерактивного упражнения — тот же принцип, что и у кода:
+// без этого перезагрузка страницы сбрасывала уже выбранные пары/порядок/категории.
+function answerStorageKey(userId: number | undefined, taskId: number) {
+  return `answer_task_${userId ?? 'anon'}_${taskId}`;
+}
+
 export function useTaskData(taskId?: string) {
   const userId = useAuthStore((s) => s.user?.id);
   const isGuest = useAuthStore((s) => s.user?.is_guest ?? false);
   const [task, setTask] = useState<Task | null>(null);
   const [code, setCode] = useState('');
+  // Lazy initializer, not an effect: renderers like OrderingRenderer seed a
+  // default answer back up on their own mount effect if `value` is still
+  // empty, and child effects run before parent effects on the same commit —
+  // an effect-based restore here would lose the race and the seed would
+  // overwrite the just-read draft before this ever saw it.
+  const [interactiveAnswer, setInteractiveAnswerState] = useState<unknown>(() => {
+    if (!taskId) return undefined;
+    const id = Number(taskId);
+    if (Number.isNaN(id)) return undefined;
+    try {
+      const saved = localStorage.getItem(answerStorageKey(userId, id));
+      return saved !== null ? JSON.parse(saved) : undefined;
+    } catch {
+      return undefined;
+    }
+  });
   const [history, setHistory] = useState<Submission[]>([]);
   const [hints, setHints] = useState<TaskHint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +95,31 @@ export function useTaskData(taskId?: string) {
   const hasDraft = useCallback(() => {
     if (!taskId) return false;
     try { return localStorage.getItem(storageKey(userId, Number(taskId))) !== null; } catch { return false; }
+  }, [taskId, userId]);
+
+  const setInteractiveAnswer = useCallback((answer: unknown) => {
+    setInteractiveAnswerState(answer);
+    if (taskId) {
+      try {
+        localStorage.setItem(answerStorageKey(userId, Number(taskId)), JSON.stringify(answer));
+      } catch {}
+    }
+  }, [taskId, userId]);
+
+  // Восстановление черновика ответа не зависит от загрузки самой задачи —
+  // достаточно taskId, поэтому делаем это в отдельном эффекте, а не внутри
+  // then() запроса tasksApi.get (иначе при быстрой смене задачи может на
+  // мгновение остаться ответ от предыдущей).
+  useEffect(() => {
+    if (!taskId) { setInteractiveAnswerState(undefined); return; }
+    const id = Number(taskId);
+    if (Number.isNaN(id)) { setInteractiveAnswerState(undefined); return; }
+    try {
+      const saved = localStorage.getItem(answerStorageKey(userId, id));
+      setInteractiveAnswerState(saved !== null ? JSON.parse(saved) : undefined);
+    } catch {
+      setInteractiveAnswerState(undefined);
+    }
   }, [taskId, userId]);
 
   useEffect(() => {
@@ -119,6 +166,8 @@ export function useTaskData(taskId?: string) {
     task,
     code,
     setCode: handleSetCode,
+    interactiveAnswer,
+    setInteractiveAnswer,
     history,
     hints,
     loading,

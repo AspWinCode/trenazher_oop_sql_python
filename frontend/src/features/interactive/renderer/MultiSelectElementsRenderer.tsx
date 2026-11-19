@@ -19,21 +19,19 @@ export default function MultiSelectElementsRenderer({
   return (
     <div className="space-y-2">
       {config.prompt && <div className="text-sm text-surface-500 mb-2">{config.prompt}</div>}
-      <div className="flex flex-wrap gap-2">
-        {config.items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            disabled={disabled}
-            onClick={() => toggle(item.id)}
-            className={`px-3 py-2 rounded-lg border text-sm ${
-              selected.has(item.id) ? 'border-primary-500 bg-primary-50' : 'border-surface-200'
-            } ${disabled ? 'opacity-60' : 'hover:border-primary-300'}`}
-          >
-            {item.text}
-          </button>
-        ))}
-      </div>
+      {config.items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          disabled={disabled}
+          onClick={() => toggle(item.id)}
+          className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
+            selected.has(item.id) ? 'border-primary-500 bg-primary-50' : 'border-surface-200'
+          } ${disabled ? 'opacity-60' : 'hover:border-primary-300'}`}
+        >
+          {item.text}
+        </button>
+      ))}
     </div>
   );
 }

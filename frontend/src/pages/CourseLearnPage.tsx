@@ -18,7 +18,6 @@ import PaymentInlinePage from '../components/PaymentInlinePage';
 import { useTaskData } from '../features/task/hooks/useTaskData';
 import { useSubmissionWatcher } from '../features/task/hooks/useSubmissionWatcher';
 import ExerciseRenderer from '../features/interactive/renderer/ExerciseRenderer';
-import type { MechanicAnswer } from '../features/interactive/types';
 import { useCourseLearnStore, type CourseSidebarItem } from '../store/courseLearn';
 import type { Course } from '../types';
 import GuestFirstTaskTour from '../features/onboarding/GuestFirstTaskTour';
@@ -89,7 +88,7 @@ function TaskSolver({
   isGuest?: boolean;
 }) {
   const {
-    task, code, setCode, history, hints, loading,
+    task, code, setCode, interactiveAnswer, setInteractiveAnswer, history, hints, loading,
     showHints, setShowHints, refreshHistory, refreshHints,
     draftSavedAt, clearDraft,
   } = useTaskData(taskId);
@@ -115,12 +114,17 @@ function TaskSolver({
     setTimeout(() => setSaveFlash(false), 2000);
   }, [code, setCode]);
 
-  const [interactiveAnswer, setInteractiveAnswer] = useState<MechanicAnswer | undefined>(undefined);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const isInteractive = task?.task_type === 'interactive';
 
   const handleSubmit = useCallback(() => {
     if (!task) return;
     if (isInteractive) {
+      if (interactiveAnswer == null) {
+        setSubmitError('Сначала дайте ответ на задание.');
+        return;
+      }
+      setSubmitError(null);
       submitSolution(task.id, { answer_data: interactiveAnswer });
     } else {
       submitSolution(task.id, { code });
@@ -318,7 +322,9 @@ function TaskSolver({
               </div>
               {isInteractive ? (
                 <div className="p-4 bg-white">
+                  {submitError && <div className="text-sm text-red-600 mb-3">{submitError}</div>}
                   <ExerciseRenderer
+                    key={task.id}
                     mechanic={task.mechanic}
                     config={task.interactive_config}
                     value={interactiveAnswer}

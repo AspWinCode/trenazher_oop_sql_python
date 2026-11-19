@@ -4,8 +4,8 @@ import type { MechanicAnswer, MechanicConfig } from '../types';
 interface Props {
   mechanic: string | null | undefined;
   config: unknown;
-  value: MechanicAnswer | undefined;
-  onAnswerChange: (answer: MechanicAnswer) => void;
+  value: unknown;
+  onAnswerChange: (answer: unknown) => void;
   disabled?: boolean;
 }
 
@@ -18,8 +18,8 @@ export default function ExerciseRenderer({ mechanic, config, value, onAnswerChan
   return (
     <Renderer
       config={config as MechanicConfig}
-      value={value}
-      onAnswerChange={onAnswerChange}
+      value={value as MechanicAnswer | undefined}
+      onAnswerChange={onAnswerChange as (answer: MechanicAnswer) => void}
       disabled={disabled}
     />
   );
