@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import type { GroupingAnswer, GroupingConfig, RendererProps } from '../types';
+import { useMemo, useState } from 'react';
+import type { GroupingAnswer, GroupingConfig, GroupingItem, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 // Click-based grouping (no drag-and-drop): select chips from the pool, then
 // "Создать группу" turns the current selection into a new group. Simpler and
@@ -13,9 +22,12 @@ export default function GroupingRenderer({
 }: RendererProps<GroupingConfig, GroupingAnswer>) {
   const groups = value?.groups ?? [];
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Always shuffled: admin-authored order lists one group's items right
+  // after another, which gives away the grouping by position alone.
+  const shuffledItems = useMemo<GroupingItem[]>(() => shuffled(config.items), [config]);
 
   const assigned = new Set(groups.flat());
-  const pool = config.items.filter((i) => !assigned.has(i.id));
+  const pool = shuffledItems.filter((i) => !assigned.has(i.id));
   const itemsById = new Map(config.items.map((i) => [i.id, i]));
 
   const toggleSelect = (id: string) => {

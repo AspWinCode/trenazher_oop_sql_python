@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import type { ObjectAssemblyAnswer, ObjectAssemblyConfig, RendererProps } from '../types';
+import { useMemo, useState } from 'react';
+import type { AssemblyPart, ObjectAssemblyAnswer, ObjectAssemblyConfig, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 // Click-to-place: pick a part from the pool, then click a zone to place it.
 export default function ObjectAssemblyRenderer({
@@ -10,6 +19,9 @@ export default function ObjectAssemblyRenderer({
 }: RendererProps<ObjectAssemblyConfig, ObjectAssemblyAnswer>) {
   const placements = value?.placements ?? {};
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
+  // Always shuffled: the pool is authored in the same order as the zones,
+  // which gives away each placement by position.
+  const parts = useMemo<AssemblyPart[]>(() => shuffled(config.parts), [config]);
 
   const usedPartIds = new Set(Object.values(placements));
   const partsById = new Map(config.parts.map((p) => [p.id, p]));
@@ -37,7 +49,7 @@ export default function ObjectAssemblyRenderer({
       <div>
         <div className="text-xs text-surface-400 mb-1">Детали:</div>
         <div className="flex flex-wrap gap-2">
-          {config.parts.map((part) => (
+          {parts.map((part) => (
             <button
               key={part.id}
               type="button"

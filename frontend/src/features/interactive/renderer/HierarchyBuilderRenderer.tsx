@@ -15,8 +15,8 @@ export default function HierarchyBuilderRenderer({
   return (
     <div className="space-y-2">
       {config.nodes.map((node) => (
-        <div key={node.id} className="flex items-center gap-2">
-          <span className="w-40 text-sm font-medium truncate">{node.label}</span>
+        <div key={node.id} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+          <span className="sm:w-56 sm:shrink-0 text-sm font-medium">{node.label}</span>
           <span className="text-surface-400 text-sm">родитель:</span>
           <select
             value={parents[node.id] ?? ''}

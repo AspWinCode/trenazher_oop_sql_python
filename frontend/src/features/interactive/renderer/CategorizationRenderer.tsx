@@ -1,9 +1,19 @@
-import type { CategorizationAnswer, CategorizationConfig, RendererProps } from '../types';
+import { useMemo } from 'react';
+import type { CategorizationAnswer, CategorizationConfig, CategorizationItem, RendererProps } from '../types';
 
 // Same palette used in matching's pair colors — one color per category gives
 // a quick visual grouping cue (which rows share a category) without
 // restructuring the list into per-category columns.
 const CATEGORY_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 export default function CategorizationRenderer({
   config,
@@ -13,6 +23,9 @@ export default function CategorizationRenderer({
 }: RendererProps<CategorizationConfig, CategorizationAnswer>) {
   const assignments = value?.assignments ?? {};
   const colorByCategory = new Map(config.categories.map((c, i) => [c.id, CATEGORY_COLORS[i % CATEGORY_COLORS.length]]));
+  // Always shuffled: admin-authored order groups items by category, which
+  // lets a student guess the split without reading them.
+  const items = useMemo<CategorizationItem[]>(() => shuffled(config.items), [config]);
 
   const assign = (itemId: string, categoryId: string) => {
     onAnswerChange({ assignments: { ...assignments, [itemId]: categoryId } });
@@ -46,7 +59,7 @@ export default function CategorizationRenderer({
       </div>
 
       <div className="space-y-2">
-        {config.items.map((item) => {
+        {items.map((item) => {
           const assignedCategory = assignments[item.id];
           const color = assignedCategory ? colorByCategory.get(assignedCategory) : undefined;
           return (

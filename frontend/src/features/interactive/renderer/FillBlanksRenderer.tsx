@@ -1,6 +1,16 @@
+import { useMemo } from 'react';
 import type { FillBlanksAnswer, FillBlanksConfig, RendererProps } from '../types';
 
 const BLANK_RE = /\{\{(\w+)\}\}/g;
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 export default function FillBlanksRenderer({
   config,
@@ -8,7 +18,13 @@ export default function FillBlanksRenderer({
   onAnswerChange,
   disabled,
 }: RendererProps<FillBlanksConfig, FillBlanksAnswer>) {
-  const blanksById = new Map(config.blanks.map((b) => [b.id, b]));
+  // Always shuffled: the correct option for a select/drag blank is often
+  // authored first, which lets a student just pick the top choice.
+  const blanks = useMemo(
+    () => config.blanks.map((b) => (b.options ? { ...b, options: shuffled(b.options) } : b)),
+    [config],
+  );
+  const blanksById = new Map(blanks.map((b) => [b.id, b]));
   const filled = value?.blanks ?? {};
 
   const setBlank = (id: string, val: string) => {

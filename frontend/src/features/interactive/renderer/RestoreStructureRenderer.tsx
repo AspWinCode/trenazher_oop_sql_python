@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import type { RendererProps, RestoreStructureAnswer, RestoreStructureConfig } from '../types';
+import { useMemo, useState } from 'react';
+import type { RendererProps, RestorePoolItem, RestoreStructureAnswer, RestoreStructureConfig } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 // Click-to-place: pick a part from the pool, then click the slot to place it.
 export default function RestoreStructureRenderer({
@@ -10,6 +19,9 @@ export default function RestoreStructureRenderer({
 }: RendererProps<RestoreStructureConfig, RestoreStructureAnswer>) {
   const placements = value?.placements ?? {};
   const [selectedPart, setSelectedPart] = useState<string | null>(null);
+  // Always shuffled: the pool is authored in the same order as the slots,
+  // which gives away each placement by position.
+  const pool = useMemo<RestorePoolItem[]>(() => shuffled(config.pool), [config]);
 
   const usedPartIds = new Set(Object.values(placements));
   const partsById = new Map(config.pool.map((p) => [p.id, p]));
@@ -38,7 +50,7 @@ export default function RestoreStructureRenderer({
       <div>
         <div className="text-xs text-surface-400 mb-1">Доступные детали:</div>
         <div className="flex flex-wrap gap-2">
-          {config.pool.map((part) => (
+          {pool.map((part) => (
             <button
               key={part.id}
               type="button"
@@ -63,8 +75,8 @@ export default function RestoreStructureRenderer({
           const placedPartId = placements[slot.id];
           const placedPart = placedPartId ? partsById.get(placedPartId) : undefined;
           return (
-            <div key={slot.id} className="flex items-center gap-3">
-              <span className="w-28 text-sm text-surface-500 shrink-0">{slot.label}</span>
+            <div key={slot.id} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+              <span className="sm:w-48 sm:shrink-0 text-sm text-surface-500">{slot.label}</span>
               <button
                 type="button"
                 disabled={disabled}
