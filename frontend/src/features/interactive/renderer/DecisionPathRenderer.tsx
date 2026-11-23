@@ -1,4 +1,14 @@
+import { useMemo } from 'react';
 import type { DecisionOption, DecisionPathAnswer, DecisionPathConfig, DecisionStep, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 export default function DecisionPathRenderer({
   config,
@@ -7,7 +17,14 @@ export default function DecisionPathRenderer({
   disabled,
 }: RendererProps<DecisionPathConfig, DecisionPathAnswer>) {
   const path = value?.path ?? [];
-  const stepsById = new Map<string, DecisionStep>(config.steps.map((s) => [s.id, s]));
+  // Always shuffled per step: the correct option is often authored first,
+  // which lets a student just click the top choice every time. Shuffled
+  // once per mount so the order doesn't jump around while answering.
+  const shuffledSteps = useMemo<DecisionStep[]>(
+    () => config.steps.map((s) => ({ ...s, options: shuffled(s.options) })),
+    [config],
+  );
+  const stepsById = new Map<string, DecisionStep>(shuffledSteps.map((s) => [s.id, s]));
 
   // Walk the path so far to find the current step.
   let currentStepId: string | null = config.start_step_id;

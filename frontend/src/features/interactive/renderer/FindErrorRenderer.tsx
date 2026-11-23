@@ -1,4 +1,14 @@
-import type { FindErrorAnswer, FindErrorConfig, RendererProps } from '../types';
+import { useMemo } from 'react';
+import type { FindErrorAnswer, FindErrorConfig, FindErrorItem, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 export default function FindErrorRenderer({
   config,
@@ -7,6 +17,9 @@ export default function FindErrorRenderer({
   disabled,
 }: RendererProps<FindErrorConfig, FindErrorAnswer>) {
   const selected = new Set(value?.selected_ids ?? []);
+  // Always shuffled: errors are naturally authored together, which gives
+  // away the answer by position.
+  const items = useMemo<FindErrorItem[]>(() => shuffled(config.items), [config]);
 
   const toggle = (id: string) => {
     if (disabled) return;
@@ -18,7 +31,7 @@ export default function FindErrorRenderer({
 
   return (
     <div className="space-y-2">
-      {config.items.map((item) => (
+      {items.map((item) => (
         <button
           key={item.id}
           type="button"

@@ -1,4 +1,14 @@
-import type { MultiSelectElementsAnswer, MultiSelectElementsConfig, RendererProps } from '../types';
+import { useMemo } from 'react';
+import type { MultiSelectElementsAnswer, MultiSelectElementsConfig, MultiSelectItem, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 export default function MultiSelectElementsRenderer({
   config,
@@ -7,6 +17,9 @@ export default function MultiSelectElementsRenderer({
   disabled,
 }: RendererProps<MultiSelectElementsConfig, MultiSelectElementsAnswer>) {
   const selected = new Set(value?.selected_ids ?? []);
+  // Always shuffled: correct items are naturally authored together, which
+  // gives away the answer by position.
+  const items = useMemo<MultiSelectItem[]>(() => shuffled(config.items), [config]);
 
   const toggle = (id: string) => {
     if (disabled) return;
@@ -19,7 +32,7 @@ export default function MultiSelectElementsRenderer({
   return (
     <div className="space-y-2">
       {config.prompt && <div className="text-sm text-surface-500 mb-2">{config.prompt}</div>}
-      {config.items.map((item) => (
+      {items.map((item) => (
         <button
           key={item.id}
           type="button"

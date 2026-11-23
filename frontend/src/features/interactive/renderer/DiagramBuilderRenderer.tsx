@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import type { DiagramBuilderAnswer, DiagramBuilderConfig, RendererProps } from '../types';
+import { useMemo, useState } from 'react';
+import type { DiagramBuilderAnswer, DiagramBuilderConfig, DiagramNode, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 // Click-to-connect: pick a source node, then a target node to add an edge.
 export default function DiagramBuilderRenderer({
@@ -11,6 +20,9 @@ export default function DiagramBuilderRenderer({
   const edges = value?.edges ?? [];
   const [source, setSource] = useState<string | null>(null);
   const nodesById = new Map(config.nodes.map((n) => [n.id, n]));
+  // Always shuffled: nodes are authored in an order that often hints at the
+  // correct edges (e.g. base scenario followed by what it includes).
+  const nodes = useMemo<DiagramNode[]>(() => shuffled(config.nodes), [config]);
 
   const pickNode = (id: string) => {
     if (disabled) return;
@@ -38,7 +50,7 @@ export default function DiagramBuilderRenderer({
         {config.directed !== false ? ' (направленную)' : ''}.
       </div>
       <div className="flex flex-wrap gap-2">
-        {config.nodes.map((node) => (
+        {nodes.map((node) => (
           <button
             key={node.id}
             type="button"

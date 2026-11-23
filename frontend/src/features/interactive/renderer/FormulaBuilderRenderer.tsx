@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import type { FormulaBuilderAnswer, FormulaBuilderConfig, RendererProps } from '../types';
+import { useMemo, useState } from 'react';
+import type { FormulaBlock, FormulaBuilderAnswer, FormulaBuilderConfig, RendererProps } from '../types';
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 // Click-to-place: pick a block from the pool, then click a slot to place it.
 export default function FormulaBuilderRenderer({
@@ -12,6 +21,9 @@ export default function FormulaBuilderRenderer({
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const blocksById = new Map(config.blocks.map((b) => [b.id, b]));
   const usedBlockIds = new Set(config.allow_reuse ? [] : sequence.filter(Boolean));
+  // Always shuffled: the pool is authored in the same order as the correct
+  // sequence, which gives away the answer by position.
+  const blocks = useMemo<FormulaBlock[]>(() => shuffled(config.blocks), [config]);
 
   const pickBlock = (id: string) => {
     if (disabled) return;
@@ -37,7 +49,7 @@ export default function FormulaBuilderRenderer({
     <div className="space-y-4">
       {config.prompt && <div className="text-sm text-surface-500">{config.prompt}</div>}
       <div className="flex flex-wrap gap-2">
-        {config.blocks.map((block) => (
+        {blocks.map((block) => (
           <button
             key={block.id}
             type="button"
