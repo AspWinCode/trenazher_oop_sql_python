@@ -106,4 +106,5 @@ async def update_preferences(
     for k, v in updates.items():
         setattr(user, k, v)
     await db.flush()
+    await db.refresh(user)
     return UserOut.model_validate(user)
