@@ -35,10 +35,17 @@ class UserOut(BaseModel):
     full_name: Optional[str] = None
     getcourse_id: Optional[str] = None
     is_guest: bool = False
+    reveal_hidden_tests: bool = False
+    reveal_all_hints: bool = False
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserPreferencesUpdate(BaseModel):
+    reveal_hidden_tests: Optional[bool] = None
+    reveal_all_hints: Optional[bool] = None
 
 
 class ResetPassword(BaseModel):

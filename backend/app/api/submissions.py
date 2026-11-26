@@ -101,7 +101,9 @@ async def get_submission_detail(
     is_io_task = task_type_value in io_task_types
     test_results = []
     for tr in submission.test_results:
-        is_public = bool(tr.test and tr.test.test_type.value == "public")
+        # Скрытые тесты раскрываются студенту и так, если он включил
+        # соответствующую настройку (действует на все курсы и задачи).
+        is_public = bool(tr.test and tr.test.test_type.value == "public") or user.reveal_hidden_tests
         # Эталон, вычисленный раннером (строки SQL и т.п.) — безопасное содержимое;
         # литеральный expected из задачи годится только для IO-типов. У pytest
         # (oop/numpy) в expected_output лежит КОД теста — его не показываем никому

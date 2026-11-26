@@ -9,7 +9,7 @@ from app.middleware.auth_middleware import get_current_user
 from app.middleware.rate_limiter import check_login_rate
 from app.models.user import User, UserStatus
 from app.schemas.auth import LoginRequest, RefreshRequest, RefreshResponse, TokenResponse
-from app.schemas.user import ChangePassword, UserOut
+from app.schemas.user import ChangePassword, UserOut, UserPreferencesUpdate
 from app.services.auth_service import create_token_pair, decode_refresh_token, hash_password, verify_password
 from app.services.guest_service import cleanup_stale_guests, create_guest_user, get_guest_config
 
@@ -92,3 +92,18 @@ async def change_password(
     user.password_hash = hash_password(body.new_password)
     await db.flush()
     return {"detail": "Пароль успешно изменён"}
+
+
+@router.patch("/preferences", response_model=UserOut)
+async def update_preferences(
+    body: UserPreferencesUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Личные настройки прохождения задач (показ скрытых тестов и всех
+    подсказок сразу) — действуют на все курсы и задачи немедленно."""
+    updates = body.model_dump(exclude_unset=True)
+    for k, v in updates.items():
+        setattr(user, k, v)
+    await db.flush()
+    return UserOut.model_validate(user)

@@ -7,6 +7,7 @@ interface AuthState {
   user: User | null;
   setAuth: (token: string, refreshToken: string, user: User) => void;
   setTokens: (token: string, refreshToken: string) => void;
+  updateUser: (partial: Partial<User>) => void;
   logout: () => void;
   isAdmin: () => boolean;
 }
@@ -28,6 +29,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem('token', token);
     localStorage.setItem('refreshToken', refreshToken);
     set({ token, refreshToken });
+  },
+  updateUser: (partial) => {
+    const next = { ...get().user, ...partial } as User;
+    localStorage.setItem('user', JSON.stringify(next));
+    set({ user: next });
   },
   logout: () => {
     localStorage.removeItem('token');

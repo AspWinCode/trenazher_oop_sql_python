@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import TaskPage from './pages/TaskPage';
 import TasksPage from './pages/TasksPage';
 import ProgressPage from './pages/ProgressPage';
+import SettingsPage from './pages/SettingsPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminCoursesPage from './pages/AdminCoursesPage';
 import AdminCourseEditorPage from './pages/AdminCourseEditorPage';
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="course/:courseId" element={<CourseLearnPage />} />
         <Route path="submissions/:submissionId" element={<SubmissionDetailPage />} />
         <Route path="progress" element={<ProgressPage />} />
+        <Route path="settings" element={<SettingsPage />} />
         <Route path="admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
         <Route path="admin/courses" element={<ProtectedRoute requireAdmin><AdminCoursesPage /></ProtectedRoute>} />
         <Route path="admin/courses/:courseId" element={<ProtectedRoute requireAdmin><AdminCourseEditorPage /></ProtectedRoute>} />
