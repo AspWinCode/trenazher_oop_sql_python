@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum, String, func
+from sqlalchemy import Boolean, DateTime, Enum, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -34,6 +34,9 @@ class User(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     getcourse_id: Mapped[Optional[str]] = mapped_column(String(64), unique=True, nullable=True, index=True)
+    # Личные настройки прохождения задач — действуют сразу на все курсы и задачи.
+    reveal_hidden_tests: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    reveal_all_hints: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

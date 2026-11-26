@@ -36,5 +36,5 @@ async def get_hints(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    hints = await get_available_hints(db, user.id, task_id)
+    hints = await get_available_hints(db, user.id, task_id, reveal_all=user.reveal_all_hints)
     return [TaskHintOut.model_validate(h) for h in hints]

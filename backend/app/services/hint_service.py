@@ -9,7 +9,15 @@ from app.models.student_progress import StudentProgress
 from app.models.task_hint import TaskHint
 
 
-async def get_available_hints(db: AsyncSession, user_id: int, task_id: int) -> List[TaskHint]:
+async def get_available_hints(
+    db: AsyncSession, user_id: int, task_id: int, *, reveal_all: bool = False
+) -> List[TaskHint]:
+    if reveal_all:
+        hints_result = await db.execute(
+            select(TaskHint).where(TaskHint.task_id == task_id).order_by(TaskHint.hint_level)
+        )
+        return list(hints_result.scalars().all())
+
     prog_result = await db.execute(
         select(StudentProgress).where(
             StudentProgress.user_id == user_id,

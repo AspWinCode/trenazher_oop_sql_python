@@ -7,6 +7,8 @@ export interface User {
   full_name: string | null;
   getcourse_id?: string | null;
   is_guest?: boolean;
+  reveal_hidden_tests?: boolean;
+  reveal_all_hints?: boolean;
   created_at: string;
   updated_at: string;
 }
