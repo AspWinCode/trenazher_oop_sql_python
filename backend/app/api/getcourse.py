@@ -5,7 +5,7 @@ GetCourse webhook — автоматическое управление дост
   Name       — имя пользователя
   lastName   — фамилия пользователя
   email      — email (ключевой идентификатор)
-  Course     — курс: "Python" | "SQL"
+  Course     — курс: "Python" | "SQL" | "Бизнес-аналитика"
   Status     — "active" (дать доступ) | "disabled" (забрать доступ)
   StudentId  — id пользователя в GetCourse (сохраняется в getcourse_id для автовхода)
 
@@ -85,6 +85,8 @@ async def _find_course(db: AsyncSession, course_param: str) -> Optional[Course]:
     search_map = {
         "python": ["python", "питон", "oop"],
         "sql":    ["sql"],
+        "бизнес-аналитика": ["бизнес"],
+        "бизнес аналитика": ["бизнес"],
     }
 
     keywords = search_map.get(keyword, [keyword])
