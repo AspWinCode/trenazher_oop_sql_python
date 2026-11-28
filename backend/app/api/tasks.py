@@ -161,7 +161,13 @@ async def get_task(task_id: int, db: AsyncSession = Depends(get_db), user: User 
             test.verification_sql = None
             test.test_files = None
         if out.task_type == TaskType.interactive:
-            out.interactive_config = None
+            # Strip only the answer-revealing fields, not the whole config: the
+            # renderer needs the rest (options/items/slots/...) to draw the
+            # exercise at all. Grading always re-reads the untouched config
+            # from the DB (grading_service.py), never this stripped copy.
+            from app.services.interactive import strip_answer_fields
+
+            out.interactive_config = strip_answer_fields(out.mechanic, out.interactive_config)
 
     return out
 

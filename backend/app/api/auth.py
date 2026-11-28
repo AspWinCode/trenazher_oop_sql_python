@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.auth_middleware import get_current_user
-from app.middleware.rate_limiter import check_login_rate
+from app.middleware.rate_limiter import check_guest_rate, check_login_rate
 from app.models.user import User, UserStatus
 from app.schemas.auth import LoginRequest, RefreshRequest, RefreshResponse, TokenResponse
 from app.schemas.user import ChangePassword, UserOut, UserPreferencesUpdate
@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.post("/guest", response_model=TokenResponse)
-async def guest_login(db: AsyncSession = Depends(get_db)):
+async def guest_login(db: AsyncSession = Depends(get_db), _=Depends(check_guest_rate)):
     """Создаёт эфемерного гостя и выдаёт токены. Доступно только если
     администратор включил гостевой режим."""
     config = await get_guest_config(db)

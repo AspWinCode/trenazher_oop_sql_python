@@ -40,7 +40,9 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
 async def require_judger_internal_token(
     x_judger_token: Optional[str] = Header(default=None, alias="X-Judger-Token"),
 ) -> None:
+    import hmac
+
     from app.config import settings
 
-    if x_judger_token != settings.JUDGER_INTERNAL_TOKEN:
+    if not hmac.compare_digest(x_judger_token or "", settings.JUDGER_INTERNAL_TOKEN or ""):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid internal token")

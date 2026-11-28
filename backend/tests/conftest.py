@@ -47,11 +47,19 @@ def reset_rate_limiters():
     keyed by user id. Since each test recreates the DB (autoincrement ids reset
     to 1), hits from earlier tests would otherwise accumulate against the same
     key within the sliding window and spuriously 429 later tests."""
-    from app.middleware.rate_limiter import login_limiter, submission_limiter, support_limiter
+    from app.middleware.rate_limiter import (
+        forgot_password_limiter,
+        guest_limiter,
+        login_limiter,
+        submission_limiter,
+        support_limiter,
+    )
 
     submission_limiter._fallback.clear()
     login_limiter._fallback.clear()
     support_limiter._fallback.clear()
+    guest_limiter._fallback.clear()
+    forgot_password_limiter._fallback.clear()
     yield
 
 

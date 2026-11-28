@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.middleware.auth_middleware import require_admin
+from app.middleware.rate_limiter import check_forgot_password_rate
 from app.models.course import Course
 from app.models.course_node import CourseNode, CourseNodeStatus
 from app.models.course_node_task import CourseNodeTask
@@ -390,7 +391,11 @@ async def get_user_course_progress(
 # --- Password recovery (public endpoints) ---
 
 @router.post("/forgot-password")
-async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(check_forgot_password_rate),
+):
     """Request password reset link. Always returns 200 to prevent user enumeration."""
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()

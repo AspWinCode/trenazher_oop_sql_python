@@ -16,6 +16,7 @@ from app.services.interactive.matching import MatchingChecker
 from app.services.interactive.multi_select_elements import MultiSelectElementsChecker
 from app.services.interactive.multiple_choice import MultipleChoiceChecker
 from app.services.interactive.object_assembly import ObjectAssemblyChecker
+from app.services.interactive.public_config import strip_answer_fields
 from app.services.interactive.odd_one_out import OddOneOutChecker
 from app.services.interactive.ordering import OrderingChecker
 from app.services.interactive.parameter_adjustment import ParameterAdjustmentChecker
@@ -64,4 +65,4 @@ def get_checker(mechanic: str | None) -> Checker:
     return MECHANIC_CHECKERS[mechanic]
 
 
-__all__ = ["MECHANIC_CHECKERS", "get_checker", "CheckResult", "ConfigError", "Checker"]
+__all__ = ["MECHANIC_CHECKERS", "get_checker", "CheckResult", "ConfigError", "Checker", "strip_answer_fields"]
