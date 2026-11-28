@@ -50,6 +50,31 @@ async def test_resolve_personal_link(client: AsyncClient, admin_headers, admin_u
 
 
 @pytest.mark.asyncio
+async def test_resolve_personal_link_hides_interactive_answer(client: AsyncClient, admin_headers, admin_user):
+    """Shared links are unauthenticated — anyone with the token must not be
+    able to read the correct answer out of interactive_config."""
+    task = await client.post("/api/tasks", json={
+        "title": "Shared MC", "task_type": "interactive", "runner_type": "interactive_runner",
+        "mechanic": "multiple_choice",
+        "interactive_config": {
+            "mode": "single",
+            "options": [{"id": "a", "text": "A"}, {"id": "b", "text": "B"}],
+            "correct_option_ids": ["a"],
+        },
+    }, headers=admin_headers)
+    tid = task.json()["id"]
+
+    link = await client.post("/api/personal-links", json={"task_id": tid, "user_id": admin_user.id}, headers=admin_headers)
+    token = link.json()["token"]
+
+    resp = await client.get(f"/api/personal-links/resolve/{token}")
+    assert resp.status_code == 200
+    config = resp.json()["interactive_config"]
+    assert config["options"] == [{"id": "a", "text": "A"}, {"id": "b", "text": "B"}]
+    assert "correct_option_ids" not in config
+
+
+@pytest.mark.asyncio
 async def test_resolve_invalid_token(client: AsyncClient):
     resp = await client.get("/api/personal-links/resolve/nonexistent-token")
     assert resp.status_code == 404

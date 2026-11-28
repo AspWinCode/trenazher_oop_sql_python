@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     SYNC_DATABASE_URL: str = "postgresql://platform:CHANGE_ME@postgres:5432/platform"
     REDIS_URL: str = "redis://redis:6379/0"
     SECRET_KEY: str
+    # "production" disables the public /docs, /redoc, /openapi.json (see main.py) —
+    # no reason to hand an attacker the full API map for free.
+    ENVIRONMENT: str = "development"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     ADMIN_LOGIN: str = "admin"

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -34,7 +35,7 @@ def verify_tbank_notification(data: Dict[str, Any]) -> bool:
         return False
     received_token = data.get("Token", "")
     expected = _make_token(data)
-    return received_token == expected
+    return hmac.compare_digest(received_token, expected)
 
 
 def generate_order_id(user_id: Optional[int], course_id: int) -> str:

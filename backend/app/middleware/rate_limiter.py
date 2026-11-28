@@ -70,6 +70,8 @@ class RedisRateLimiter:
 submission_limiter = RedisRateLimiter(max_requests=20, window_seconds=60)
 login_limiter = RedisRateLimiter(max_requests=5, window_seconds=60)
 support_limiter = RedisRateLimiter(max_requests=10, window_seconds=60)
+guest_limiter = RedisRateLimiter(max_requests=5, window_seconds=60)
+forgot_password_limiter = RedisRateLimiter(max_requests=3, window_seconds=3600)
 
 
 async def check_submission_rate(request: Request) -> None:
@@ -100,4 +102,29 @@ async def check_login_rate(request: Request) -> None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Please wait before trying again.",
+        )
+
+
+async def check_guest_rate(request: Request) -> None:
+    """Limits how fast one IP can mint new ephemeral guest accounts — without
+    this, the per-user submission limiter is trivially bypassed by rotating
+    identity on every request."""
+    ip = request.client.host if request.client else "unknown"
+    allowed, _ = guest_limiter.check("ratelimit:guest:{}".format(ip))
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many guest sessions. Please wait before trying again.",
+        )
+
+
+async def check_forgot_password_rate(request: Request) -> None:
+    """Public, unauthenticated endpoint — limit per IP so it can't be used to
+    spam a victim's inbox or burn the email-provider quota."""
+    ip = request.client.host if request.client else "unknown"
+    allowed, _ = forgot_password_limiter.check("ratelimit:forgot-password:{}".format(ip))
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many requests. Please wait before trying again.",
         )

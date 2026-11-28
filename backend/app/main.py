@@ -50,7 +50,15 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
 
 
-app = FastAPI(title="ITPractikum", version="1.0.0", lifespan=lifespan)
+_is_prod = settings.ENVIRONMENT == "production"
+app = FastAPI(
+    title="ITPractikum",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url=None if _is_prod else "/docs",
+    redoc_url=None if _is_prod else "/redoc",
+    openapi_url=None if _is_prod else "/openapi.json",
+)
 
 app.add_middleware(
     CORSMiddleware,

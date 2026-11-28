@@ -10,11 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.middleware.auth_middleware import get_current_user, require_admin
 from app.models.personal_link import PersonalLink
-from app.models.task import Task
+from app.models.task import Task, TaskType
 from app.models.user import User
 from app.schemas.personal_link import PersonalLinkCreate, PersonalLinkOut
 from app.schemas.task import TaskDetailOut
 from app.services.link_service import generate_token
+from app.services.interactive import strip_answer_fields
 from sqlalchemy.orm import selectinload
 
 router = APIRouter()
@@ -74,4 +75,6 @@ async def resolve_link(token: str, db: AsyncSession = Depends(get_db)):
         test.expected_output = None
         test.verification_sql = None
         test.test_files = None
+    if out.task_type == TaskType.interactive:
+        out.interactive_config = strip_answer_fields(out.mechanic, out.interactive_config)
     return out

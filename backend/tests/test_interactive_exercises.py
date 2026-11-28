@@ -117,15 +117,22 @@ async def test_student_never_sees_interactive_config(client: AsyncClient, admin_
     await db.commit()
 
     resp_admin = await client.get(f"/api/tasks/{task['id']}", headers=admin_headers)
-    assert resp_admin.json()["interactive_config"] is not None
+    assert resp_admin.json()["interactive_config"]["correct_option_ids"] == ["a", "b"]
 
     resp_student = await client.get(f"/api/tasks/{task['id']}", headers=student_headers)
     assert resp_student.status_code == 200
-    assert resp_student.json()["interactive_config"] is None
+    student_config = resp_student.json()["interactive_config"]
+    # Рендереру нужна структура задания (иначе студент вообще не видит упражнение) —
+    # обнуляется только поле с ответом.
+    assert student_config is not None
+    assert student_config["options"] == MC_CONFIG["options"]
+    assert "correct_option_ids" not in student_config
 
     # cached path must strip too
     resp_student_2 = await client.get(f"/api/tasks/{task['id']}", headers=student_headers)
-    assert resp_student_2.json()["interactive_config"] is None
+    student_config_2 = resp_student_2.json()["interactive_config"]
+    assert student_config_2["options"] == MC_CONFIG["options"]
+    assert "correct_option_ids" not in student_config_2
 
 
 @pytest.mark.asyncio

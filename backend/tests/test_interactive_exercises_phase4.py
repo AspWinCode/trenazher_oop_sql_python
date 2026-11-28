@@ -221,4 +221,6 @@ async def test_student_never_sees_phase4_config(client: AsyncClient, admin_heade
     await db.commit()
 
     resp_student = await client.get(f"/api/tasks/{task['id']}", headers=student_headers)
-    assert resp_student.json()["interactive_config"] is None
+    student_config = resp_student.json()["interactive_config"]
+    assert student_config["regions"] == HOTSPOT_CONFIG["regions"]
+    assert "correct_region_ids" not in student_config
